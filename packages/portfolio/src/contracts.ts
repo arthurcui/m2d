@@ -229,6 +229,8 @@ export const operationSchema = z.discriminatedUnion('kind', [
       quantity: positive,
       price: nonnegative,
       fees: nonnegative,
+      // Date the trade happened, independently of when it enters this ledger.
+      transactionDate: z.iso.date().optional(),
     })
     .strict(),
   z
@@ -303,6 +305,7 @@ export const confirmSchema = z
     expectedRevision: z.number().int().nonnegative(),
     confirmed: z.literal(true),
     fullReplacementAcknowledged: z.boolean().optional(),
+    tradeNotAlreadyIncluded: z.boolean().optional(),
   })
   .strict();
 export type Change = {

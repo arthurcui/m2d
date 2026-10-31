@@ -19,3 +19,5 @@ export class FixtureProvider implements LlmProvider {
     };
   }
 }
+
+export * from './factory.js';

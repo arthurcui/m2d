@@ -28,7 +28,7 @@ export default function Layout({
           <div className="content">
             <header>
               <span>Move · Motive · Decision</span>
-              <span className="badge">M1 · Portfolio</span>
+              <span className="badge">M2 · Portfolio Agent</span>
             </header>
             <main id="main">
               <PortfolioClient>{children}</PortfolioClient>
@@ -37,9 +37,9 @@ export default function Layout({
               <details>
                 <summary>About M²D</summary>
                 <p>
-                  M²D helps you track your portfolio, review changes before they
-                  take effect, and maintain a clear record of your investment
-                  decisions.
+                  M²D tracks your portfolio, monitors the market, and provides
+                  actionable trading recommendations with clear reasoning and
+                  risk analysis.
                 </p>
               </details>
             </footer>

@@ -6,6 +6,7 @@ const config = readConfig(process.env);
 const database = createDatabase(config.DATABASE_URL);
 const app = buildApp(database.repository, config, true, database.portfolio, {
   key: process.env.OPENAI_API_KEY ?? '',
+  chat: database.chat,
 });
 app.addHook('onClose', async () => database.close());
 let stopping = false;
@@ -19,6 +20,7 @@ for (const signal of ['SIGINT', 'SIGTERM'])
     void shutdown();
   });
 try {
+  await database.chat.recover();
   await app.listen({ host: config.API_HOST, port: config.API_PORT });
 } catch {
   console.error(

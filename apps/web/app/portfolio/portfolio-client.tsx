@@ -1,10 +1,9 @@
 'use client';
 import Link from 'next/link';
-import {
-  agentContexts,
-  PlannedAgentConversation,
-  submitAgentOnEnter,
-} from '../agent-contexts';
+import { HoldingsTable, type HoldingSelection } from './holdings-table';
+import { ResizablePanels } from '../resizable-panels';
+import { AgentChat } from '../agent-chat';
+import { agentContexts, submitAgentOnEnter } from '../agent-contexts';
 import { usePathname } from 'next/navigation';
 import {
   useEffect,
@@ -70,6 +69,7 @@ type Preview = {
   id: string;
   kind: string;
   status: string;
+  confirmedRevision?: number | null;
   expectedRevision: number;
   effectiveAt: string;
   expiresAt: string;
@@ -223,6 +223,31 @@ export function PortfolioClient({ children }: { children?: ReactNode }) {
     agentContexts[7];
   const isPortfolio = context.path === '/portfolio';
   const [agentOpen, setAgentOpen] = useState(true);
+  const [selectedHolding, setSelectedHolding] =
+    useState<HoldingSelection | null>(null);
+  const selectHolding = (holding: HoldingSelection | null) => {
+    setSelectedHolding(holding);
+    if (holding)
+      localStorage.setItem('m2d:selected-holding', JSON.stringify(holding));
+    else localStorage.removeItem('m2d:selected-holding');
+  };
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(
+        localStorage.getItem('m2d:selected-holding') ?? 'null',
+      ) as HoldingSelection | null;
+      if (
+        saved &&
+        typeof saved.accountKey === 'string' &&
+        (saved.instrumentKey === undefined ||
+          typeof saved.instrumentKey === 'string') &&
+        typeof saved.label === 'string'
+      )
+        setSelectedHolding(saved);
+    } catch {
+      /* Ignore malformed browser preferences. */
+    }
+  }, []);
   const [conversation, setConversation] = useState<
     { role: 'Agent' | 'You'; text: string }[]
   >([
@@ -261,7 +286,12 @@ export function PortfolioClient({ children }: { children?: ReactNode }) {
     setHistory(h);
   };
   useEffect(() => {
-    void refresh().catch((e: Error) => setError(e.message));
+    const reload = () => {
+      void refresh().catch((e: Error) => setError(e.message));
+    };
+    reload();
+    window.addEventListener('m2d:portfolio-changed', reload);
+    return () => window.removeEventListener('m2d:portfolio-changed', reload);
   }, []);
   useEffect(() => {
     const tick = () =>
@@ -469,7 +499,7 @@ export function PortfolioClient({ children }: { children?: ReactNode }) {
       </p>
     ) : null;
   return (
-    <div className={`portfolio-agent-layout ${agentOpen ? 'agent-open' : ''}`}>
+    <ResizablePanels open={agentOpen}>
       <div>
         <div>{children}</div>
         {!data && isPortfolio && (
@@ -506,147 +536,17 @@ export function PortfolioClient({ children }: { children?: ReactNode }) {
               </p>
             )}
             <section className="workspace-card">
-              <div className="card-heading">
-                <h2>Accounts & holdings</h2>
-                <label>
-                  Account{' '}
-                  <select
-                    value={filter}
-                    onChange={(e) => setFilter(e.target.value)}
-                  >
-                    <option value="">All accounts</option>
-                    {data.state.accounts.map((a) => (
-                      <option key={a.accountKey} value={a.accountKey}>
-                        {a.displayName}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              {data.state.accounts.length === 0 ? (
-                <div className="portfolio-empty">
-                  <h3>No portfolio records</h3>
-                  <p>
-                    Upload your Excel workbook below to add your accounts and
-                    holdings.
-                  </p>
-                </div>
-              ) : (
-                <>
-                  <div
-                    className="table-scroll"
-                    tabIndex={0}
-                    aria-label="Accounts"
-                  >
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Account</th>
-                          <th>Institution / type</th>
-                          <th>Base currency</th>
-                          <th>Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {data.state.accounts
-                          .filter((a) => !filter || a.accountKey === filter)
-                          .map((a) => (
-                            <tr key={a.accountKey}>
-                              <th>
-                                {a.displayName}
-                                <small>{a.accountKey}</small>
-                              </th>
-                              <td>
-                                {a.institution} / {a.accountType}
-                              </td>
-                              <td>{a.baseCurrency}</td>
-                              <td>{a.active ? 'Active' : 'Inactive'}</td>
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <h3 className="table-title">Positions</h3>
-                  <div
-                    className="table-scroll"
-                    tabIndex={0}
-                    aria-label="Positions"
-                  >
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Account / instrument</th>
-                          <th>Quantity</th>
-                          <th>Average cost / quote unit</th>
-                          <th>Basis quality</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {data.state.positions
-                          .filter(
-                            (p) =>
-                              (!filter || p.accountKey === filter) &&
-                              p.quantity !== '0',
-                          )
-                          .map((p, n) => (
-                            <tr key={n}>
-                              <th>
-                                {p.accountKey} · {p.instrument.symbol}
-                                {p.description && (
-                                  <small>{p.description}</small>
-                                )}
-                                {p.transactionDate && (
-                                  <small>
-                                    Transaction date: {p.transactionDate}
-                                  </small>
-                                )}
-                                {p.optionGroup && (
-                                  <small>Option group: {p.optionGroup}</small>
-                                )}
-                                <small>
-                                  {p.instrument.assetType} ·{' '}
-                                  {p.instrument.exchange}
-                                  {p.instrument.assetType === 'OPTION'
-                                    ? ` · ${p.instrument.optionRight} ${p.instrument.strike} · ${p.instrument.expiry} · ×${p.instrument.multiplier} · ${p.instrument.underlying}`
-                                    : ''}
-                                </small>
-                              </th>
-                              <td>{p.quantity}</td>
-                              <td>
-                                {p.averageCost ?? 'Unknown'}{' '}
-                                {p.instrument.currency}
-                              </td>
-                              <td>{p.quality.replaceAll('_', ' ')}</td>
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <h3 className="table-title">Cash · native currency</h3>
-                  <div className="table-scroll" tabIndex={0} aria-label="Cash">
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Account</th>
-                          <th>Currency</th>
-                          <th>Balance</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {data.state.cash
-                          .filter((c) => !filter || c.accountKey === filter)
-                          .map((c) => (
-                            <tr key={`${c.accountKey}-${c.currency}`}>
-                              <th>{c.accountKey}</th>
-                              <td>{c.currency}</td>
-                              <td>{c.balance}</td>
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              )}
+              <h2 className="sr-only">Accounts &amp; holdings</h2>
+              <HoldingsTable
+                state={data.state}
+                account={filter}
+                onAccountChange={setFilter}
+                selected={selectedHolding}
+                onSelect={(holding) => {
+                  selectHolding(holding);
+                  toggleAgent(true);
+                }}
+              />
               <div className="card-note">
                 {data.warnings.map((w) => (
                   <p key={w}>{w}</p>
@@ -794,13 +694,31 @@ export function PortfolioClient({ children }: { children?: ReactNode }) {
           {agentContexts
             .filter((item) => item.path !== '/portfolio')
             .map((item) => (
-              <PlannedAgentConversation
+              <AgentChat
                 key={item.path}
-                context={item}
+                context={
+                  item.path === '/'
+                    ? 'dashboard'
+                    : item.path === '/chat'
+                      ? 'general'
+                      : item.path.slice(1)
+                }
+                label={item.label}
                 active={item.path === context.path}
               />
             ))}
-          <div className="agent-context" hidden={!isPortfolio}>
+          <AgentChat
+            selectedHolding={selectedHolding}
+            onClearHolding={() => selectHolding(null)}
+            context="portfolio"
+            label="Portfolio"
+            active={isPortfolio && !review && !preview && !busy}
+            disabled={busy}
+          />
+          <div
+            className="agent-context"
+            hidden={!isPortfolio || (!review && !preview && !busy)}
+          >
             <div
               className="agent-transcript"
               role="log"
@@ -942,7 +860,10 @@ export function PortfolioClient({ children }: { children?: ReactNode }) {
                   <h2>Review before confirming</h2>
                   {operationError('preview')}
                   <span className="badge">
-                    {preview.status} · {seconds}s remaining
+                    {preview.status}
+                    {preview.status === 'PENDING'
+                      ? ' · ' + seconds + 's remaining'
+                      : ''}
                   </span>
                 </div>
                 <div className="form-body">
@@ -1019,30 +940,96 @@ export function PortfolioClient({ children }: { children?: ReactNode }) {
                       reporting.
                     </p>
                   ))}
-                  {preview.kind === 'BASELINE' && (
-                    <label className="check">
-                      <input
-                        type="checkbox"
-                        checked={ack}
-                        onChange={(e) => setAck(e.target.checked)}
-                      />
-                      I confirm this is a full replacement: unlisted holdings
-                      and cash become zero and unlisted accounts become
-                      inactive. History is preserved.
-                    </label>
+                  {preview.status === 'CONFIRMED' && (
+                    <div className="confirmation-guidance" role="status">
+                      <strong>This workbook was already applied.</strong>
+                      <p>
+                        Uploading the same file does not apply it twice. To
+                        replace your current portfolio with this workbook again,
+                        create a new preview below. Changes recorded since that
+                        workbook may be replaced.
+                      </p>
+                      {history.find(
+                        (h) =>
+                          h.kind === 'BASELINE' &&
+                          h.revision === preview.confirmedRevision,
+                      ) && (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() =>
+                            void work('preview', async () => {
+                              const baseline = history.find(
+                                (h) =>
+                                  h.kind === 'BASELINE' &&
+                                  h.revision === preview.confirmedRevision,
+                              )!;
+                              show(
+                                await api<Preview>(
+                                  `portfolio/baselines/${baseline.recordId}/restore-preview`,
+                                  {
+                                    version: 1,
+                                    expectedRevision: data.revision,
+                                    idempotencyKey: crypto.randomUUID(),
+                                    effectiveAt: new Date().toISOString(),
+                                  },
+                                ),
+                              );
+                            })
+                          }
+                        >
+                          Review this workbook again
+                        </button>
+                      )}
+                    </div>
                   )}
+                  {preview.status === 'PENDING' &&
+                    (seconds <= 0 || !Number.isFinite(seconds)) && (
+                      <p className="notice" role="status">
+                        This preview has expired. Dismiss it and upload the
+                        workbook again to review a fresh preview.
+                      </p>
+                    )}
+                  {preview.status === 'PENDING' &&
+                    seconds > 0 &&
+                    preview.kind === 'BASELINE' &&
+                    !ack && (
+                      <p
+                        className="confirmation-guidance"
+                        id="workbook-confirm-help"
+                      >
+                        To enable confirmation, check the full-replacement
+                        acknowledgement below.
+                      </p>
+                    )}{' '}
+                  {preview.kind === 'BASELINE' &&
+                    preview.status === 'PENDING' && (
+                      <label className="check">
+                        <input
+                          type="checkbox"
+                          checked={ack}
+                          onChange={(e) => setAck(e.target.checked)}
+                        />
+                        I confirm this is a full replacement: unlisted holdings
+                        and cash become zero and unlisted accounts become
+                        inactive. History is preserved.
+                      </label>
+                    )}
                   <div className="toolbar">
                     <button
                       className="primary"
                       onClick={confirm}
                       disabled={
                         busy ||
-                        seconds === 0 ||
+                        seconds <= 0 ||
+                        !Number.isFinite(seconds) ||
                         preview.status !== 'PENDING' ||
                         (preview.kind === 'BASELINE' && !ack)
                       }
                     >
-                      Confirm changes
+                      {preview.status === 'CONFIRMED'
+                        ? 'Already applied'
+                        : 'Confirm changes'}
                     </button>
                     <button
                       disabled={busy}
@@ -1081,7 +1068,7 @@ export function PortfolioClient({ children }: { children?: ReactNode }) {
           Open Agent
         </button>
       )}
-    </div>
+    </ResizablePanels>
   );
 }
 

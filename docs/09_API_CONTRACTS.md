@@ -74,3 +74,7 @@ Remembered interpretations now report `ai.provider="remembered"`, `ai.model="for
 The parse route also accepts optional `dialogue: {message, question, explain?, history?}` for workbook follow-ups. `clarification` contains previous supplied facts, separately from conversation. Responses may include `acceptedClarification` and `ai.intent="explain"` / `ai.reply`; explanations retain the pending question and cannot produce a preview. See the conversational clarification section of M1_PORTFOLIO.md for bounds and audit behavior.
 
 `POST /api/v1/portfolio/imports/:id/parse` additionally accepts optional `accountDecisions` containing `{sheet,kind:"new"}` or `{sheet,kind:"rename",accountKey}`. Unresolved unfamiliar account tabs return `ai.accountQuestions` with available accounts and no model dispatch/preview. Decisions are audited and committed only through the existing preview confirmation. Positions additionally support optional ISO date-only `transactionDate`. See [M1_PORTFOLIO.md](M1_PORTFOLIO.md) and [the implemented ERD](ERD.md).
+
+## Implemented M2 chat contracts
+
+Persistent sessions, run execution/SSE/cancellation, and revision-guarded analysis settings are described in [M2_CHAT.md](M2_CHAT.md#versioned-api). Chat previews use the existing financial confirmation endpoints; no commit tool is exposed to a model.

@@ -1,4 +1,4 @@
-// Explicit M1 proxy: bounded paths/bodies and same-origin browser writes.
+// Explicit M2 proxy: bounded paths/bodies and same-origin browser writes.
 const reads =
   /^(health(?:\/(?:live|ready))?|system\/status|accounts|portfolio\/(?:overview|positions|cash|history|template)|portfolio\/(?:changes|imports)\/[0-9a-f-]{36}\/(?:preview|inspection)|portfolio\/accounts\/[A-Za-z0-9_.-]{1,64}\/history)$/;
 const writes =
@@ -8,10 +8,17 @@ async function proxy(
   context: { params: Promise<{ path: string[] }> },
 ) {
   const path = (await context.params).path.join('/');
-  const post = request.method === 'POST';
-  if (!(post ? writes : reads).test(path))
+  const post = request.method !== 'GET';
+  const chatRead =
+    /^(settings\/analysis|chat\/sessions\/[a-z]+|chat\/runs\/[0-9a-f-]{36}(?:\/events)?)$/;
+  const chatWrite =
+    /^(settings\/analysis|chat\/sessions\/[a-z]+(?:\/(?:runs|reset))?|chat\/runs\/[0-9a-f-]{36}\/cancel)$/;
+  if (
+    !(post ? writes : reads).test(path) &&
+    !(post ? chatWrite : chatRead).test(path)
+  )
     return Response.json(
-      { error: { code: 'NOT_FOUND', message: 'Route unavailable in M1.' } },
+      { error: { code: 'NOT_FOUND', message: 'Route unavailable.' } },
       { status: 404 },
     );
   if (post) {
@@ -69,7 +76,21 @@ async function proxy(
     const response = await fetch(`${base}/api/v1/${path}${query}`, {
       method: request.method,
       cache: 'no-store',
-      signal: AbortSignal.timeout(path.endsWith('/parse') ? 135000 : 15000),
+      ...(request.headers.get('last-event-id')
+        ? {
+            headers: { 'Last-Event-ID': request.headers.get('last-event-id')! },
+          }
+        : {}),
+      signal: AbortSignal.any([
+        request.signal,
+        AbortSignal.timeout(
+          path.endsWith('/events')
+            ? 320000
+            : path.endsWith('/parse')
+              ? 135000
+              : 15000,
+        ),
+      ]),
       ...(post
         ? {
             body: body as BodyInit,
@@ -80,7 +101,7 @@ async function proxy(
           }
         : {}),
     });
-    return new Response(await response.arrayBuffer(), {
+    return new Response(response.body, {
       status: response.status,
       headers: {
         'Content-Type':
@@ -110,3 +131,5 @@ async function proxy(
 }
 export const GET = proxy;
 export const POST = proxy;
+
+export const PATCH = proxy;

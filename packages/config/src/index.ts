@@ -20,6 +20,67 @@ const configSchema = z.object({
     .enum(['fixture', 'openai', 'gemini', 'anthropic'])
     .default('fixture'),
   LLM_MODEL: z.string().default('fixture-v1'),
+  ANALYSIS_MODE_DEFAULT: z
+    .enum(['quick', 'standard', 'extensive'])
+    .default('standard'),
+  LLM_MAX_STEPS: z.coerce.number().int().min(1).max(16).default(16),
+  LLM_MAX_TOOL_CALLS: z.coerce.number().int().min(1).max(24).default(24),
+  LLM_REQUEST_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .min(100)
+    .max(300000)
+    .default(60000),
+  LLM_RUN_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .min(100)
+    .max(300000)
+    .default(300000),
+  LLM_MAX_OUTPUT_TOKENS: z.coerce
+    .number()
+    .int()
+    .min(64)
+    .max(8192)
+    .default(8192),
+  LLM_MAX_INPUT_CHARACTERS: z.coerce
+    .number()
+    .int()
+    .min(1000)
+    .max(200000)
+    .default(80000),
+  LLM_MAX_RUN_COST_USD: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z
+      .string()
+      .regex(/^\d+(\.\d+)?$/)
+      .optional(),
+  ),
+  LLM_DAILY_BUDGET_USD: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z
+      .string()
+      .regex(/^\d+(\.\d+)?$/)
+      .optional(),
+  ),
+  LLM_INPUT_USD_PER_MILLION: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z
+      .string()
+      .regex(/^\d+(\.\d+)?$/)
+      .optional(),
+  ),
+  LLM_OUTPUT_USD_PER_MILLION: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z
+      .string()
+      .regex(/^\d+(\.\d+)?$/)
+      .optional(),
+  ),
+  LLM_PRICE_VERSION: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.string().min(1).optional(),
+  ),
   MARKET_PROVIDER: z.literal('fixture').default('fixture'),
 });
 export type Config = z.infer<typeof configSchema>;
@@ -45,6 +106,6 @@ export function aiStatus(config: Pick<Config, 'LLM_PROVIDER' | 'LLM_MODEL'>) {
           ? ('unconfigured' as const)
           : ('not_implemented' as const),
     message:
-      'AI workbook parsing requires a configured backend parser. General chat and analysis modes remain scheduled for M2.',
+      'AI workbook parsing requires a configured backend parser. Agent chat uses the separately configured chat service.',
   };
 }

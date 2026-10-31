@@ -1,3 +1,6 @@
+import { chatRoutes } from './chat.js';
+import type { ChatRepository } from '@m2d/db';
+import { LlmError } from '@m2d/llm';
 import Fastify, { LogController } from 'fastify';
 import { z } from 'zod';
 import { PortfolioError } from '@m2d/portfolio';
@@ -18,7 +21,7 @@ export function buildApp(
   config: Config,
   logger = false,
   portfolio?: PortfolioRepository,
-  aiOptions?: { key?: string; provider?: LlmProvider },
+  aiOptions?: { key?: string; provider?: LlmProvider; chat?: ChatRepository },
 ) {
   const workbookAi = portfolio
     ? createWorkbookAi(portfolio, config, aiOptions?.key, aiOptions?.provider)
@@ -34,6 +37,11 @@ export function buildApp(
     dataQuality: 'OPERATIONAL' as const,
   });
   app.setErrorHandler((error, _request, reply) => {
+    if (error instanceof LlmError)
+      return reply.code(400).send({
+        error: { code: error.code, message: error.message },
+        meta: meta(),
+      });
     if (error instanceof z.ZodError)
       return reply.code(400).send({
         error: {
@@ -79,11 +87,19 @@ export function buildApp(
   });
   if (portfolio && workbookAi)
     app.register(portfolioRoutes, { repository: portfolio, workbookAi });
+  if (portfolio && aiOptions?.chat)
+    app.register(chatRoutes, {
+      repository: aiOptions.chat,
+      portfolio,
+      config,
+      ...(aiOptions.key ? { key: aiOptions.key } : {}),
+      ...(aiOptions.provider ? { provider: aiOptions.provider } : {}),
+    });
   app.setNotFoundHandler((_request, reply) =>
     reply.code(404).send({
       error: {
         code: 'NOT_FOUND',
-        message: 'This route is not available in M1.',
+        message: 'This route is not available.',
       },
       meta: meta(),
     }),

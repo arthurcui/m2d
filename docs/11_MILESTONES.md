@@ -46,3 +46,5 @@ For each milestone Codex must: (1) make short implementation plan, (2) implement
 ## M1 shared Agent and identity extension
 
 The global Agent panel now remains mounted across navigation and preserves unfinished portfolio import work. Unfamiliar account-bearing tabs require new-account/rename selection; rename retains stable account IDs and historical baselines. Optional transactionDate is holding metadata only. These user-requested M1 extensions do not enable M2 general trade-language chat or later research/analysis functions. See M1_PORTFOLIO.md and ADR-031.
+
+M2 implementation: see [M2_CHAT.md](M2_CHAT.md) for the shipped boundaries and cost-accounting limitation of the separate M1 workbook path. M3 and later remain unimplemented.

@@ -40,7 +40,9 @@ test('branded workspace, persisted operations, and honest navigation placeholder
   await expect(
     page.getByRole('heading', { name: 'Agent · General', exact: true }),
   ).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Save note' })).toBeDisabled();
+  await expect(
+    page.getByRole('button', { name: 'Send', exact: true }),
+  ).toBeDisabled();
 });
 test('API outage is visible and the page fits a narrow screen', async ({
   page,

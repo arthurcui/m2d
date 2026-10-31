@@ -67,3 +67,5 @@ Freeze `analysisMode`, `modePolicyVersion` and `effectiveLimits` when the run st
 M2 implements selection, saved defaults, policy resolution, metadata, cancellation and fixture/OpenAI behavior. Research and strategy capabilities expand at their existing milestones; Extensive is bounded by whatever tools actually exist.
 
 Verify default/override precedence, invalid modes, preference persistence, scheduled-mode independence and immutable active runs. All three profiles must pass the same freshness, financial validation and portfolio-confirmation cases. Test that deployment/cost caps cannot be raised by request fields, that retries consume the original allowance, and that Quick's exhausted budget yields limited/unfinished analysis without automatic escalation. Fixture runs exercise each mode without real API keys or timing claims.
+
+M2 implementation notes and the separate M1 workbook accounting limitation: [M2_CHAT.md](M2_CHAT.md).
