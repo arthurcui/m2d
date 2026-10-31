@@ -24,7 +24,7 @@ Rules:
 - Options: Put/Call, expiry as unambiguous YYYY-MM-DD, strike, multiplier and underlying mandatory. Validate OCC-like contract representation; reject ambiguous corporate-action-adjusted contracts pending explicit deliverable.
 - Reject duplicate instrument+account rows unless documented consolidation mapping used; reject duplicate account keys, unsupported currencies, malformed dates, formula-only unevaluated data, NaN and nonfinite numbers.
 - Calculate SHA-256 file hash and import idempotency; exact duplicate upload cannot accidentally create another baseline.
-- Version schema with `TemplateVersion`, upload as_of and declared scope in an `ImportInfo` worksheet or UI metadata. For v1, accept canonical template only; broker export mappings are later enhancements.
+- Version schema with `TemplateVersion`, upload as_of and declared scope in an `ImportInfo` worksheet or UI metadata. The canonical template is optional. Per the 2026-10-31 product clarification, M1 also accepts arbitrary tab names and column layouts through an inferred, user-reviewed mapping step. No inference API is required.
 
 ### Preview example
 - Added accounts: 1; deactivated: 0.
@@ -69,3 +69,11 @@ Numbers are serialized decimal **strings**. The LLM should return `clarification
 - Missing old position in Excel -> current qty 0 on confirm, but no synthetic sell transaction or realized P&L.
 - Upload fails row 137 -> no partial DB changes.
 - An old natural-language confirmation link after newer Excel revision -> revision conflict.
+
+## M1 executable contract
+
+See [M1_PORTFOLIO.md](M1_PORTFOLIO.md#canonical-workbook-v1) for the shipped template, bounded USD/CAD and standard-option support, explicit metadata fields, upload limits, and conservative backdating policy. Canonical workbooks use the three template sheets; other workbooks are inspected tab-by-tab, mapped, validated, and reviewed before full replacement. Metadata is supplied in the upload UI. Structured entry implements the ledger intents without an LLM. Unsupported contracts are rejected for explicit reconciliation.
+
+## M1 user clarification: account hierarchy and import Agent
+
+The implemented model is portfolio -> broker/platform accounts -> cash and holdings. Asset class, equity symbol and quantity are required; description and unit cost are optional. Omitted currency defaults to USD, explicit other recognized currencies are supported, and missing cost is stored as unknown. Multi-leg options retain per-contract rows linked by OptionGroup. The responsive Agent handles import questions and explicit full-replacement confirmation. Safe confirmed format mappings persist in PostgreSQL and are reused only for matching layout/account evidence; new financial values are always reread. See M1_PORTFOLIO.md and ADR-030 for exact constraints. This supersedes earlier template-only, mandatory-cost and USD/CAD-only assumptions for M1 uploads.

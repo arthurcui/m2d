@@ -37,6 +37,7 @@ You are implementing **M²D (Move · Motive · Decision)**, a local-first, **sin
 - For each milestone provide runnable commands, implementation summary, test results, known constraints and TODOs.
 - If a test cannot be executed, report exactly why; never claim it passed.
 - Keep docs and ADRs synchronized with the code; document deviations from the design.
+- After changing the Drizzle schema, run `pnpm docs:erd` and commit the updated `docs/ERD.md`; CI checks it with `pnpm docs:erd:check`.
 
 ## Definition of done
 - A feature is not complete without valid schema constraints, error paths, idempotence where needed, fixture examples, tests, UX feedback (including source timestamps), and an update to relevant documentation.

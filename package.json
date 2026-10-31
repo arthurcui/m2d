@@ -16,19 +16,24 @@
     "test": "pnpm -r --if-present build:types && vitest run",
     "test:integration": "pnpm -r --if-present build:types && vitest run --config vitest.integration.config.ts",
     "test:e2e": "playwright test",
+    "fixture:portfolio": "pnpm --filter @m2d/ingestion... build && node scripts/generate-portfolio-fixture.mjs",
     "db:generate": "pnpm --filter @m2d/db generate",
     "db:migrate": "pnpm --filter @m2d/db migrate",
-    "dev": "pnpm -r --parallel --filter './apps/*' dev"
+    "dev": "pnpm -r --parallel --filter './apps/*' dev",
+    "docs:erd": "pnpm --filter @m2d/db build:types && node packages/db/dist/erd.js",
+    "docs:erd:check": "pnpm --filter @m2d/db build:types && node packages/db/dist/erd.js --check"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",
+    "@playwright/test": "^1.56.0",
+    "@types/node": "^24.10.0",
     "eslint": "^9.39.0",
-    "typescript-eslint": "^8.46.0",
+    "fflate": "0.8.3",
+    "pg-boss": "12.38.0",
     "prettier": "^3.6.2",
     "typescript": "~5.9.3",
-    "@types/node": "^24.10.0",
+    "typescript-eslint": "^8.46.0",
     "vitest": "^4.0.0",
-    "@playwright/test": "^1.56.0",
-    "pg-boss": "12.38.0"
+    "write-excel-file": "4.1.1"
   }
 }

@@ -41,7 +41,7 @@ export const DEMO_STALE_MS = 180_000;
 
 export const systemStatusSchema = z.object({
   data: z.object({
-    milestone: z.literal('M0'),
+    milestone: z.literal('M1'),
     database: z.enum(['ready', 'unavailable']),
     worker: z.object({
       status: z.enum(['online', 'stale', 'unavailable']),
@@ -52,8 +52,13 @@ export const systemStatusSchema = z.object({
     ai: z.object({
       provider: z.string(),
       model: z.string(),
-      available: z.literal(false),
-      status: z.enum(['fixture_only', 'not_implemented', 'unconfigured']),
+      available: z.boolean(),
+      status: z.enum([
+        'fixture_only',
+        'not_implemented',
+        'unconfigured',
+        'ready',
+      ]),
       message: z.string(),
     }),
     market: z.object({

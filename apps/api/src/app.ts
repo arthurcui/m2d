@@ -1,6 +1,11 @@
 import Fastify, { LogController } from 'fastify';
+import { z } from 'zod';
+import { PortfolioError } from '@m2d/portfolio';
+import { portfolioRoutes } from './portfolio.js';
+import { createWorkbookAi } from './workbook-ai.js';
+import type { LlmProvider } from '@m2d/llm';
 import { aiStatus, type Config } from '@m2d/config';
-import { type SystemRepository } from '@m2d/db';
+import { type SystemRepository, type PortfolioRepository } from '@m2d/db';
 import {
   DEMO_STALE_MS,
   HEARTBEAT_STALE_MS,
@@ -12,7 +17,12 @@ export function buildApp(
   repository: SystemRepository,
   config: Config,
   logger = false,
+  portfolio?: PortfolioRepository,
+  aiOptions?: { key?: string; provider?: LlmProvider },
 ) {
+  const workbookAi = portfolio
+    ? createWorkbookAi(portfolio, config, aiOptions?.key, aiOptions?.provider)
+    : undefined;
   const app = Fastify({
     logger,
     logController: new LogController({ disableRequestLogging: true }),
@@ -23,20 +33,57 @@ export function buildApp(
     source: 'm2d-system' as const,
     dataQuality: 'OPERATIONAL' as const,
   });
-  app.setErrorHandler((_error, _request, reply) =>
-    reply.code(500).send({
+  app.setErrorHandler((error, _request, reply) => {
+    if (error instanceof z.ZodError)
+      return reply.code(400).send({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Please correct the highlighted input.',
+          details: error.issues,
+        },
+        meta: meta(),
+      });
+    if (error instanceof PortfolioError)
+      return reply.code(error.status).send({
+        error: {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+        },
+        meta: meta(),
+      });
+    if (
+      error instanceof Error &&
+      'statusCode' in error &&
+      typeof error.statusCode === 'number' &&
+      error.statusCode >= 400 &&
+      error.statusCode < 500
+    )
+      return reply.code(error.statusCode).send({
+        error: {
+          code: 'INVALID_REQUEST',
+          message:
+            error.statusCode === 413
+              ? 'Upload exceeds the 2 MiB limit.'
+              : 'Malformed or unsupported request.',
+        },
+        meta: meta(),
+      });
+    return reply.code(500).send({
       error: {
         code: 'INTERNAL_ERROR',
         message: 'The request could not be completed.',
       },
       meta: meta(),
-    }),
-  );
+    });
+  });
+  if (portfolio && workbookAi)
+    app.register(portfolioRoutes, { repository: portfolio, workbookAi });
   app.setNotFoundHandler((_request, reply) =>
     reply.code(404).send({
       error: {
         code: 'NOT_FOUND',
-        message: 'This route is not available in M0.',
+        message: 'This route is not available in M1.',
       },
       meta: meta(),
     }),
@@ -79,7 +126,7 @@ export function buildApp(
     const now = new Date();
     return systemStatusSchema.parse({
       data: {
-        milestone: 'M0',
+        milestone: 'M1',
         database,
         worker: {
           status:
@@ -99,7 +146,7 @@ export function buildApp(
                   ? 'healthy'
                   : 'stale',
         },
-        ai: aiStatus(config),
+        ai: workbookAi?.status ?? aiStatus(config),
         market: { provider: 'fixture', status: 'not_implemented' },
         displayTimezone: config.APP_TIMEZONE,
         marketTimezone: config.MARKET_TIMEZONE,

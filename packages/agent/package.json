@@ -1,0 +1,22 @@
+{
+  "name": "@m2d/agent",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "build:types": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@m2d/llm": "workspace:*",
+    "@m2d/ingestion": "workspace:*",
+    "@m2d/portfolio": "workspace:*",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0"
+  }
+}

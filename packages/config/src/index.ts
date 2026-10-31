@@ -31,7 +31,7 @@ export function readConfig(env: Record<string, string | undefined>): Config {
     );
   return parsed.data;
 }
-// No key is read or retained: M0 has no inference implementation.
+// Safe fallback when no workbook parser is attached; credentials stay in the API composition root.
 export function aiStatus(config: Pick<Config, 'LLM_PROVIDER' | 'LLM_MODEL'>) {
   return {
     provider: config.LLM_PROVIDER,
@@ -41,8 +41,10 @@ export function aiStatus(config: Pick<Config, 'LLM_PROVIDER' | 'LLM_MODEL'>) {
       ? ('unconfigured' as const)
       : config.LLM_PROVIDER === 'fixture'
         ? ('fixture_only' as const)
-        : ('not_implemented' as const),
+        : config.LLM_PROVIDER === 'openai'
+          ? ('unconfigured' as const)
+          : ('not_implemented' as const),
     message:
-      'Inference and analysis modes are scheduled for M2. No model calls are made in M0.',
+      'AI workbook parsing requires a configured backend parser. General chat and analysis modes remain scheduled for M2.',
   };
 }

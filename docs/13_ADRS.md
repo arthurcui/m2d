@@ -29,3 +29,50 @@ ADRs 016–018 and `14_LLM_PROVIDERS.md` define the current AI boundary. Earlier
 - **020 — Single migration owner:** API container startup invokes the Drizzle migrator before the HTTP process. A session advisory lock serializes migrations. Worker/web wait for API readiness; neither migrates application tables. pg-boss manages its own schema from the worker.
 - **021 — Operational-only fixture foundation:** M0 persists only heartbeat/demo-job records, returns explicit unavailable inference status, and displays future-feature placeholders. Financial contracts are decimal strings and confirmation/provenance schemas, without premature accounting or model implementations.
 - **022 — Separate service health:** Database readiness does not depend on optional inference or worker liveness. Timestamped worker and demo-job status expose stalls/offline gaps without manufacturing missed activity. See `M0_FOUNDATION.md` for thresholds and versioned routes.
+
+## M1 implementation decisions
+
+- **023 — One serialized confirmation boundary:** A singleton revision row is locked before staging/confirming mutations. Previews expire after 15 minutes, retain normalized diffs and content hashes, and reject stale revisions. Successful confirmations are idempotent. Canonical hashing does not depend on JSON object key order.
+- **024 — Immutable ledger, rebuildable projections:** Current accounts/instrument identities and NUMERIC position/cash projections are normalized. Full baseline snapshots are validated JSON with decimal strings, rather than separate baseline child tables; typed events follow the latest baseline. Database triggers protect baselines/events/imports/change logs. Original XLSX bytes are retained in PostgreSQL for transactional local backup simplicity (bounded to 2 MiB each).
+- **025 — Conservative M1 chronology/accounting:** Reject inserts before the latest effective boundary. Use average-cost pseudo-lots with explicit COMPLETE_LEDGER / BASELINE_ESTIMATE / UNKNOWN quality; do not claim tax basis or aggregate-snapshot performance. Only explicit standard physically settled 100-share options and USD/CAD are supported. Unsupported settlements require reconciliation, not guessed events.
+- **026 — Explicit offline portfolio input:** Structured forms and a canonical values-only Excel template share the same preview/confirm service. No natural-language parser or inference implementation is added before M2. Browser mutations use an allowlisted same-origin proxy. See `M1_PORTFOLIO.md` for supported contracts, limits and tests.
+
+- **027 — Flexible Excel interpretation (user clarification, 2026-10-31):** The canonical template is optional. M1 infers headers across existing workbook tabs, then requires review of mappings, defaults, excluded rows and unresolved data before preview/confirmation. Original bytes and every reviewed interpretation are immutable. Cached formula results are treated as untrusted saved values, never executed. Missing values require explicit clarification; financial-state replacement gates are unchanged. This supersedes the canonical-only clause in the original input design without implementing M2 inference.
+
+## ADR-028 — Simplify portfolio entry and apply new imports on confirmation
+
+Per user direction on 2026-10-31, remove workbook timestamp entry, the template download link and structured single-change form from the portfolio UI. Incremental entry will use M2 chat. Omitted import effectiveAt selects a persisted confirmation-time policy; use the server transaction time for committed baseline/revision/history while preserving existing explicitly dated imports and deduplication. Keep operation errors in their own sections. Typed incremental APIs and the template endpoint remain internal compatibility facilities.
+
+## ADR-029 — AI interprets workbooks in M1, without manual mapping
+
+Per explicit user direction on 2026-10-31, move bounded workbook extraction through the provider-neutral LlmProvider/OpenAI Responses boundary into M1. Keep natural-language trades, chat, tool loops and analysis modes in M2. The model proposes only an evidence-grounded internal mapping; deterministic validation, visible source exclusions and human confirmation remain mandatory. Clarification uses plain text instead of mapping controls. Preserve raw input and model runs, deduplicate requests across restarts, cap calls/size/time/concurrency and expose unavailable/quota/refusal states without fallback. Offline fixture mode stays explicit and fully testable without keys.
+
+## ADR-030 — Account holdings, optional basis and import Agent
+
+Per user direction on 2026-10-31, support many broker/platform accounts with cash and stock/ETF or individually represented option legs. Asset class, symbol and quantity are required; unit cost and description are optional. Missing currency defaults to USD; explicitly specified recognized currencies replace the original USD/CAD restriction. Missing cost is null/UNKNOWN, never fabricated zero. Multi-leg positions use an optional group label; account/instrument netting remains the identity boundary. Preserve old baselines and compatibility with canonical workbook columns.
+
+Expand the M1 workbook clarification UI into the responsive, closable Agent panel. This supersedes the general prohibition on an M1 chat surface only for import clarification/confirmation. General chat, trade-language updates and analysis modes remain M2. Remember safe layout mappings in PostgreSQL only after confirmation; scope reuse to matching layout and account evidence. Never remember financial cell values or row-specific corrections as reusable defaults. Persist original files and interpretation audits and retain explicit full-replacement confirmation for every import.
+
+## ADR-031 — Shared portfolio Agent, explicit tab identity and optional holding dates
+
+Per user direction, mount Agent in the root layout during M1. Portfolio state and its selected file remain mounted across Next.js navigation; all function pages expose the same Agent. This is portfolio assistance only, not early implementation of research/opportunity orchestration or M2 trade-language functionality. Draft recovery after browser refresh is not promised.
+
+Require an explicit new-account/rename decision for unfamiliar account-bearing tabs. Rename preserves stable IDs and history; display-name changes and normalized tab aliases commit only with the full portfolio confirmation. Persist choices in the immutable mapping audit and aliases as a transactional projection. Never pick the first of multiple broker accounts with the same name. Explicit account-column layouts are keyed by their account fields, rather than by the worksheet name.
+
+Optional holding transactionDate is an ISO calendar date stored in the DATE projection column and historical JSON snapshots. It is descriptive snapshot metadata, not a substitute for transaction-level accounting. Questions must identify source context and answer choices without repeated error blocks. Generate docs/ERD.md from Drizzle and check freshness in CI whenever schema changes.
+
+## ADR-032 — One Agent, separate function contexts
+
+Per user direction, restore each function's own conversation and unsent draft on navigation. Keep each context mounted in the shared layout, with an explicit Agent · Function header. Portfolio workflows and asynchronous results remain owned by Portfolio regardless of the active route. Context switches cannot apply, reject or cancel a preview. Close/reopen preserves contexts. Non-portfolio contexts are session notes/drafts only during M1, with explicit planned-capability labels and no model dispatch. This supersedes the single shared transcript in ADR-031 without implementing later milestone analysis features or browser-reload draft recovery.
+
+## ADR-033 — Separate workbook facts from conversational help
+
+Follow-up: preserve source-scoped factual replies instead of flattening short answers. Reapply recognized explicit row corrections, allow cash in positions ranges, and normalize unambiguous written dates. Detect unresolved answered fields and report interpretation failure with an explicit retry instead of cycling through questions. Financial confirmation and evidence gates remain unchanged.
+
+Workbook parsing previously concatenated every user message as factual clarification, losing the question/answer context. Pass the latest message, pending question and conversation separately from accepted facts. Use a structured model intent/reply and a deterministic question/explicit-help guard. Explanation turns are audited and idempotent, but cannot remap staging, advance the pending question or create a preview. Assistant examples never become grounding evidence. Present one pending issue, not the raw validation backlog. Preserve explicit confirmation and scope this behavior to M1 workbook assistance. Existing import-run storage holds the audit; no schema migration is required.
+
+## ADR-034 — Confirmed source-matched rules and current-year expiry policy
+
+Per user direction, extend the existing immutable PostgreSQL format-memory profiles to version 2. Persist eligible source-token classification/currency corrections and source-pattern-scoped option terms, not fixed row numbers or financial snapshot values. Reapply only after matching headers, account identity and current source predicates; retain old versions and prefer the latest confirmed profile for a layout. Candidate rules never become reusable until portfolio confirmation succeeds. Quantities, costs, symbols and cash are always read from the new workbook. No schema migration is needed; the existing JSONB profile and immutable-history trigger hold the new version.
+
+An omitted expiry year defaults to the current America/Vancouver calendar year when month/day are explicit. Show this assumption in the preview. Preserve explicit years, do not roll past dates into the next year, and reject invalid dates. The default is evaluated per parse, not saved as a reusable expiry value. Multiplier/deliverable assumptions remain evidence-bound or tied to matched, previously confirmed rules.

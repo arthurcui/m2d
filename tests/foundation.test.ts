@@ -19,7 +19,7 @@ describe('offline foundation configuration', () => {
     });
     expect(config.APP_TIMEZONE).toBe('America/Vancouver');
   });
-  it('does not silently substitute fixture for an unimplemented provider', () => {
+  it('does not silently substitute fixture for an unconfigured provider', () => {
     expect(
       aiStatus(
         readConfig({
@@ -30,7 +30,7 @@ describe('offline foundation configuration', () => {
       ),
     ).toMatchObject({
       provider: 'openai',
-      status: 'not_implemented',
+      status: 'unconfigured',
       available: false,
     });
     expect(aiStatus({ LLM_PROVIDER: 'openai', LLM_MODEL: '' }).status).toBe(

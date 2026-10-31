@@ -2,14 +2,14 @@
 
 **See the Move. Understand the Motive. Make the Decision.**
 
-**Status:** M0 — Runnable Foundation implemented. The design specification (revision 1.2) below describes the complete future product; only the foundation is currently implemented. See [M0 implementation notes](docs/M0_FOUNDATION.md) for scope, contracts, verification, and limitations.
+**Status:** M1 — Authoritative local portfolio implemented on the M0 foundation. The design specification (revision 1.2) below also describes future milestones. See [M1 implementation notes](docs/M1_PORTFOLIO.md) for accounting rules, Excel templates, confirmation contracts, verification, and limitations; [M0 notes](docs/M0_FOUNDATION.md) retain foundation details.
 
-## Run M0 locally
+## Run locally
 
 Prerequisites: Docker Engine with Compose v2 or later (Docker Desktop on Windows). Initial image/dependency downloads require network access; the running fixture stack needs no API keys or paid services.
 
 ```powershell
-Copy-Item .env.example .env
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
 docker compose up --build --detach --wait --wait-timeout 180
 docker compose ps
 ```
@@ -42,9 +42,9 @@ pnpm exec playwright install chromium
 pnpm test:e2e
 ```
 
-E2E requires the running Compose stack. Unit tests are offline and need no database or API key. See [integration and native development instructions](docs/M0_FOUNDATION.md) for a disposable PostgreSQL test database and running the apps outside Docker. CI runs all these checks plus PostgreSQL integration tests.
+Portfolio E2E writes fictional records: run it only in a fresh disposable Compose project with E2E_ALLOW_PORTFOLIO_WRITES=1. See [M1 verification instructions](docs/M1_PORTFOLIO.md#verification). Unit tests are offline and need no database or API key. CI also runs PostgreSQL integration tests and the full browser suite.
 
-No portfolio data, market feeds, inference adapters, or analysis modes are implemented in M0. Navigation pages are explicitly labeled placeholders. M1 implements authoritative portfolio records; M2 implements natural-language previews, provider-neutral OpenAI/fixture inference, and Quick/Standard/Extensive modes.
+The Portfolio page now supports multi-tab Excel import with inferred column mappings and confirmed full-state replacement, revision-guarded preview/confirmation, and immutable change history. Upload an existing workbook and review its interpreted portfolio; the replacement takes effect when confirmed. Individual changes will use chat in M2. AI workbook interpretation is implemented in M1 through a provider-neutral OpenAI/fixture boundary. It creates a validated replacement preview and asks plain-language questions for missing facts; no column mapping is required. Market feeds remain unimplemented. M2 will add general chat, incremental natural-language updates, tool continuity, and Quick/Standard/Extensive modes.
 
 ## Current AI access decision
 
@@ -125,3 +125,11 @@ m2d/
 ## Quality bar
 
 Each milestone must end with runnable code, tests, sample data, reproducible commands, known limitations and screenshots or route/UI verification. No real brokerage integrations, order execution, financial claims without evidence, or invented history.
+
+### Current M1 account and Agent behavior
+
+Many broker/platform accounts each own cash and holdings. Holding imports require asset class, equity symbol and quantity; description and unit cost are optional. Currency defaults to USD when absent. Missing cost stays unknown; option groups retain individual signed legs. Agent appears at the right on wide screens and at the bottom on narrow screens, can be closed/reopened, asks import questions and contains explicit replacement confirmation. Confirmed safe format mappings are stored in PostgreSQL for matching later uploads. See [M1 portfolio behavior](docs/M1_PORTFOLIO.md) for reuse boundaries and supported option contracts.
+
+### Shared Agent and schema documentation
+
+Agent is available throughout the app; M1 handles portfolio imports and clarification. Navigation preserves unfinished portfolio work. New account tabs require a new-account or rename choice; renames preserve stable IDs and history. Holdings optionally include an ISO transaction date. See [the generated database ERD](docs/ERD.md) and [M1 behavior](docs/M1_PORTFOLIO.md). Run `pnpm docs:erd` after schema edits; CI checks the diagram for drift.

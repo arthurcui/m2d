@@ -1,0 +1,17 @@
+{
+  "name": "@m2d/portfolio",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "build:types": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "decimal.js": "10.6.0",
+    "zod": "^4.1.12"
+  }
+}

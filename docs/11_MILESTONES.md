@@ -7,7 +7,7 @@ Implement strictly milestone-by-milestone, with tests and screenshots or UI veri
 **Accept:** `docker compose up --build` -> web opens, API health passes, worker heartbeat/job recorded, DB persists across restart, no paid keys or inference calls.
 
 ## M1 — Authoritative local portfolio
-**Deliver:** accounts/instruments, baseline+incremental event model, deterministic projection, cash/cost/option logic, canonical Excel upload (staging, row errors, diff, atomic confirm), manual structured adjustment form, account/position/cash dashboard, change log, golden tests. The **natural-language parser may be a deterministic fixture** at this stage.
+**Deliver:** accounts/instruments, baseline+incremental event model, deterministic projection, cash/cost/option logic, canonical Excel upload (staging, row errors, diff, atomic confirm), AI workbook parsing with plain-language clarification (user-requested scope extension, 2026-10-31), account/position/cash dashboard, change log, golden tests. General chat and incremental natural-language changes remain M2. User-facing manual mapping and single-change forms are removed; fixture parsing remains explicit offline mode.
 **Accept:** canonical workbook with 7 accounts imports; missing position zeroes only on confirm, history preserved; short option and cash values correct; duplicate imports idempotent.
 
 ## M2 — Natural-language updates + chat shell
@@ -42,3 +42,7 @@ Include Quick/Standard/Extensive selection with Standard default, saved workspac
 
 ## Sprint rule
 For each milestone Codex must: (1) make short implementation plan, (2) implement vertical slices, (3) run tests, (4) summarize progress and commit-ready files, (5) stop. Do not begin later milestones without the user's next instruction.
+
+## M1 shared Agent and identity extension
+
+The global Agent panel now remains mounted across navigation and preserves unfinished portfolio import work. Unfamiliar account-bearing tabs require new-account/rename selection; rename retains stable account IDs and historical baselines. Optional transactionDate is holding metadata only. These user-requested M1 extensions do not enable M2 general trade-language chat or later research/analysis functions. See M1_PORTFOLIO.md and ADR-031.

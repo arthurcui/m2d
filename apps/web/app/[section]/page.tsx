@@ -62,10 +62,15 @@ export default async function Placeholder({
       <p className="intro">{item.description}</p>
       <section className="empty-state">
         <div>
-          <h2>Not available in M0</h2>
+          <h2>Not available in M1</h2>
           <p>
             This page is a navigation placeholder. No analysis has run and no
-            financial state has been created.
+            market data has been retrieved.
+          </p>
+          <p>
+            Agent keeps a separate conversation for this function. In M1,
+            portfolio assistance is available in the Portfolio conversation;
+            your unfinished work is preserved while you navigate.
           </p>
           <Link className="back" href="/">
             ← Back to dashboard
