@@ -96,7 +96,7 @@ Verified on October 30, 2026 (America/Vancouver), using Windows Node 26.8.2 / pi
 | Scheduled execution                                            | Both startup and later scheduled jobs observed in PostgreSQL, with distinct IDs and UTC completion timestamps |
 | Visual inspection                                              | Desktop dashboard screenshot reviewed; mobile width and unavailable-API feedback verified by Playwright       |
 
-[Verified dashboard screenshot](screenshots/m0-desktop.png).
+UI screenshots and Codex startup/prompt documents are local-only artifacts and are not versioned. Next.js regenerates `apps/web/next-env.d.ts` during type generation or build; it is also excluded from version control.
 
 The M0 UI was revised after user feedback into a compact light workspace: off-white canvas, white cards, near-black text, gray borders, and blue selected navigation. A simple Dashboard heading, compact operational status, and explicit portfolio/activity empty states replace the promotional hero and decorative cards. Status shows a live countdown until the next refresh, then “Refreshing…” while the request is pending. The ten-second countdown restarts after either success or failure and uses elapsed wall-clock time to avoid accumulating timer drift. Availability labels remain visible; this redesign adds no later-milestone functionality.
 

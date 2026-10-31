@@ -72,23 +72,22 @@ Build a single-user, standalone, Docker-first AI investment intelligence and dec
 
 ## Read in this order
 
-1. `CODEX_START_HERE.md` — Codex prompt and instructions.
-2. `AGENTS.md` — permanent coding rules.
-3. `docs/01_PRD.md` — workflows and scope.
-4. `docs/02_ARCHITECTURE.md` — services, modules, runtime and boundaries.
-5. `docs/03_DATA_MODEL.md` — domain entities, money/accounting, state/history semantics.
-6. `docs/04_PORTFOLIO_INPUTS.md` — natural-language and Excel update contract.
-7. `docs/05_MARKET_INGESTION.md` — market data, research, provenance, freshness.
-8. `docs/06_AGENT.md` — tool loop and write protections.
-9. `docs/07_TRADING_RISK.md` — options/risk/opportunity decisions and performance.
-10. `docs/08_MONITORING_UI.md` — jobs, alerts, dashboards, chat.
-11. `docs/09_API_CONTRACTS.md` — route and event contracts.
-12. `docs/10_TESTING.md` — acceptance and regression cases.
-13. `docs/11_MILESTONES.md` — increment-by-increment implementation.
-14. `docs/12_OPERATIONS.md` — Docker, environment, backups, migration.
-15. `docs/13_ADRS.md` — architecture decision log.
-16. `docs/14_LLM_PROVIDERS.md` — direct API access, provider contract, configuration and future adapters.
-17. `docs/15_ANALYSIS_MODES.md` — Quick, Standard and Extensive behavior, selection and execution policies.
+1. `AGENTS.md` — permanent coding rules.
+2. `docs/01_PRD.md` — workflows and scope.
+3. `docs/02_ARCHITECTURE.md` — services, modules, runtime and boundaries.
+4. `docs/03_DATA_MODEL.md` — domain entities, money/accounting, state/history semantics.
+5. `docs/04_PORTFOLIO_INPUTS.md` — natural-language and Excel update contract.
+6. `docs/05_MARKET_INGESTION.md` — market data, research, provenance, freshness.
+7. `docs/06_AGENT.md` — tool loop and write protections.
+8. `docs/07_TRADING_RISK.md` — options/risk/opportunity decisions and performance.
+9. `docs/08_MONITORING_UI.md` — jobs, alerts, dashboards, chat.
+10. `docs/09_API_CONTRACTS.md` — route and event contracts.
+11. `docs/10_TESTING.md` — acceptance and regression cases.
+12. `docs/11_MILESTONES.md` — increment-by-increment implementation.
+13. `docs/12_OPERATIONS.md` — Docker, environment, backups, migration.
+14. `docs/13_ADRS.md` — architecture decision log.
+15. `docs/14_LLM_PROVIDERS.md` — direct API access, provider contract, configuration and future adapters.
+16. `docs/15_ANALYSIS_MODES.md` — Quick, Standard and Extensive behavior, selection and execution policies.
 
 ## Target repository (to be implemented by Codex)
 
