@@ -1,0 +1,112 @@
+{
+  "id": "67d37185-c646-4ec6-a481-f25c0415842a",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.demo_job_runs": {
+      "name": "demo_job_runs",
+      "schema": "",
+      "columns": {
+        "job_id": {
+          "name": "job_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "queue": {
+          "name": "queue",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "demo_version": {
+          "name": "demo_version",
+          "value": "\"demo_job_runs\".\"version\" = 1"
+        },
+        "demo_queue": {
+          "name": "demo_queue",
+          "value": "\"demo_job_runs\".\"queue\" = 'm2d.foundation-demo.v1'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.worker_heartbeats": {
+      "name": "worker_heartbeats",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "instance_id": {
+          "name": "instance_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "last_seen_at": {
+          "name": "last_seen_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "single_worker": {
+          "name": "single_worker",
+          "value": "\"worker_heartbeats\".\"id\" = 'worker'"
+        },
+        "heartbeat_order": {
+          "name": "heartbeat_order",
+          "value": "\"worker_heartbeats\".\"last_seen_at\" >= \"worker_heartbeats\".\"started_at\""
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

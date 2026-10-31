@@ -1,0 +1,24 @@
+{
+  "name": "@m2d/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "build:types": "tsc",
+    "typecheck": "tsc --noEmit",
+    "generate": "drizzle-kit generate",
+    "migrate": "node --env-file-if-exists=../../.env dist/migrate.js"
+  },
+  "dependencies": {
+    "drizzle-orm": "0.45.4",
+    "pg": "^8.16.3",
+    "@m2d/domain": "workspace:*"
+  },
+  "devDependencies": {
+    "drizzle-kit": "0.31.11",
+    "@types/pg": "^8.15.6"
+  }
+}

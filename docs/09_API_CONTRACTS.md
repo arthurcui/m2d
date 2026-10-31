@@ -1,0 +1,64 @@
+# 09 — HTTP and Event Contracts (Version 1)
+
+All routes prefixed `/api/v1`. Local-first; no user/tenant/auth endpoints. API returns typed objects with `data`, `meta: {asOf, source, portfolioRevision, dataQuality}` where relevant, or typed `error:{code,message,details}`. JSON money as decimal strings.
+
+## 1. Portfolio
+| Method/path | Purpose |
+|---|---|
+| `GET /accounts` | list manually defined accounts |
+| `POST /accounts` | create account label (via preview/confirm where holdings affected) |
+| `GET /portfolio/overview` | consolidated current state and valuation quality |
+| `GET /portfolio/positions?accountKey=` | account/symbol/option positions |
+| `GET /portfolio/cash` | cash by account and currency |
+| `GET /portfolio/history` | baselines, events, snapshots |
+| `POST /portfolio/changes/parse` | NL -> structured candidate and missing fields |
+| `POST /portfolio/changes/preview` | candidate -> exact before/after preview with expected revision |
+| `POST /portfolio/changes/{previewId}/confirm` | commit confirmed increment with idempotency and revision guard |
+| `POST /portfolio/imports` | multipart Excel -> staged parsed import; no mutation |
+| `GET /portfolio/imports/{id}/preview` | entire diff, errors, warnings, removals, new baseline |
+| `POST /portfolio/imports/{id}/confirm` | single-transaction full replacement |
+| `POST /portfolio/baselines/{id}/restore-preview` | restore-as-new-baseline preview |
+| `GET /portfolio/accounts/{id}/history` | account events and point-in-time versions |
+
+## 2. Market/research
+- `GET /market/quotes?symbols=...` / `GET /market/bars/{ticker}` / `GET /market/options/{ticker}?expiry=...` / `GET /market/fx?pair=...`
+- `GET /market/status` returns provider, asOf, session, stale/delayed and last-success per feed.
+- `GET /companies/{ticker}/fundamentals` / `GET /companies/{ticker}/filings` / `GET /companies/{ticker}/changes`.
+- `POST /research/upload` / `GET /research/documents` / `GET /research/documents/{id}` / `POST /research/search`.
+
+## 3. Agent and signals
+- `POST /agent/chat` streams SSE events: `run_started`, `text_delta`, `tool_started`, `tool_completed`, `preview_ready`, `signal_ready`, `run_finished`, `run_failed`.
+- Chat, manual scan and research-analysis requests accept optional `analysisMode: "quick" | "standard" | "extensive"`. Resolve and freeze mode before dispatch. Invalid values return `VALIDATION_ERROR`; unknown values never silently become Standard. See `15_ANALYSIS_MODES.md` for default precedence and effective caps.
+- `GET /settings/analysis` returns the saved default, supported modes and public profile summaries; `PATCH /settings/analysis` updates only the default preference with a settings revision guard. This singleton setting introduces no user/tenant model or credential editing.
+- `run_started` and run retrieval include `analysisMode`, `modePolicyVersion`, `effectiveLimits` and any cap warnings; final metadata adds `analysisCompleteness` and `limitReasons`. The client cannot raise deployment ceilings or alter an active run's mode.
+- `GET /agent/runs/{id}` and `GET /agent/sessions/{id}` for historic analysis and sources.
+- `GET /system/status` includes AI provider/model, configuration/availability status and sanitized usage summaries. It omits keys, authorization headers and provider continuation. Status inspection does not trigger a paid inference request.
+- AI SSE events use M²D-owned payloads; no native SDK objects cross the API boundary. Unvalidated streamed text is provisional; `preview_ready` and `signal_ready` appear only after deterministic validation. A refused/incomplete/cancelled run returns an explicit status, never a fabricated completed decision.
+- `GET /signals?status=&ticker=` / `GET /signals/{id}` / `GET /signals/{id}/history` / `POST /signals/scan` triggers asynchronous scan and returns job ID.
+- `GET /risk/summary` / `POST /risk/scenarios` / `POST /strategies/evaluate`.
+- `GET /journal/trades` / `POST /journal/trades/link` / `GET /performance/overview` / `GET /performance/signals`.
+- `GET /watchlists` / `POST /watchlists/{id}/items/preview` / `POST /watchlists/changes/{previewId}/confirm`.
+- `GET /jobs` / `GET /jobs/{id}` / `POST /jobs/{name}/run` / `GET /alerts` / `POST /alerts/{id}/ack`.
+
+## 4. Example confirm response
+```json
+{
+  "data": {
+    "committed": true,
+    "revision": 24,
+    "changeId": "uuid",
+    "summary": "Sold to open 1 TSLL call in Questrade RRSP",
+    "cashChanges": [{"currency":"USD","before":"1000.00","after":"1084.35"}]
+  },
+  "meta": {"portfolioRevision":24, "dataQuality":"USER_CONFIRMED"}
+}
+```
+All amounts in example are illustrative; no live trade data.
+
+## 5. Contract error codes
+`VALIDATION_ERROR`, `AMBIGUOUS_INSTRUCTION`, `INSUFFICIENT_POSITION`, `UNKNOWN_OPTION_CONTRACT`, `MISSING_MARKET_DATA`, `STALE_MARKET_DATA`, `PORTFOLIO_REVISION_CONFLICT`, `EXCEL_IMPORT_INVALID`, `DUPLICATE_IMPORT`, `PREVIEW_EXPIRED`, `PROVIDER_RATE_LIMITED`, `DATA_COVERAGE_INSUFFICIENT`, `JOB_ALREADY_RUNNING`.
+
+AI errors add `LLM_CONFIG_MISSING`, `LLM_PROVIDER_NOT_IMPLEMENTED`, `LLM_AUTH_FAILED`, `LLM_QUOTA_EXHAUSTED`, `LLM_RATE_LIMITED`, `LLM_TIMEOUT`, `LLM_UNAVAILABLE`, `LLM_CAPABILITY_UNSUPPORTED`, `LLM_INVALID_OUTPUT`, `LLM_BUDGET_EXCEEDED`, `LLM_CANCELLED`. Refusal and incomplete generation are explicit run outcomes rather than successful empty answers. Preserve sanitized provider request IDs for diagnosis.
+
+## 6. Worker events
+Internally persist: `PortfolioRevisionConfirmed`, `MarketQuoteUpdated`, `OptionChainUpdated`, `DocumentVersionObserved`, `MaterialFactChanged`, `WatchRuleTriggered`, `SignalStatusChanged`, `ScanCompleted`, `AlertRaised`. Include event ID, observed_at, causation ID and idempotency key. Events may be retried; subscribers must be idempotent.

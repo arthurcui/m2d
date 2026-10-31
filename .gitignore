@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.next/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+data/
+playwright-report/
+test-results/
+coverage/
+CODEX_START_HERE.md
+CODEX_MILESTONE_PROMPTS.md
+START_PROMPT_NO_FILES.md
+docs/screenshots/m0-desktop.png
+docs/screenshots/m0-mobile.png
+apps/web/next-env.d.ts

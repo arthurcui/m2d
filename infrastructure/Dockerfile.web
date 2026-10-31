@@ -1,0 +1,16 @@
+FROM node:24.11.0-bookworm-slim AS build
+WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npm install --global pnpm@10.32.1
+COPY . .
+RUN pnpm install --frozen-lockfile
+RUN pnpm --filter @m2d/web... build
+
+FROM node:24.11.0-bookworm-slim AS web
+WORKDIR /app
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 HOSTNAME=0.0.0.0 PORT=3000
+COPY --from=build --chown=node:node /app/apps/web/.next/standalone ./
+COPY --from=build --chown=node:node /app/apps/web/.next/static ./apps/web/.next/static
+USER node
+EXPOSE 3000
+CMD ["node", "apps/web/server.js"]

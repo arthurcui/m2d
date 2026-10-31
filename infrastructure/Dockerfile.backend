@@ -1,0 +1,23 @@
+FROM node:24.11.0-bookworm-slim AS build
+WORKDIR /app
+RUN npm install --global pnpm@10.32.1
+COPY . .
+RUN pnpm install --frozen-lockfile
+RUN pnpm --filter @m2d/api... --filter @m2d/worker... build
+RUN pnpm --filter @m2d/api deploy --legacy --prod /out/api && pnpm --filter @m2d/worker deploy --legacy --prod /out/worker
+
+FROM node:24.11.0-bookworm-slim AS api
+ENV NODE_ENV=production
+WORKDIR /app
+COPY --from=build --chown=node:node /out/api .
+USER node
+EXPOSE 3001
+# Only API startup runs application migrations; the advisory lock serializes restarts.
+CMD ["sh", "-c", "node node_modules/@m2d/db/dist/migrate.js && exec node dist/main.js"]
+
+FROM node:24.11.0-bookworm-slim AS worker
+ENV NODE_ENV=production
+WORKDIR /app
+COPY --from=build --chown=node:node /out/worker .
+USER node
+CMD ["node", "dist/main.js"]
