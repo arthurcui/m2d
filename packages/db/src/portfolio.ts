@@ -661,6 +661,19 @@ export function createPortfolioRepository(pool: pg.Pool) {
             .where(eq(tables.portfolioPreviews.id, id))
         )[0];
         if (!p) fail('NOT_FOUND', 'Preview not found.', 404);
+        if (p.idempotencyKey.startsWith('chat:')) {
+          const runId = p.idempotencyKey.split(':')[1]!;
+          const [run] = await tx
+            .select()
+            .from(tables.agentRuns)
+            .where(eq(tables.agentRuns.id, runId));
+          if (!run || run.status !== 'completed' || run.previewId !== id)
+            fail(
+              'AGENT_PREVIEW_NOT_READY',
+              'This Agent run did not finish successfully. Its preview cannot be confirmed.',
+              409,
+            );
+        }
         if (p.expectedRevision !== input.expectedRevision)
           fail(
             'REVISION_CONFLICT',

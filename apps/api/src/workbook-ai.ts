@@ -69,12 +69,20 @@ export function createWorkbookAi(
       config.LLM_PROVIDER === 'fixture'
         ? 'Offline deterministic workbook demo; no model calls.'
         : available
-          ? 'AI workbook parsing is configured. General chat and analysis modes remain scheduled for M2.'
+          ? 'AI workbook parsing is configured. Agent chat is available separately.'
           : 'Workbook AI is unavailable. Configure a supported OpenAI model and a backend API key.',
   };
   return {
     status,
     async parse(id: string, raw: z.input<typeof parseWorkbookRequest>) {
+      if (
+        config.LLM_PROVIDER !== 'fixture' &&
+        (config.LLM_MAX_RUN_COST_USD || config.LLM_DAILY_BUDGET_USD)
+      )
+        throw new PortfolioError(
+          'WORKBOOK_COST_ACCOUNTING_UNAVAILABLE',
+          'Paid workbook parsing is disabled while chat cost caps are enabled. Its separate M1 pipeline cannot bypass the deployment budget.',
+        );
       const input = parseWorkbookRequest.parse(raw);
       // Older clients can resend the last explanation when retrying an empty
       // draft. Retry parsing with accepted facts, not that stale question.

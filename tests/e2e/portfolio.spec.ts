@@ -459,14 +459,20 @@ test('Agent restores independent function conversations and drafts', async ({
   await expect(
     agent.getByRole('heading', { name: 'Agent · Research', exact: true }),
   ).toBeVisible();
-  await agent.getByLabel('Research draft').fill('Review company filings');
-  await agent.getByLabel('Research draft').press('Enter');
-  await expect(agent.getByLabel('Research draft')).toHaveValue('');
-  await agent.getByLabel('Research draft').press('Enter');
+  await agent
+    .getByRole('button', { name: 'New conversation', exact: true })
+    .click();
+  await expect(agent.getByRole('log')).not.toContainText(
+    'Review company filings',
+  );
+  await agent.getByLabel('Research message').fill('Review company filings');
+  await agent.getByLabel('Research message').press('Enter');
+  await expect(agent.getByLabel('Research message')).toHaveValue('');
+  await agent.getByLabel('Research message').press('Enter');
   await expect(
     agent.getByRole('log').getByText('Review company filings', { exact: true }),
   ).toHaveCount(1);
-  await agent.getByLabel('Research draft').fill('Unsent research question');
+  await agent.getByLabel('Research message').fill('Unsent research question');
   await page.getByRole('link', { name: 'Opportunities', exact: true }).click();
   await expect(
     agent.getByRole('heading', { name: 'Agent · Opportunities', exact: true }),
@@ -474,26 +480,26 @@ test('Agent restores independent function conversations and drafts', async ({
   await expect(agent.getByRole('log')).not.toContainText(
     'Review company filings',
   );
-  await agent.getByLabel('Opportunities draft').fill('Track an opportunity');
-  await agent.getByRole('button', { name: 'Save note' }).click();
+  await agent.getByLabel('Opportunities message').fill('Track an opportunity');
+  await agent.getByRole('button', { name: 'Send', exact: true }).click();
   await agent
-    .getByLabel('Opportunities draft')
+    .getByLabel('Opportunities message')
     .fill('Unsent opportunity question');
   await page.getByRole('link', { name: 'Research', exact: true }).click();
   await expect(agent.getByRole('log')).toContainText('Review company filings');
   await expect(agent.getByRole('log')).not.toContainText(
     'Track an opportunity',
   );
-  await expect(agent.getByLabel('Research draft')).toHaveValue(
+  await expect(agent.getByLabel('Research message')).toHaveValue(
     'Unsent research question',
   );
   await agent.getByRole('button', { name: 'Close Agent' }).click();
   await page.getByRole('button', { name: 'Open Agent' }).click();
-  await expect(agent.getByLabel('Research draft')).toHaveValue(
+  await expect(agent.getByLabel('Research message')).toHaveValue(
     'Unsent research question',
   );
   await page.getByRole('link', { name: 'Opportunities', exact: true }).click();
-  await expect(agent.getByLabel('Opportunities draft')).toHaveValue(
+  await expect(agent.getByLabel('Opportunities message')).toHaveValue(
     'Unsent opportunity question',
   );
   await page.getByRole('link', { name: 'Portfolio', exact: true }).click();
@@ -547,14 +553,14 @@ test('background portfolio replies stay in Portfolio after switching context', a
   ).toBeVisible();
   await page.getByRole('link', { name: 'Research', exact: true }).click();
   const agent = page.getByRole('complementary', { name: 'Agent' });
-  await agent.getByLabel('Research draft').fill('Keep this research draft');
+  await agent.getByLabel('Research message').fill('Keep this research draft');
   const response = page.waitForResponse('**/api/v1/portfolio/imports/*/parse');
   finish();
   await response;
   await expect(agent.getByRole('log')).not.toContainText(
     'Portfolio-only background question',
   );
-  await expect(agent.getByLabel('Research draft')).toHaveValue(
+  await expect(agent.getByLabel('Research message')).toHaveValue(
     'Keep this research draft',
   );
   await expect(

@@ -119,7 +119,7 @@ export function StatusPanel() {
             {data
               ? `${data.ai.provider} / ${data.ai.model || 'model unset'}`
               : 'Configuration unavailable'}{' '}
-            · chat coming in M2
+            · portfolio Agent
           </small>
         </article>
       </div>

@@ -1,10 +1,7 @@
 'use client';
 import Link from 'next/link';
-import {
-  agentContexts,
-  PlannedAgentConversation,
-  submitAgentOnEnter,
-} from '../agent-contexts';
+import { AgentChat } from '../agent-chat';
+import { agentContexts, submitAgentOnEnter } from '../agent-contexts';
 import { usePathname } from 'next/navigation';
 import {
   useEffect,
@@ -261,7 +258,12 @@ export function PortfolioClient({ children }: { children?: ReactNode }) {
     setHistory(h);
   };
   useEffect(() => {
-    void refresh().catch((e: Error) => setError(e.message));
+    const reload = () => {
+      void refresh().catch((e: Error) => setError(e.message));
+    };
+    reload();
+    window.addEventListener('m2d:portfolio-changed', reload);
+    return () => window.removeEventListener('m2d:portfolio-changed', reload);
   }, []);
   useEffect(() => {
     const tick = () =>
@@ -794,13 +796,29 @@ export function PortfolioClient({ children }: { children?: ReactNode }) {
           {agentContexts
             .filter((item) => item.path !== '/portfolio')
             .map((item) => (
-              <PlannedAgentConversation
+              <AgentChat
                 key={item.path}
-                context={item}
+                context={
+                  item.path === '/'
+                    ? 'dashboard'
+                    : item.path === '/chat'
+                      ? 'general'
+                      : item.path.slice(1)
+                }
+                label={item.label}
                 active={item.path === context.path}
               />
             ))}
-          <div className="agent-context" hidden={!isPortfolio}>
+          <AgentChat
+            context="portfolio"
+            label="Portfolio"
+            active={isPortfolio && !review && !preview && !busy}
+            disabled={busy}
+          />
+          <div
+            className="agent-context"
+            hidden={!isPortfolio || (!review && !preview && !busy)}
+          >
             <div
               className="agent-transcript"
               role="log"

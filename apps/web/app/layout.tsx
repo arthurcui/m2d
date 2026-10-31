@@ -28,7 +28,7 @@ export default function Layout({
           <div className="content">
             <header>
               <span>Move · Motive · Decision</span>
-              <span className="badge">M1 · Portfolio</span>
+              <span className="badge">M2 · Portfolio Agent</span>
             </header>
             <main id="main">
               <PortfolioClient>{children}</PortfolioClient>

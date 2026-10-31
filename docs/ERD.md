@@ -2,7 +2,7 @@
 
 Generated from the implemented Drizzle schema. Run `pnpm docs:erd` after schema changes; `pnpm docs:erd:check` fails when this document is stale.
 
-This is the current M1 application schema. PostgreSQL also contains pg-boss-managed queue tables, which are maintained by pg-boss and omitted here. Historical baselines and interpretation results contain typed JSON snapshots; positions and cash below are the rebuildable current projections. Stable account IDs preserve history across display-name changes. Confirmed sheet aliases point back to the same account. Holding transaction dates are optional date-only metadata, not a reconstructed transaction ledger.
+This is the current M2 application schema. PostgreSQL also contains pg-boss-managed queue tables, which are maintained by pg-boss and omitted here. Historical baselines and interpretation results contain typed JSON snapshots; positions and cash below are the rebuildable current projections. Stable account IDs preserve history across display-name changes. Confirmed sheet aliases point back to the same account. Holding transaction dates are optional date-only metadata, not a reconstructed transaction ledger.
 
 The diagram shows declared database foreign keys. Logical references without a database foreign key (including revision baseline IDs, mapping preview IDs and JSON identifiers) are deliberately not drawn. Nullable attributes are marked in quotes.
 
@@ -16,6 +16,58 @@ erDiagram
         text base_currency
         boolean active
         text notes
+    }
+    agent_runs {
+        uuid id PK
+        uuid session_id FK
+        uuid request_key
+        text fingerprint
+        uuid parent_run_id "nullable"
+        text provider
+        text model
+        text analysis_mode
+        text policy_version
+        text prompt_version
+        text adapter_version
+        integer schema_version
+        jsonb effective_limits
+        integer portfolio_revision
+        text status
+        text completeness
+        jsonb limit_reasons
+        jsonb events
+        jsonb continuation "nullable"
+        jsonb history
+        uuid preview_id FK "nullable"
+        jsonb usage "nullable"
+        numeric_30__12_ reserved_cost
+        numeric_30__12_ estimated_cost "nullable"
+        text price_version "nullable"
+        boolean cancel_requested
+        timestamp_with_time_zone started_at
+        timestamp_with_time_zone finished_at "nullable"
+    }
+    agent_sessions {
+        uuid id PK
+        text context
+        jsonb history
+        jsonb continuation "nullable"
+        text draft
+        integer revision
+        timestamp_with_time_zone created_at
+        timestamp_with_time_zone updated_at
+    }
+    agent_tool_calls {
+        uuid run_id FK
+        text call_id
+        text fingerprint
+        jsonb output
+        timestamp_with_time_zone created_at
+    }
+    app_settings {
+        integer id PK
+        integer revision
+        text default_analysis_mode "nullable"
     }
     cash_projection {
         text account_key FK
@@ -161,6 +213,9 @@ erDiagram
         timestamp_with_time_zone started_at
         timestamp_with_time_zone last_seen_at
     }
+    agent_sessions ||--o{ agent_runs : "session_id"
+    portfolio_previews |o--o{ agent_runs : "preview_id"
+    agent_runs ||--o{ agent_tool_calls : "run_id"
     accounts ||--o{ cash_projection : "account_key"
     accounts ||--o{ portfolio_account_aliases : "account_key"
     portfolio_imports ||--o{ portfolio_account_aliases : "source_import_id"

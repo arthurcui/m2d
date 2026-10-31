@@ -298,3 +298,92 @@ export const demoJobRuns = pgTable(
     check('demo_queue', sql`${table.queue} = 'm2d.foundation-demo.v1'`),
   ],
 );
+
+export const appSettings = pgTable(
+  'app_settings',
+  {
+    id: integer('id').primaryKey().default(1),
+    revision: integer('revision').notNull().default(0),
+    defaultAnalysisMode: text('default_analysis_mode'),
+  },
+  (t) => [
+    check('settings_singleton', sql`${t.id} = 1`),
+    check(
+      'settings_mode',
+      sql`${t.defaultAnalysisMode} in ('quick','standard','extensive')`,
+    ),
+  ],
+);
+export const agentSessions = pgTable('agent_sessions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  context: text('context').notNull().unique(),
+  history: jsonb('history').notNull().default([]),
+  continuation: jsonb('continuation'),
+  draft: text('draft').notNull().default(''),
+  revision: integer('revision').notNull().default(0),
+  createdAt: utc('created_at').notNull().defaultNow(),
+  updatedAt: utc('updated_at').notNull().defaultNow(),
+});
+export const agentRuns = pgTable(
+  'agent_runs',
+  {
+    id: uuid('id').primaryKey(),
+    sessionId: uuid('session_id')
+      .notNull()
+      .references(() => agentSessions.id),
+    requestKey: uuid('request_key').notNull().unique(),
+    fingerprint: text('fingerprint').notNull(),
+    parentRunId: uuid('parent_run_id'),
+    provider: text('provider').notNull(),
+    model: text('model').notNull(),
+    analysisMode: text('analysis_mode').notNull(),
+    policyVersion: text('policy_version').notNull(),
+    promptVersion: text('prompt_version').notNull(),
+    adapterVersion: text('adapter_version').notNull(),
+    schemaVersion: integer('schema_version').notNull().default(1),
+    effectiveLimits: jsonb('effective_limits').notNull(),
+    portfolioRevision: integer('portfolio_revision').notNull(),
+    status: text('status').notNull().default('running'),
+    completeness: text('completeness').notNull().default('limited'),
+    limitReasons: jsonb('limit_reasons').notNull().default([]),
+    events: jsonb('events').notNull().default([]),
+    continuation: jsonb('continuation'),
+    history: jsonb('history').notNull().default([]),
+    previewId: uuid('preview_id').references(() => portfolioPreviews.id),
+    usage: jsonb('usage'),
+    reservedCost: money('reserved_cost').notNull().default('0'),
+    estimatedCost: money('estimated_cost'),
+    priceVersion: text('price_version'),
+    cancelRequested: boolean('cancel_requested').notNull().default(false),
+    startedAt: utc('started_at').notNull().defaultNow(),
+    finishedAt: utc('finished_at'),
+  },
+  (t) => [
+    check(
+      'agent_run_mode',
+      sql`${t.analysisMode} in ('quick','standard','extensive')`,
+    ),
+    check(
+      'agent_run_status',
+      sql`${t.status} in ('running','completed','failed','cancelled','interrupted')`,
+    ),
+    check(
+      'agent_run_completeness',
+      sql`${t.completeness} in ('complete','limited')`,
+    ),
+    check('agent_run_cost_nonnegative', sql`${t.reservedCost} >= 0`),
+  ],
+);
+export const agentToolCalls = pgTable(
+  'agent_tool_calls',
+  {
+    runId: uuid('run_id')
+      .notNull()
+      .references(() => agentRuns.id),
+    callId: text('call_id').notNull(),
+    fingerprint: text('fingerprint').notNull(),
+    output: jsonb('output').notNull(),
+    createdAt: utc('created_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.runId, t.callId] })],
+);

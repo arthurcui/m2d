@@ -57,18 +57,24 @@ export default async function Placeholder({
   if (!item) notFound();
   return (
     <>
-      <div className="eyebrow">PLANNED · {item.milestone}</div>
+      <div className="eyebrow">
+        {section === 'chat' ? 'AVAILABLE' : 'PLANNED'} · {item.milestone}
+      </div>
       <h1>{item.title}</h1>
       <p className="intro">{item.description}</p>
       <section className="empty-state">
         <div>
-          <h2>Not available in M1</h2>
+          <h2>
+            {section === 'chat'
+              ? 'Talk with Agent'
+              : 'Coming in a later milestone'}
+          </h2>
           <p>
-            This page is a navigation placeholder. No analysis has run and no
+            Use the Agent panel for questions about your recorded portfolio. No
             market data has been retrieved.
           </p>
           <p>
-            Agent keeps a separate conversation for this function. In M1,
+            Agent saves a separate conversation for this function. Currently,
             portfolio assistance is available in the Portfolio conversation;
             your unfinished work is preserved while you navigate.
           </p>

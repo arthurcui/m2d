@@ -1,4 +1,4 @@
-name: M1 Portfolio
+name: M2 Portfolio Agent
 on: [push, pull_request]
 jobs:
   verify:

@@ -1,3 +1,5 @@
+import { createChatRepository } from './chat.js';
+export type { ChatRepository } from './chat.js';
 import pg from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { desc, eq, sql } from 'drizzle-orm';
@@ -33,6 +35,7 @@ export function createDatabase(connectionString: string) {
   const repository = {
     async checkReady() {
       // Checking application tables distinguishes a reachable DB from a migrated DB.
+      await pool.query('select id from agent_sessions limit 1');
       await db.select().from(workerHeartbeats).limit(1);
       await db.select().from(demoJobRuns).limit(1);
       await db.select().from(portfolioRevision).limit(1);
@@ -80,6 +83,7 @@ export function createDatabase(connectionString: string) {
     pool,
     repository,
     portfolio: createPortfolioRepository(pool),
+    chat: createChatRepository(pool),
     close: () => pool.end(),
   };
 }
