@@ -28,16 +28,19 @@ test('branded workspace, persisted operations, and honest navigation placeholder
   await expect(
     page.getByText('Refreshes in 10 seconds', { exact: true }),
   ).toBeVisible({ timeout: 7000 });
-  await page.getByRole('link', { name: 'Portfolio', exact: false }).click();
+  await page.getByRole('link', { name: 'Portfolio', exact: true }).click();
   await expect(
     page.getByRole('link', { name: 'Portfolio', exact: true }),
   ).toHaveAttribute('aria-current', 'page');
   await expect(
-    page.getByRole('heading', { name: 'Not available in M0' }),
+    page.getByRole('heading', { name: 'Accounts & holdings' }),
   ).toBeVisible();
   await page.getByRole('link', { name: 'Chat', exact: false }).click();
   await expect(page.getByText(/Quick \/ Standard \/ Extensive/)).toBeVisible();
-  await expect(page.getByRole('textbox')).toHaveCount(0);
+  await expect(
+    page.getByRole('heading', { name: 'Agent · General', exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Save note' })).toBeDisabled();
 });
 test('API outage is visible and the page fits a narrow screen', async ({
   page,

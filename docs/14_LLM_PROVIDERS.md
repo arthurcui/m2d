@@ -110,7 +110,7 @@ Tool execution stays in M²D. Replayed calls use `(runId, toolCallId)` plus the 
 
 | Selection | Access | Release scope |
 |---|---|---|
-| `openai` | OpenAI Responses API; `OPENAI_API_KEY` | First real adapter at M2 |
+| `openai` | OpenAI Responses API; `OPENAI_API_KEY` | M1 workbook extraction; full chat/tool behavior at M2 |
 | `fixture` | Deterministic stored scenarios; no network or credentials | M0 scaffolding and offline tests; full tool behavior at M2 |
 | `gemini` | Google Gemini API; planned `GEMINI_API_KEY` | Future adapter and contract tests |
 | `anthropic` | Anthropic Claude API; planned `ANTHROPIC_API_KEY` | Future adapter and contract tests |
@@ -159,3 +159,7 @@ The implementation passes the detailed tests in `10_TESTING.md` and demonstrates
 7. Gemini/Claude can be added by implementing and registering an adapter plus passing the same contract suite. Provider-specific tests verify any additional continuation/schema semantics before enabling each adapter.
 
 This is a design revision. Runtime conformance is established only when the relevant implementation milestone is built and tested.
+
+## M1 workbook scope extension — 2026-10-31
+
+User authorization advances only workbook interpretation into M1. `packages/llm` now implements a provider-neutral, one-response structured extraction contract and a native OpenAI Responses adapter, with explicit offline fixtures. `packages/agent` owns workbook context, prompt, output schema, evidence grounding and deterministic validation. There are no tools, streams, model-controlled commits, automatic fallbacks or hidden retries. Every clarification starts a fresh stateless extraction using the original workbook plus the full user clarification; no native continuation is discarded because there is no tool loop in this flow. M2 still owns general chat, incremental parsing, canonical tool history/opaque continuation and analysis modes. See M1 notes for exact limits and audit behavior.

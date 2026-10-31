@@ -1,0 +1,1327 @@
+{
+  "id": "0dca9842-c5ab-4ccc-883e-d6face8102c1",
+  "prevId": "786f0cc8-3a37-43ca-805f-af2c4b67f278",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.accounts": {
+      "name": "accounts",
+      "schema": "",
+      "columns": {
+        "account_key": {
+          "name": "account_key",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "institution": {
+          "name": "institution",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "account_type": {
+          "name": "account_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "base_currency": {
+          "name": "base_currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "account_currency": {
+          "name": "account_currency",
+          "value": "\"accounts\".\"base_currency\" ~ '^[A-Z]{3}$'"
+        },
+        "account_type": {
+          "name": "account_type",
+          "value": "\"accounts\".\"account_type\" in ('CASH','MARGIN','RRSP','TFSA','OTHER')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.cash_projection": {
+      "name": "cash_projection",
+      "schema": "",
+      "columns": {
+        "account_key": {
+          "name": "account_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "currency": {
+          "name": "currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "balance": {
+          "name": "balance",
+          "type": "numeric(30, 12)",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "cash_projection_account_key_accounts_account_key_fk": {
+          "name": "cash_projection_account_key_accounts_account_key_fk",
+          "tableFrom": "cash_projection",
+          "tableTo": "accounts",
+          "columnsFrom": [
+            "account_key"
+          ],
+          "columnsTo": [
+            "account_key"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "cash_projection_account_key_currency_pk": {
+          "name": "cash_projection_account_key_currency_pk",
+          "columns": [
+            "account_key",
+            "currency"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "cash_currency": {
+          "name": "cash_currency",
+          "value": "\"cash_projection\".\"currency\" ~ '^[A-Z]{3}$'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.demo_job_runs": {
+      "name": "demo_job_runs",
+      "schema": "",
+      "columns": {
+        "job_id": {
+          "name": "job_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "queue": {
+          "name": "queue",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "demo_version": {
+          "name": "demo_version",
+          "value": "\"demo_job_runs\".\"version\" = 1"
+        },
+        "demo_queue": {
+          "name": "demo_queue",
+          "value": "\"demo_job_runs\".\"queue\" = 'm2d.foundation-demo.v1'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.instruments": {
+      "name": "instruments",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "definition": {
+          "name": "definition",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "asset_type": {
+          "name": "asset_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "symbol": {
+          "name": "symbol",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "exchange": {
+          "name": "exchange",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "currency": {
+          "name": "currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "multiplier": {
+          "name": "multiplier",
+          "type": "numeric(30, 12)",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "instrument_currency": {
+          "name": "instrument_currency",
+          "value": "\"instruments\".\"currency\" ~ '^[A-Z]{3}$'"
+        },
+        "instrument_type": {
+          "name": "instrument_type",
+          "value": "\"instruments\".\"asset_type\" in ('STOCK','ETF','OPTION')"
+        },
+        "instrument_multiplier": {
+          "name": "instrument_multiplier",
+          "value": "(\"instruments\".\"asset_type\"='OPTION' and \"instruments\".\"multiplier\"=100) or (\"instruments\".\"asset_type\"<>'OPTION' and \"instruments\".\"multiplier\"=1)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.portfolio_account_aliases": {
+      "name": "portfolio_account_aliases",
+      "schema": "",
+      "columns": {
+        "sheet_name": {
+          "name": "sheet_name",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "account_key": {
+          "name": "account_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_import_id": {
+          "name": "source_import_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "portfolio_account_aliases_account_key_accounts_account_key_fk": {
+          "name": "portfolio_account_aliases_account_key_accounts_account_key_fk",
+          "tableFrom": "portfolio_account_aliases",
+          "tableTo": "accounts",
+          "columnsFrom": [
+            "account_key"
+          ],
+          "columnsTo": [
+            "account_key"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "portfolio_account_aliases_source_import_id_portfolio_imports_id_fk": {
+          "name": "portfolio_account_aliases_source_import_id_portfolio_imports_id_fk",
+          "tableFrom": "portfolio_account_aliases",
+          "tableTo": "portfolio_imports",
+          "columnsFrom": [
+            "source_import_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.portfolio_baselines": {
+      "name": "portfolio_baselines",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "effective_at": {
+          "name": "effective_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "available_at": {
+          "name": "available_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "preview_id": {
+          "name": "preview_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "snapshot": {
+          "name": "snapshot",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "import_id": {
+          "name": "import_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "restores_baseline_id": {
+          "name": "restores_baseline_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "portfolio_baselines_preview_id_portfolio_previews_id_fk": {
+          "name": "portfolio_baselines_preview_id_portfolio_previews_id_fk",
+          "tableFrom": "portfolio_baselines",
+          "tableTo": "portfolio_previews",
+          "columnsFrom": [
+            "preview_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "portfolio_baselines_import_id_portfolio_imports_id_fk": {
+          "name": "portfolio_baselines_import_id_portfolio_imports_id_fk",
+          "tableFrom": "portfolio_baselines",
+          "tableTo": "portfolio_imports",
+          "columnsFrom": [
+            "import_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "portfolio_baselines_revision_unique": {
+          "name": "portfolio_baselines_revision_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "revision"
+          ]
+        },
+        "portfolio_baselines_preview_id_unique": {
+          "name": "portfolio_baselines_preview_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "preview_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.portfolio_change_log": {
+      "name": "portfolio_change_log",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "record_id": {
+          "name": "record_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "preview_id": {
+          "name": "preview_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "effective_at": {
+          "name": "effective_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "available_at": {
+          "name": "available_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "changes": {
+          "name": "changes",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "portfolio_change_log_preview_id_portfolio_previews_id_fk": {
+          "name": "portfolio_change_log_preview_id_portfolio_previews_id_fk",
+          "tableFrom": "portfolio_change_log",
+          "tableTo": "portfolio_previews",
+          "columnsFrom": [
+            "preview_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "portfolio_change_log_revision_unique": {
+          "name": "portfolio_change_log_revision_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "revision"
+          ]
+        },
+        "portfolio_change_log_preview_id_unique": {
+          "name": "portfolio_change_log_preview_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "preview_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.portfolio_events": {
+      "name": "portfolio_events",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "baseline_id": {
+          "name": "baseline_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "effective_at": {
+          "name": "effective_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "available_at": {
+          "name": "available_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "preview_id": {
+          "name": "preview_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "operation": {
+          "name": "operation",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "realized": {
+          "name": "realized",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "portfolio_events_baseline_id_portfolio_baselines_id_fk": {
+          "name": "portfolio_events_baseline_id_portfolio_baselines_id_fk",
+          "tableFrom": "portfolio_events",
+          "tableTo": "portfolio_baselines",
+          "columnsFrom": [
+            "baseline_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "portfolio_events_preview_id_portfolio_previews_id_fk": {
+          "name": "portfolio_events_preview_id_portfolio_previews_id_fk",
+          "tableFrom": "portfolio_events",
+          "tableTo": "portfolio_previews",
+          "columnsFrom": [
+            "preview_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "portfolio_events_revision_unique": {
+          "name": "portfolio_events_revision_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "revision"
+          ]
+        },
+        "portfolio_events_preview_id_unique": {
+          "name": "portfolio_events_preview_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "preview_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.portfolio_import_mappings": {
+      "name": "portfolio_import_mappings",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "import_id": {
+          "name": "import_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "config": {
+          "name": "config",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "errors": {
+          "name": "errors",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sources": {
+          "name": "sources",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "warnings": {
+          "name": "warnings",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "normalized": {
+          "name": "normalized",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "preview_id": {
+          "name": "preview_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "memory": {
+          "name": "memory",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "portfolio_import_mappings_import_id_portfolio_imports_id_fk": {
+          "name": "portfolio_import_mappings_import_id_portfolio_imports_id_fk",
+          "tableFrom": "portfolio_import_mappings",
+          "tableTo": "portfolio_imports",
+          "columnsFrom": [
+            "import_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.portfolio_import_memories": {
+      "name": "portfolio_import_memories",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "signature": {
+          "name": "signature",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_import_id": {
+          "name": "source_import_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "profile": {
+          "name": "profile",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "portfolio_import_memories_source_import_id_portfolio_imports_id_fk": {
+          "name": "portfolio_import_memories_source_import_id_portfolio_imports_id_fk",
+          "tableFrom": "portfolio_import_memories",
+          "tableTo": "portfolio_imports",
+          "columnsFrom": [
+            "source_import_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.portfolio_import_runs": {
+      "name": "portfolio_import_runs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "import_id": {
+          "name": "import_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "request_key": {
+          "name": "request_key",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fingerprint": {
+          "name": "fingerprint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "finished_at": {
+          "name": "finished_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "provider": {
+          "name": "provider",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "model": {
+          "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "request": {
+          "name": "request",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "response": {
+          "name": "response",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error_code": {
+          "name": "error_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error_message": {
+          "name": "error_message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "portfolio_import_runs_import_id_portfolio_imports_id_fk": {
+          "name": "portfolio_import_runs_import_id_portfolio_imports_id_fk",
+          "tableFrom": "portfolio_import_runs",
+          "tableTo": "portfolio_imports",
+          "columnsFrom": [
+            "import_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "portfolio_import_runs_request_key_unique": {
+          "name": "portfolio_import_runs_request_key_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "request_key"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "import_run_status": {
+          "name": "import_run_status",
+          "value": "\"portfolio_import_runs\".\"status\" IN ('RUNNING','COMPLETED','FAILED')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.portfolio_imports": {
+      "name": "portfolio_imports",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "hash": {
+          "name": "hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "original_base64": {
+          "name": "original_base64",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "template_version": {
+          "name": "template_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "effective_on_confirmation": {
+          "name": "effective_on_confirmation",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "effective_at": {
+          "name": "effective_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "errors": {
+          "name": "errors",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "normalized": {
+          "name": "normalized",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "portfolio_imports_hash_unique": {
+          "name": "portfolio_imports_hash_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "hash"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "import_version": {
+          "name": "import_version",
+          "value": "\"portfolio_imports\".\"template_version\"=1"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.portfolio_previews": {
+      "name": "portfolio_previews",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "hash": {
+          "name": "hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expected_revision": {
+          "name": "expected_revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "effective_at": {
+          "name": "effective_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "import_id": {
+          "name": "import_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "restores_baseline_id": {
+          "name": "restores_baseline_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "operation": {
+          "name": "operation",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "proposed": {
+          "name": "proposed",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "changes": {
+          "name": "changes",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "warnings": {
+          "name": "warnings",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "realized": {
+          "name": "realized",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "confirmed_revision": {
+          "name": "confirmed_revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "portfolio_previews_import_id_portfolio_imports_id_fk": {
+          "name": "portfolio_previews_import_id_portfolio_imports_id_fk",
+          "tableFrom": "portfolio_previews",
+          "tableTo": "portfolio_imports",
+          "columnsFrom": [
+            "import_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "portfolio_previews_idempotency_key_unique": {
+          "name": "portfolio_previews_idempotency_key_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "idempotency_key"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "preview_status": {
+          "name": "preview_status",
+          "value": "\"portfolio_previews\".\"status\" in ('PENDING','CONFIRMED','EXPIRED','CONFLICT','REJECTED')"
+        },
+        "preview_kind": {
+          "name": "preview_kind",
+          "value": "\"portfolio_previews\".\"kind\" in ('EVENT','BASELINE')"
+        },
+        "preview_revision": {
+          "name": "preview_revision",
+          "value": "\"portfolio_previews\".\"expected_revision\">=0"
+        },
+        "preview_expiry": {
+          "name": "preview_expiry",
+          "value": "\"portfolio_previews\".\"expires_at\">\"portfolio_previews\".\"created_at\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.portfolio_revision": {
+      "name": "portfolio_revision",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "effective_at": {
+          "name": "effective_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "baseline_id": {
+          "name": "baseline_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "portfolio_singleton": {
+          "name": "portfolio_singleton",
+          "value": "\"portfolio_revision\".\"id\"=1"
+        },
+        "revision_nonnegative": {
+          "name": "revision_nonnegative",
+          "value": "\"portfolio_revision\".\"revision\">=0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.position_projection": {
+      "name": "position_projection",
+      "schema": "",
+      "columns": {
+        "account_key": {
+          "name": "account_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "instrument_id": {
+          "name": "instrument_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "numeric(30, 12)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "average_cost": {
+          "name": "average_cost",
+          "type": "numeric(30, 12)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "option_group": {
+          "name": "option_group",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "transaction_date": {
+          "name": "transaction_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "quality": {
+          "name": "quality",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "position_projection_account_key_accounts_account_key_fk": {
+          "name": "position_projection_account_key_accounts_account_key_fk",
+          "tableFrom": "position_projection",
+          "tableTo": "accounts",
+          "columnsFrom": [
+            "account_key"
+          ],
+          "columnsTo": [
+            "account_key"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "position_projection_instrument_id_instruments_id_fk": {
+          "name": "position_projection_instrument_id_instruments_id_fk",
+          "tableFrom": "position_projection",
+          "tableTo": "instruments",
+          "columnsFrom": [
+            "instrument_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "position_projection_account_key_instrument_id_pk": {
+          "name": "position_projection_account_key_instrument_id_pk",
+          "columns": [
+            "account_key",
+            "instrument_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "position_cost": {
+          "name": "position_cost",
+          "value": "\"position_projection\".\"average_cost\">=0"
+        },
+        "position_unknown_cost": {
+          "name": "position_unknown_cost",
+          "value": "\"position_projection\".\"average_cost\" is not null or \"position_projection\".\"quality\"='UNKNOWN'"
+        },
+        "position_quality": {
+          "name": "position_quality",
+          "value": "\"position_projection\".\"quality\" in ('BASELINE_ESTIMATE','COMPLETE_LEDGER','UNKNOWN')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.worker_heartbeats": {
+      "name": "worker_heartbeats",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "instance_id": {
+          "name": "instance_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "last_seen_at": {
+          "name": "last_seen_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "single_worker": {
+          "name": "single_worker",
+          "value": "\"worker_heartbeats\".\"id\" = 'worker'"
+        },
+        "heartbeat_order": {
+          "name": "heartbeat_order",
+          "value": "\"worker_heartbeats\".\"last_seen_at\" >= \"worker_heartbeats\".\"started_at\""
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

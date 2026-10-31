@@ -2,7 +2,14 @@ import pg from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { desc, eq, sql } from 'drizzle-orm';
 import { DEMO_QUEUE } from '@m2d/domain';
-import { demoJobRuns, workerHeartbeats } from './schema.js';
+import {
+  demoJobRuns,
+  workerHeartbeats,
+  portfolioRevision,
+  portfolioEvents,
+} from './schema.js';
+import { createPortfolioRepository } from './portfolio.js';
+export type { PortfolioRepository } from './portfolio.js';
 
 export interface OperationalState {
   lastHeartbeat: Date | null;
@@ -28,6 +35,11 @@ export function createDatabase(connectionString: string) {
       // Checking application tables distinguishes a reachable DB from a migrated DB.
       await db.select().from(workerHeartbeats).limit(1);
       await db.select().from(demoJobRuns).limit(1);
+      await db.select().from(portfolioRevision).limit(1);
+      await db
+        .select({ id: portfolioEvents.id })
+        .from(portfolioEvents)
+        .limit(1);
     },
     async getState(): Promise<OperationalState> {
       const [heartbeats, jobs] = await Promise.all([
@@ -64,5 +76,10 @@ export function createDatabase(connectionString: string) {
       return inserted.length === 1;
     },
   };
-  return { pool, repository, close: () => pool.end() };
+  return {
+    pool,
+    repository,
+    portfolio: createPortfolioRepository(pool),
+    close: () => pool.end(),
+  };
 }

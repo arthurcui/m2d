@@ -4,7 +4,9 @@ import { buildApp } from './app.js';
 
 const config = readConfig(process.env);
 const database = createDatabase(config.DATABASE_URL);
-const app = buildApp(database.repository, config, true);
+const app = buildApp(database.repository, config, true, database.portfolio, {
+  key: process.env.OPENAI_API_KEY ?? '',
+});
 app.addHook('onClose', async () => database.close());
 let stopping = false;
 async function shutdown() {

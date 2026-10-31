@@ -62,3 +62,15 @@ AI errors add `LLM_CONFIG_MISSING`, `LLM_PROVIDER_NOT_IMPLEMENTED`, `LLM_AUTH_FA
 
 ## 6. Worker events
 Internally persist: `PortfolioRevisionConfirmed`, `MarketQuoteUpdated`, `OptionChainUpdated`, `DocumentVersionObserved`, `MaterialFactChanged`, `WatchRuleTriggered`, `SignalStatusChanged`, `ScanCompleted`, `AlertRaised`. Include event ID, observed_at, causation ID and idempotency key. Events may be retried; subscribers must be idempotent.
+
+## M1 implementation mapping
+
+The implemented M1 routes, concrete payloads, error handling and workbook template endpoint are documented in [M1_PORTFOLIO.md](M1_PORTFOLIO.md#http-v1). Account creation/update uses `ACCOUNT_UPSERT` through the common preview/confirm routes. Natural-language parsing remains deferred to M2. The remaining routes in this design are future milestone targets.
+
+## Current M1 import identity extension
+
+Remembered interpretations now report `ai.provider="remembered"`, `ai.model="format-v2"` and the confirmed profile timestamp. Rule candidates are saved only by the existing confirmation transaction. Preview warnings disclose rule learning/reuse and current-year expiry assumptions. No new mutation endpoint is introduced.
+
+The parse route also accepts optional `dialogue: {message, question, explain?, history?}` for workbook follow-ups. `clarification` contains previous supplied facts, separately from conversation. Responses may include `acceptedClarification` and `ai.intent="explain"` / `ai.reply`; explanations retain the pending question and cannot produce a preview. See the conversational clarification section of M1_PORTFOLIO.md for bounds and audit behavior.
+
+`POST /api/v1/portfolio/imports/:id/parse` additionally accepts optional `accountDecisions` containing `{sheet,kind:"new"}` or `{sheet,kind:"rename",accountKey}`. Unresolved unfamiliar account tabs return `ai.accountQuestions` with available accounts and no model dispatch/preview. Decisions are audited and committed only through the existing preview confirmation. Positions additionally support optional ISO date-only `transactionDate`. See [M1_PORTFOLIO.md](M1_PORTFOLIO.md) and [the implemented ERD](ERD.md).

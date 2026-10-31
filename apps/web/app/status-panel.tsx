@@ -80,7 +80,7 @@ export function StatusPanel() {
         <article>
           <p>Database</p>
           <h3>{failed ? unavailable : (data?.database ?? unavailable)}</h3>
-          <small>PostgreSQL · local persistent storage</small>
+          <small>Portfolio records and change history</small>
         </article>
         <article>
           <p>Worker</p>
@@ -107,13 +107,19 @@ export function StatusPanel() {
           </small>
         </article>
         <article>
-          <p>AI inference</p>
-          <h3>Unavailable in M0</h3>
+          <p>Workbook parsing</p>
+          <h3>
+            {data?.ai.available
+              ? 'AI ready'
+              : data?.ai.status === 'fixture_only'
+                ? 'Offline demo'
+                : 'Setup required'}
+          </h3>
           <small>
             {data
               ? `${data.ai.provider} / ${data.ai.model || 'model unset'}`
               : 'Configuration unavailable'}{' '}
-            · no inference calls
+            · chat coming in M2
           </small>
         </article>
       </div>
@@ -122,7 +128,7 @@ export function StatusPanel() {
           ? 'Status refresh failed. Last recorded timestamps may be stale.'
           : status
             ? `Observed ${time(status.meta.asOf, status.data.displayTimezone)} · ${status.data.displayTimezone}`
-            : 'Connecting to the local API…'}{' '}
+            : 'Connecting…'}{' '}
         · Market data is not connected.
       </p>
     </section>

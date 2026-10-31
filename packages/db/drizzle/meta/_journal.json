@@ -8,6 +8,48 @@
       "when": 1793426593589,
       "tag": "0000_lumpy_dragon_man",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793429030038,
+      "tag": "0001_tiny_meltdown",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793431067683,
+      "tag": "0002_robust_expediter",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793432150623,
+      "tag": "0003_greedy_hellion",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793433033518,
+      "tag": "0004_tiresome_justice",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793454420047,
+      "tag": "0005_greedy_black_cat",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793456161472,
+      "tag": "0006_gray_adam_warlock",
+      "breakpoints": true
     }
   ]
 }

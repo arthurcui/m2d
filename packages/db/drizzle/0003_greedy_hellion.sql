@@ -1,0 +1,1 @@
+ALTER TABLE "portfolio_imports" ADD COLUMN "effective_on_confirmation" boolean DEFAULT false NOT NULL;

@@ -10,9 +10,15 @@
     "dev": "node --env-file-if-exists=../../.env --watch dist/main.js"
   },
   "dependencies": {
+    "@m2d/portfolio": "workspace:*",
+    "@m2d/ingestion": "workspace:*",
+    "@fastify/multipart": "10.1.6",
+    "zod": "^4.1.12",
     "@m2d/config": "workspace:*",
     "@m2d/db": "workspace:*",
     "@m2d/domain": "workspace:*",
-    "fastify": "5.12.7"
+    "fastify": "5.12.7",
+    "@m2d/agent": "workspace:*",
+    "@m2d/llm": "workspace:*"
   }
 }
