@@ -362,7 +362,9 @@ export function AgentChat({
             <p>
               Ask about your recorded portfolio or describe a change. I will ask
               for missing details and show a preview before you confirm. Market
-              research and live prices are not available yet.
+              research is not available yet. Stored market valuation is
+              available with source and freshness labels; it is not an execution
+              quote.
             </p>
           </div>
           {session?.history

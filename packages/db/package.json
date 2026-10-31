@@ -13,6 +13,8 @@
     "migrate": "node --env-file-if-exists=../../.env dist/migrate.js"
   },
   "dependencies": {
+    "@m2d/market": "workspace:*",
+    "zod": "^4.1.12",
     "@m2d/portfolio": "workspace:*",
     "drizzle-orm": "0.45.4",
     "pg": "^8.16.3",

@@ -2,6 +2,8 @@
 
 M2 adds conversation-based self-reported portfolio updates. It does not add market feeds, research retrieval, order execution or autonomous monitoring. Existing workbook interpretation and confirmation remain available.
 
+These are the M2 delivery notes. [M3](M3_MARKET.md) subsequently adds cached market valuation and `market_valuation_read_v1`; research, execution and autonomous monitoring remain unavailable. M3 verification also made terminal run status and its final event persist atomically, preventing a stream from ending before its result/error details are saved.
+
 ## Use
 
 Start with `docker compose up --build --detach --wait --wait-timeout 180`, then open http://127.0.0.1:3000. The shared Agent panel has a separate PostgreSQL-backed conversation for every navigation function. Enter sends; Shift+Enter inserts a line. Drafts are saved to PostgreSQL after a short debounce, with an immediate browser-local copy. Navigating or closing the panel does not cancel a run. Reload reconnects to saved progress. **Cancel run** explicitly stops inference. **New conversation** archives the previous session and retains its run audit records.
@@ -20,7 +22,7 @@ The deterministic fixture supports explicit stock buy/sell, cash deposit/withdra
 
 - `agent_sessions`: context, canonical text/tool history, private continuation and draft/revision. Archived sessions remain in the database.
 - `agent_runs`: request fingerprint/key, parent run, frozen provider/model, adapter/prompt/schema/policy versions, selected mode, effective ceilings, portfolio revision, progress events, terminal state, measured usage and estimated/reserved costs.
-- `agent_tool_calls`: `(run_id, call_id)` identity, argument fingerprint and cached result. Only `portfolio_read_v1` and `portfolio_preview_v1` are allowlisted. The existing portfolio preview key also deduplicates a tool whose response was interrupted.
+- `agent_tool_calls`: `(run_id, call_id)` identity, argument fingerprint and cached result. M2 allowlists `portfolio_read_v1` and `portfolio_preview_v1`; M3 adds the read-only `market_valuation_read_v1`. The existing portfolio preview key also deduplicates a tool whose response was interrupted.
 - `app_settings`: singleton, revision-guarded analysis default.
 
 See [the generated ERD](ERD.md). Migration `0007` is additive. Existing portfolio tables and historical records are preserved.

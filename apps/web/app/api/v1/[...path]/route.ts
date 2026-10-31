@@ -9,13 +9,17 @@ async function proxy(
 ) {
   const path = (await context.params).path.join('/');
   const post = request.method !== 'GET';
+  const marketRead =
+    /^(portfolio\/valuation|market\/(?:status|quotes|fx|snapshots|(?:bars|options)\/[A-Z0-9.^-]{1,24}))$/;
+  const marketWrite = /^market\/(?:refresh|snapshots)$/;
   const chatRead =
     /^(settings\/analysis|chat\/sessions\/[a-z]+|chat\/runs\/[0-9a-f-]{36}(?:\/events)?)$/;
   const chatWrite =
     /^(settings\/analysis|chat\/sessions\/[a-z]+(?:\/(?:runs|reset))?|chat\/runs\/[0-9a-f-]{36}\/cancel)$/;
   if (
     !(post ? writes : reads).test(path) &&
-    !(post ? chatWrite : chatRead).test(path)
+    !(post ? chatWrite : chatRead).test(path) &&
+    !(post ? marketWrite : marketRead).test(path)
   )
     return Response.json(
       { error: { code: 'NOT_FOUND', message: 'Route unavailable.' } },

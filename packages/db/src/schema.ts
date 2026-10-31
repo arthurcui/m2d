@@ -10,6 +10,7 @@ import {
   jsonb,
   date,
   primaryKey,
+  index,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import type {
@@ -21,6 +22,81 @@ import type {
   WorkbookMapping,
   ImportSource,
 } from '@m2d/portfolio';
+import type { Payload, Valuation } from '@m2d/market';
+
+export const marketObservations = pgTable(
+  'market_observations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    provider: text('provider').notNull(),
+    kind: text('kind').notNull(),
+    subject: text('subject').notNull(),
+    contentHash: text('content_hash').notNull().unique(),
+    asOf: timestamp('as_of', { withTimezone: true, mode: 'string' }).notNull(),
+    receivedAt: timestamp('received_at', {
+      withTimezone: true,
+      mode: 'string',
+    }).notNull(),
+    availableAt: timestamp('available_at', {
+      withTimezone: true,
+      mode: 'string',
+    }).notNull(),
+    payload: jsonb('payload').$type<Payload>().notNull(),
+    raw: jsonb('raw').$type<unknown>().notNull(),
+  },
+  (t) => [
+    check('market_provider', sql`${t.provider} in ('fixture','twelvedata')`),
+    check('market_kind', sql`${t.kind} in ('quote','bars','fx','options')`),
+    check(
+      'market_observation_time',
+      sql`${t.asOf} <= ${t.receivedAt} and ${t.receivedAt} <= ${t.availableAt}`,
+    ),
+    index('market_lookup').on(t.provider, t.kind, t.subject, t.asOf),
+  ],
+);
+export const marketRefreshes = pgTable(
+  'market_refreshes',
+  {
+    requestKey: text('request_key').primaryKey(),
+    fingerprint: text('fingerprint').notNull(),
+    provider: text('provider').notNull(),
+    subject: text('subject').notNull(),
+    startedAt: timestamp('started_at', { withTimezone: true, mode: 'string' })
+      .notNull()
+      .defaultNow(),
+    status: text('status').notNull(),
+    errorCode: text('error_code'),
+    observationId: uuid('observation_id').references(
+      () => marketObservations.id,
+    ),
+  },
+  (t) => [
+    check(
+      'market_refresh_status',
+      sql`${t.status} in ('PENDING','SUCCEEDED','FAILED')`,
+    ),
+  ],
+);
+export const valuationSnapshots = pgTable(
+  'valuation_snapshots',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    requestKey: text('request_key').notNull().unique(),
+    portfolioRevision: integer('portfolio_revision').notNull(),
+    computedAt: timestamp('computed_at', {
+      withTimezone: true,
+      mode: 'string',
+    }).notNull(),
+    provider: text('provider').notNull(),
+    baseCurrency: text('base_currency').notNull(),
+    valuation: jsonb('valuation').$type<Valuation>().notNull(),
+    observationIds: jsonb('observation_ids').$type<string[]>().notNull(),
+  },
+  (t) => [
+    check('valuation_revision', sql`${t.portfolioRevision}>=0`),
+    check('valuation_currency', sql`${t.baseCurrency} ~ '^[A-Z]{3}$'`),
+  ],
+);
 
 const money = (name: string) => numeric(name, { precision: 30, scale: 12 });
 const utc = (name: string) =>

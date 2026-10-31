@@ -81,7 +81,15 @@ const configSchema = z.object({
     (v) => (v === '' ? undefined : v),
     z.string().min(1).optional(),
   ),
-  MARKET_PROVIDER: z.literal('fixture').default('fixture'),
+  MARKET_PROVIDER: z.enum(['fixture', 'twelvedata']).default('fixture'),
+  BASE_CURRENCY: z
+    .string()
+    .regex(/^[A-Z]{3}$/)
+    .default('USD'),
+  MARKET_DELAY_MINUTES: z.preprocess(
+    (v) => (v === '' || v === undefined ? null : v),
+    z.coerce.number().int().min(0).max(1440).nullable(),
+  ),
 });
 export type Config = z.infer<typeof configSchema>;
 export function readConfig(env: Record<string, string | undefined>): Config {

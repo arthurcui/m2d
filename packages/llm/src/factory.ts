@@ -55,7 +55,30 @@ export class ChatFixtureProvider implements LlmProvider {
     );
     const tail = request.history.slice(last + 1),
       result = tail.findLast((i) => i.kind === 'tool_result');
-    if (!result) return call('portfolio_read_v1', {});
+    const user = request.history[last];
+    const valuationQuestion =
+      user?.kind === 'text' &&
+      /\b(nav|valuation|portfolio worth|unrealized)\b/i.test(user.text) &&
+      !/\b(buy|bought|sell|sold)\b/i.test(user.text);
+    if (!result)
+      return call(
+        valuationQuestion ? 'market_valuation_read_v1' : 'portfolio_read_v1',
+        {},
+      );
+    if (valuationQuestion) {
+      const value = result.output as {
+        nav?: string | null;
+        knownValue?: string;
+        baseCurrency?: string;
+        quality?: string;
+        oldestAsOf?: string | null;
+        error?: { message: string };
+      };
+      if (value.error) return reply(value.error.message);
+      return reply(
+        `Stored portfolio valuation: ${value.nav ?? `incomplete (known subtotal ${value.knownValue ?? 'unknown'})`} ${value.baseCurrency ?? ''}. Quality: ${value.quality ?? 'unknown'}. Oldest price: ${value.oldestAsOf ?? 'no market evidence'}. Fixture prices are synthetic, never actual market values. Historical returns and pre-baseline realized P&L are unknown.`,
+      );
+    }
     const output = result.output as {
       error?: { message: string };
       id?: string;
@@ -110,7 +133,7 @@ export class ChatFixtureProvider implements LlmProvider {
     const message = latest?.kind === 'text' ? latest.text : '';
     if (/research|recommend|signal|price now|live|opportunit/i.test(message))
       return reply(
-        'NO_SIGNAL — live market data and research are not implemented in M2. I can inspect your self-reported portfolio or preview a reported change.',
+        'NO_SIGNAL — research and actionable trade recommendations are unavailable. Stored indicative valuation can be inspected with its source and freshness labels; it is not an execution quote.',
       );
     if (!/buy|bought|sell|sold|deposit|withdraw|cash|covered call/i.test(text))
       return reply(

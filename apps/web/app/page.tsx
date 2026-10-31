@@ -1,5 +1,6 @@
 import { StatusPanel } from './status-panel';
 import { PortfolioSummary } from './portfolio/portfolio-client';
+import { ValuationPanel } from './market/valuation';
 export default function Home() {
   return (
     <>
@@ -9,14 +10,14 @@ export default function Home() {
       </div>
       <StatusPanel />
       <PortfolioSummary />
+      <ValuationPanel />
       <section className="workspace-card activity-card">
         <div className="card-heading">
           <h2>Coming next</h2>
         </div>
         <p className="card-note">
-          Chat and natural-language updates arrive in M2. Market prices and
-          valuation arrive in M3. Portfolio records are self-reported; no orders
-          are sent.
+          Research and filings arrive in M4. Risk planning and monitoring follow
+          later. Portfolio records are self-reported; no orders are sent.
         </p>
       </section>
     </>

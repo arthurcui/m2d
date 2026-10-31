@@ -27,7 +27,7 @@ const shortNames = [
   'Overview',
   'Portfolio',
   'Risk',
-  'Watchlist',
+  'Market',
   'Ideas',
   'Research',
   'Journal',
