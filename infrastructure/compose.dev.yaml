@@ -1,0 +1,5 @@
+# Opt-in host database port for running Node processes outside Docker.
+services:
+  postgres:
+    ports:
+      - '127.0.0.1:5432:5432'

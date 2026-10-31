@@ -1,0 +1,6 @@
+import { fileURLToPath, URL } from 'node:url';
+export default {
+  output: 'standalone',
+  outputFileTracingRoot: fileURLToPath(new URL('../../', import.meta.url)),
+  poweredByHeader: false,
+};

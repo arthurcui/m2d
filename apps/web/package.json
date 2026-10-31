@@ -1,0 +1,22 @@
+{
+  "name": "@m2d/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "next build",
+    "typecheck": "next typegen && tsc --noEmit",
+    "start": "next start --hostname 127.0.0.1",
+    "dev": "next dev --hostname 127.0.0.1"
+  },
+  "dependencies": {
+    "@m2d/domain": "workspace:*",
+    "next": "16.4.3",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0"
+  }
+}

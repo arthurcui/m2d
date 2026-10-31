@@ -1,0 +1,100 @@
+name: m2d
+services:
+  postgres:
+    image: postgres:17.6-bookworm
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-m2d}
+      POSTGRES_USER: ${POSTGRES_USER:-m2d}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-m2d-local-only}
+      TZ: UTC
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [CMD-SHELL, 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+  api:
+    build:
+      context: .
+      dockerfile: infrastructure/Dockerfile.backend
+      target: api
+    environment: &backend
+      DATABASE_URL: postgresql://${POSTGRES_USER:-m2d}:${POSTGRES_PASSWORD:-m2d-local-only}@postgres:5432/${POSTGRES_DB:-m2d}
+      API_HOST: 0.0.0.0
+      API_PORT: 3001
+      APP_TIMEZONE: ${APP_TIMEZONE:-America/Vancouver}
+      MARKET_TIMEZONE: America/New_York
+      LLM_PROVIDER: ${LLM_PROVIDER:-fixture}
+      LLM_MODEL: ${LLM_MODEL:-fixture-v1}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      MARKET_PROVIDER: fixture
+      TZ: UTC
+    volumes:
+      - ./data/uploads:/app/data/uploads
+      - ./data/research:/app/data/research
+      - ./data/exports:/app/data/exports
+      - ./data/backups:/app/data/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:3001/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 7s
+      retries: 20
+      start_period: 20s
+    init: true
+    restart: unless-stopped
+  worker:
+    build:
+      context: .
+      dockerfile: infrastructure/Dockerfile.backend
+      target: worker
+    environment: *backend
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, node, dist/health.js]
+      interval: 15s
+      timeout: 7s
+      retries: 3
+      start_period: 20s
+    stop_grace_period: 20s
+    init: true
+    restart: unless-stopped
+  web:
+    build:
+      context: .
+      dockerfile: infrastructure/Dockerfile.web
+    environment:
+      API_INTERNAL_URL: http://api:3001
+    ports:
+      - '127.0.0.1:3000:3000'
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    init: true
+    restart: unless-stopped
+volumes:
+  postgres_data:
