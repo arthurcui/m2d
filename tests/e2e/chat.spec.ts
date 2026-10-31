@@ -11,7 +11,6 @@ test('Agent persists a streamed conversation, mode preference and draft across r
     .getByRole('button', { name: 'New conversation', exact: true })
     .click();
   await chat.getByLabel('General analysis mode').selectOption('quick');
-  await chat.getByRole('button', { name: 'Save as default' }).click();
   await expect(chat.getByRole('status')).toHaveText('Default saved: quick.');
   await chat
     .getByLabel('General message')
@@ -37,7 +36,6 @@ test('Agent persists a streamed conversation, mode preference and draft across r
     'Unsent follow-up',
   );
   await chat.getByLabel('General analysis mode').selectOption('standard');
-  await chat.getByRole('button', { name: 'Save as default' }).click();
   await expect(chat.getByRole('status')).toHaveText('Default saved: standard.');
   await page.setViewportSize({ width: 390, height: 844 });
   expect(

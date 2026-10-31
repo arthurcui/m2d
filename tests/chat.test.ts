@@ -20,6 +20,7 @@ import {
 import {
   stateSchema,
   instrumentSchema,
+  instrumentKey,
   applyOperation,
 } from '../packages/portfolio/src/index.js';
 const stock = instrumentSchema.parse({
@@ -68,7 +69,7 @@ const ceilings = {
   maxRunCost: null,
   dailyBudget: null,
 };
-const user = (text: string): CanonicalItem => ({
+const user = (text: string): Extract<CanonicalItem, { kind: 'text' }> => ({
   id: randomUUID(),
   kind: 'text',
   role: 'user',
@@ -166,7 +167,7 @@ describe('M2 chat orchestration', () => {
       },
     });
     expect(state.cash[0]?.balance).toBe('0');
-    expect(result.attempts).toBe(3);
+    expect(result.attempts).toBe(2);
   });
   it('asks for missing contract facts without a preview', async () => {
     const h = harness(undefined, 'sell to open 1 covered call');
@@ -517,4 +518,438 @@ it('enforces tool and wall-clock budgets before executing another tool', async (
   await expect(
     harness(provider).start({ limits: { ...ceilings, deadlineMs: 1 } }),
   ).rejects.toMatchObject({ code: 'LLM_BUDGET' });
+});
+
+it('sends a strict provider-compatible tool schema with disjoint operation variants', async () => {
+  const { chatTools } = await import('../packages/agent/src/index.js');
+  let calls = 0;
+  const provider = new OpenAiProvider('test-key', async (_url, init) => {
+    calls++;
+    const body = JSON.parse(String(init?.body)) as {
+      tools: { parameters: Record<string, unknown> }[];
+    };
+    function check(value: unknown) {
+      if (!value || typeof value !== 'object') return;
+      if (Array.isArray(value)) {
+        value.forEach(check);
+        return;
+      }
+      const record = value as Record<string, unknown>;
+      expect(record).not.toHaveProperty('oneOf');
+      expect(record).not.toHaveProperty('default');
+      if (record.type === 'object') {
+        expect(record.additionalProperties).toBe(false);
+        expect(record.required).toEqual(
+          Object.keys(record.properties as object),
+        );
+      }
+      Object.values(record).forEach(check);
+    }
+    body.tools.forEach((t) => check(t.parameters));
+    const operation = (
+      body.tools[1]!.parameters.properties as Record<
+        string,
+        { anyOf: Record<string, unknown>[] }
+      >
+    )['operation']!;
+    const seen = new Set<string>();
+    for (const branch of operation.anyOf) {
+      const props = branch.properties as Record<string, { enum: string[] }>;
+      expect(Object.keys(props)[0]).toBe('kind');
+      for (const kind of props.kind!.enum) {
+        expect(seen.has(kind)).toBe(false);
+        seen.add(kind);
+      }
+    }
+    expect(seen.has('STOCK_BUY')).toBe(true);
+    expect(seen.has('OPTION_STO')).toBe(true);
+    return sse(native([message]));
+  });
+  for await (const event of provider.stream({ ...request, tools: chatTools })) {
+    if (event.type === 'result') expect(event.result.status).toBe('completed');
+  }
+  expect(calls).toBe(1);
+});
+it('identifies invalid tool schemas without echoing private provider error text', async () => {
+  let calls = 0;
+  const provider = new OpenAiProvider('test-key', async () => {
+    calls++;
+    return new Response(
+      JSON.stringify({
+        error: {
+          type: 'invalid_request_error',
+          code: 'invalid_function_parameters',
+          param: 'tools[1].parameters',
+          message: 'Private portfolio data and test-key must not be echoed',
+        },
+      }),
+      {
+        status: 400,
+        headers: {
+          'content-type': 'application/json',
+          'x-request-id': 'req_schema_test',
+        },
+      },
+    );
+  });
+  try {
+    for await (const event of provider.stream(request)) {
+      void event;
+    }
+    throw new Error('Expected rejection');
+  } catch (error) {
+    expect(error).toMatchObject({
+      code: 'LLM_INVALID_REQUEST',
+      message: expect.stringContaining('tool definition'),
+      diagnostics: {
+        providerCode: 'invalid_function_parameters',
+        parameter: 'tools[1].parameters',
+        requestId: 'req_schema_test',
+      },
+    });
+    expect(String(error)).not.toContain('Private portfolio');
+    expect(String(error)).not.toContain('test-key');
+  }
+  expect(calls).toBe(1);
+});
+
+it('records a yesterday trade now, without asking for an exact UTC time', async () => {
+  const { reportedTradeDate, chatTools } =
+    await import('../packages/agent/src/index.js');
+  const now = '2026-10-31T19:00:00.000Z';
+  const history: CanonicalItem[] = [
+    {
+      ...user('sold 1 share AAPL at $200 in Margin yesterday'),
+      createdAt: '2026-10-31T18:30:00Z',
+    },
+    user('fee 0'),
+  ];
+  const operation = validateChatOperation(
+    {
+      covered: false,
+      operation: {
+        kind: 'STOCK_SELL',
+        accountKey: 'margin',
+        instrument: stock,
+        quantity: '1',
+        price: '200',
+        fees: '0',
+        note: 'Reported sale',
+        transactionDate: null,
+      },
+    },
+    history,
+    state,
+    now,
+  );
+  expect(operation).toMatchObject({
+    kind: 'STOCK_SELL',
+    effectiveAt: now,
+    transactionDate: '2026-10-30',
+  });
+  expect(JSON.stringify(chatTools)).not.toContain('effectiveAt');
+  // Clarifying after midnight must not move yesterday to a different date.
+  expect(reportedTradeDate(history, '2026-11-01T20:00:00Z')).toBe('2026-10-30');
+  expect(
+    reportedTradeDate(
+      [user('sell to open 1 covered call expiry 2026-12-18')],
+      now,
+    ),
+  ).toBeUndefined();
+  expect(() =>
+    validateChatOperation(
+      {
+        covered: false,
+        operation: { ...operation, transactionDate: '2099-01-01' },
+      },
+      [user('sold 1 AAPL at 200 fee 0')],
+      state,
+      now,
+    ),
+  ).toThrow('future');
+});
+it('retains real trade facts after a note-only preview and never says a preview is recorded', async () => {
+  const now = '2026-10-31T19:00:00.000Z';
+  const history: CanonicalItem[] = [
+    user('sold 1 AAPL at 200 fee 0 yesterday'),
+    {
+      id: randomUUID(),
+      kind: 'tool_result',
+      callId: 'note',
+      output: { id: randomUUID(), operation: { kind: 'NOTE_ONLY' } },
+    },
+    user('this is a real transaction, just reporting late'),
+  ];
+  const operation = validateChatOperation(
+    {
+      covered: false,
+      operation: {
+        kind: 'STOCK_SELL',
+        accountKey: 'margin',
+        instrument: stock,
+        quantity: '1',
+        price: '200',
+        fees: '0',
+        note: 'Late sale',
+      },
+    },
+    history,
+    state,
+    now,
+  );
+  expect(operation).toMatchObject({ transactionDate: '2026-10-30' });
+  const h = harness(
+    undefined,
+    'sold 1 share AAPL at 200 in Margin yesterday fee 0',
+  );
+  const result = await h.start();
+  expect(result.previewId).toBeTruthy();
+  expect(h.history().at(-1)).toMatchObject({
+    kind: 'text',
+    text: expect.stringContaining('has not been recorded'),
+  });
+});
+
+it('can submit a second transaction without replaying large historical snapshots', async () => {
+  const h = harness();
+  await h.start();
+  const first = [...h.history()];
+  // Simulate a workbook-sized stored tool result from the first trade.
+  const snapshot = first.find((i) => i.kind === 'tool_result');
+  if (!snapshot || snapshot.kind !== 'tool_result')
+    throw Error('missing snapshot');
+  snapshot.output = { state: { evidence: 'x'.repeat(100000) }, revision: 1 };
+  const original = JSON.stringify(first);
+  const next = [...first, user('sold 2 shares AAPL at 210 no fees')];
+  const result = await h.start({ history: next });
+  expect(result.previewId).toBeTruthy();
+  expect(h.changes).toHaveLength(2);
+  expect(JSON.stringify(first)).toBe(original);
+  expect(result.history).toContainEqual(snapshot);
+  expect(h.events).toContainEqual(
+    expect.objectContaining({ type: 'context_refreshed' }),
+  );
+});
+
+it('uses a selected holding for shorthand, but asks for trade price and fees', async () => {
+  const selected = {
+    accountKey: 'margin',
+    instrumentKey: instrumentKey(stock),
+  };
+  const h = harness();
+  const first = await h.start({
+    history: [{ ...user('sold 3 shares'), holdingContext: selected }],
+  });
+  expect(first.previewId).toBeNull();
+  expect(h.changes).toHaveLength(0);
+  expect(first.history.at(-1)).toMatchObject({
+    text: expect.stringContaining('price per share'),
+  });
+  const result = await h.start({
+    history: [
+      ...first.history,
+      { ...user('at $200, no fees'), holdingContext: selected },
+    ],
+  });
+  expect(result.previewId).toBeTruthy();
+  expect(h.changes[0]).toMatchObject({
+    state: {
+      positions: expect.arrayContaining([
+        expect.objectContaining({ quantity: '97' }),
+      ]),
+      cash: expect.arrayContaining([
+        expect.objectContaining({ balance: '600' }),
+      ]),
+    },
+  });
+  expect(
+    result.history.find((i) => i.kind === 'text' && i.role === 'user'),
+  ).toMatchObject({ holdingContext: selected, text: 'sold 3 shares' });
+});
+it('rejects a different or removed holding instead of using the wrong selected context', async () => {
+  const selected = {
+    accountKey: 'margin',
+    instrumentKey: instrumentKey(stock),
+  };
+  const history = [
+    { ...user('sold 3 shares at 200 no fees'), holdingContext: selected },
+  ];
+  expect(() =>
+    validateChatOperation(
+      {
+        covered: false,
+        operation: {
+          kind: 'STOCK_SELL',
+          accountKey: 'another-account',
+          instrument: stock,
+          quantity: '3',
+          price: '200',
+          fees: '0',
+          note: 'sale',
+        },
+      },
+      history,
+      state,
+      new Date().toISOString(),
+    ),
+  ).toThrow('selected holding');
+  const h = harness();
+  h.deps.overview = async () => ({
+    state: { ...state, positions: [] },
+    revision: 2,
+    effectiveAt: null,
+  });
+  expect(() =>
+    validateChatOperation(
+      {
+        covered: false,
+        operation: {
+          kind: 'STOCK_SELL',
+          accountKey: 'margin',
+          instrument: stock,
+          quantity: '3',
+          price: '200',
+          fees: '0',
+          note: 'sale',
+        },
+      },
+      history,
+      { ...state, positions: [] },
+      new Date().toISOString(),
+    ),
+  ).toThrow('no longer');
+});
+
+it('does not reuse transaction amounts when the selected holding changes', () => {
+  const selected = {
+    accountKey: 'margin',
+    instrumentKey: instrumentKey(stock),
+  };
+  const history = [
+    {
+      ...user('sold 3 shares at 200 no fees'),
+      holdingContext: { ...selected, accountKey: 'other' },
+    },
+    { ...user('at 200 no fees'), holdingContext: selected },
+  ];
+  expect(() =>
+    validateChatOperation(
+      {
+        covered: false,
+        operation: {
+          kind: 'STOCK_SELL',
+          accountKey: 'margin',
+          instrument: stock,
+          quantity: '3',
+          price: '200',
+          fees: '0',
+          note: 'sale',
+        },
+      },
+      history,
+      state,
+      new Date().toISOString(),
+    ),
+  ).toThrow('quantity');
+});
+
+it('answers a different ticker with holding or account selection without inference or mutation', async () => {
+  const h = harness();
+  const current = {
+    ...state,
+    accounts: [
+      ...state.accounts,
+      { ...state.accounts[0]!, accountKey: 'tfsa', displayName: 'TFSA' },
+    ],
+    positions: [
+      ...state.positions,
+      {
+        ...state.positions[0]!,
+        instrument: { ...stock, symbol: 'TSLA' },
+        quantity: '2.5',
+      },
+      {
+        ...state.positions[0]!,
+        accountKey: 'tfsa',
+        instrument: { ...stock, symbol: 'TSLA' },
+        quantity: '-1.25',
+      },
+    ],
+  };
+  h.deps.overview = async () => ({
+    state: current,
+    revision: 8,
+    effectiveAt: '2026-10-31T12:00:00Z',
+  });
+  for (const holdingContext of [
+    { accountKey: 'margin', instrumentKey: 'removed holding' },
+    { accountKey: 'margin' },
+  ]) {
+    const result = await h.start({
+      history: [{ ...user('how many tsla?'), holdingContext }],
+    });
+    expect(result.history.at(-1)).toMatchObject({
+      text: expect.stringContaining('2.5 TSLA shares'),
+    });
+    expect(result.attempts).toBe(0);
+    expect(result.previewId).toBeNull();
+  }
+  const all = await h.start({
+    history: [
+      {
+        ...user('how many tsla across all accounts?'),
+        holdingContext: { accountKey: 'margin' },
+      },
+    ],
+  });
+  expect(all.history.at(-1)).toMatchObject({
+    text: expect.stringContaining('All accounts: 1.25 TSLA shares'),
+  });
+  expect(h.changes).toHaveLength(0);
+});
+it('account-only context still requires a security and prevents changes to another account', async () => {
+  const h = harness();
+  const result = await h.start({
+    history: [
+      {
+        ...user('sold 3 shares at 200 no fees'),
+        holdingContext: { accountKey: 'margin' },
+      },
+    ],
+  });
+  expect(result.previewId).toBeNull();
+  expect(result.history.at(-1)).toMatchObject({
+    text: expect.stringContaining('Which security'),
+  });
+  const next = await h.start({
+    history: [
+      ...result.history,
+      { ...user('AAPL'), holdingContext: { accountKey: 'margin' } },
+    ],
+  });
+  expect(next.previewId).toBeTruthy();
+  expect(() =>
+    validateChatOperation(
+      {
+        covered: false,
+        operation: {
+          kind: 'STOCK_SELL',
+          accountKey: 'other',
+          instrument: stock,
+          quantity: '3',
+          price: '200',
+          fees: '0',
+          note: 'sale',
+        },
+      },
+      [
+        {
+          ...user('sold 3 AAPL at 200 no fees'),
+          holdingContext: { accountKey: 'margin' },
+        },
+      ],
+      state,
+      new Date().toISOString(),
+    ),
+  ).toThrow('selected account');
 });

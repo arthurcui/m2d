@@ -216,6 +216,13 @@ export function createPortfolioRepository(pool: pg.Pool) {
       proposed: result.state,
       changes,
       warnings: [
+        ...(input.operation &&
+        'transactionDate' in input.operation &&
+        input.operation.transactionDate
+          ? [
+              `Reported trade date: ${input.operation.transactionDate}. This applies a newly reported trade to current holdings and cash; it does not rewrite earlier snapshots. Confirm it is not already included in your current portfolio. Any closing P&L uses the currently recorded basis, not a reconstructed historical basis.`,
+            ]
+          : []),
         ...(!input.operation
           ? [
               'FULL REPLACEMENT: all unlisted positions and currencies become zero; unlisted accounts become inactive. Imported cost basis is an estimate; prior realized P&L is unknown.',
@@ -687,6 +694,16 @@ export function createPortfolioRepository(pool: pg.Pool) {
           );
         if (p.status === 'CONFIRMED')
           return { revision: p.confirmedRevision!, duplicate: true };
+        if (
+          p.operation &&
+          'transactionDate' in p.operation &&
+          p.operation.transactionDate &&
+          !input.tradeNotAlreadyIncluded
+        )
+          fail(
+            'TRADE_INCLUSION_CONFIRMATION_REQUIRED',
+            'Confirm that this reported trade is not already included in current holdings or cash. If it is already included, do not apply it again.',
+          );
         if (p.status !== 'PENDING')
           fail(
             'PREVIEW_NOT_PENDING',
@@ -718,9 +735,13 @@ export function createPortfolioRepository(pool: pg.Pool) {
                 .where(eq(tables.portfolioImports.id, p.importId))
             )[0]
           : undefined;
-        const effectiveAt = imported?.effectiveOnConfirmation
-          ? new Date().toISOString()
-          : p.effectiveAt;
+        const effectiveAt =
+          imported?.effectiveOnConfirmation ||
+          p.idempotencyKey.startsWith('chat:')
+            ? new Date().toISOString()
+            : p.effectiveAt;
+        if (p.operation && p.idempotencyKey.startsWith('chat:'))
+          p.operation = { ...p.operation, effectiveAt };
         temporal(effectiveAt, rev.effectiveAt);
         const next = rev.revision + 1,
           recordId = randomUUID(),
@@ -769,7 +790,11 @@ export function createPortfolioRepository(pool: pg.Pool) {
           availableAt,
           changes: p.changes,
           note:
-            p.operation?.note ??
+            (p.operation &&
+            'transactionDate' in p.operation &&
+            p.operation.transactionDate
+              ? `Trade date: ${p.operation.transactionDate}. ${p.operation.note}`
+              : p.operation?.note) ??
             (p.restoresBaselineId
               ? 'Confirmed baseline restore'
               : 'Confirmed full Excel replacement'),
@@ -831,7 +856,12 @@ export function createPortfolioRepository(pool: pg.Pool) {
         }
         await tx
           .update(tables.portfolioPreviews)
-          .set({ status: 'CONFIRMED', confirmedRevision: next, effectiveAt })
+          .set({
+            status: 'CONFIRMED',
+            confirmedRevision: next,
+            effectiveAt,
+            operation: p.operation,
+          })
           .where(eq(tables.portfolioPreviews.id, id));
         return { revision: next, duplicate: false };
       });

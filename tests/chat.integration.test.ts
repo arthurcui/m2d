@@ -324,3 +324,217 @@ it('recovers interrupted histories and retains uncertain costs across process re
   expect((await chat.session('journal')).history).toEqual([]);
   expect((await chat.getRun(claim.run.id)).status).toBe('interrupted');
 });
+
+it('persists sanitized request diagnostics and a single no-change notice', async () => {
+  const { OpenAiProvider } = await import('../packages/llm/dist/index.js');
+  const provider = new OpenAiProvider(
+    'fake-offline-key',
+    async () =>
+      new Response(
+        JSON.stringify({
+          error: {
+            code: 'invalid_function_parameters',
+            param: 'tools[1].parameters',
+            type: 'invalid_request_error',
+            message: 'private diagnostic text',
+          },
+        }),
+        {
+          status: 400,
+          headers: {
+            'content-type': 'application/json',
+            'x-request-id': 'req_offline_schema',
+          },
+        },
+      ),
+  );
+  const failedApp = buildApp(
+    database.repository,
+    readConfig({
+      DATABASE_URL: target.toString(),
+      LLM_PROVIDER: 'openai',
+      LLM_MODEL: 'gpt-5.4-mini',
+    }),
+    false,
+    r,
+    { chat, provider, key: 'fake-offline-key' },
+  );
+  try {
+    const response = await failedApp.inject({
+      method: 'POST',
+      url: '/api/v1/chat/sessions/risk/runs',
+      payload: { version: 1, idempotencyKey: randomUUID(), message: 'hello' },
+    });
+    expect(response.statusCode).toBe(202);
+    const run = await terminal(response.json().data.id as string);
+    expect(run.status).toBe('failed');
+    expect(run.events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'error',
+          diagnostics: {
+            providerCode: 'invalid_function_parameters',
+            parameter: 'tools[1].parameters',
+            requestId: 'req_offline_schema',
+          },
+        }),
+      ]),
+    );
+    const last = (await chat.session('risk')).history.at(-1);
+    expect(last?.kind).toBe('text');
+    if (last?.kind === 'text') {
+      expect(
+        last.text.match(/No portfolio change was committed\./g),
+      ).toHaveLength(1);
+      expect(last.text).not.toContain('private diagnostic text');
+    }
+  } finally {
+    await failedApp.close();
+  }
+});
+
+it('applies a late trade once after explicit inclusion confirmation and preserves older history', async () => {
+  const current = await r.overview(),
+    beforeHistory = await r.history();
+  const input = {
+    expectedRevision: current.revision,
+    idempotencyKey: randomUUID(),
+    operation: {
+      kind: 'STOCK_SELL' as const,
+      accountKey: 'margin',
+      instrument: stock,
+      quantity: '1',
+      price: '200',
+      fees: '0',
+      transactionDate: '2026-10-01',
+      effectiveAt: new Date().toISOString(),
+      note: 'Late reported sale',
+    },
+  };
+  const preview = await r.preview(input);
+  expect((await r.overview()).state).toEqual(current.state);
+  expect(preview.operation).toMatchObject({ transactionDate: '2026-10-01' });
+  const confirm = {
+    version: 1 as const,
+    expectedRevision: current.revision,
+    confirmed: true as const,
+  };
+  await expect(r.confirm(preview.id, confirm)).rejects.toMatchObject({
+    code: 'TRADE_INCLUSION_CONFIRMATION_REQUIRED',
+  });
+  expect((await r.overview()).revision).toBe(current.revision);
+  await r.confirm(preview.id, { ...confirm, tradeNotAlreadyIncluded: true });
+  await r.confirm(preview.id, { ...confirm, tradeNotAlreadyIncluded: true });
+  const after = await r.overview();
+  expect(after.revision).toBe(current.revision + 1);
+  expect(
+    after.state.positions.find((p) => p.instrument.assetType === 'STOCK')
+      ?.quantity,
+  ).toBe('99');
+  expect(
+    Number(after.state.cash[0]?.balance) -
+      Number(current.state.cash[0]?.balance),
+  ).toBe(200);
+  const history = await r.history();
+  expect(history.slice(1)).toEqual(beforeHistory);
+  expect(history[0]?.note).toContain('Trade date: 2026-10-01');
+  const events = await database.pool.query<{
+    operation: { transactionDate: string };
+  }>('select operation from portfolio_events where preview_id=$1', [
+    preview.id,
+  ]);
+  expect(events.rows[0]?.operation.transactionDate).toBe('2026-10-01');
+  expect((await r.preview(input)).id).toBe(preview.id);
+});
+
+it('persists holding context and previews a shorthand sale without committing', async () => {
+  const { instrumentKey } = await import('../packages/portfolio/src/index.js');
+  const holdingContext = {
+    accountKey: 'margin',
+    instrumentKey: instrumentKey(stock),
+  };
+  const before = await r.overview();
+  const first = await app.inject({
+    method: 'POST',
+    url: '/api/v1/chat/sessions/portfolio/runs',
+    payload: {
+      version: 1,
+      idempotencyKey: randomUUID(),
+      message: 'sold 3 shares',
+      holdingContext,
+    },
+  });
+  expect(first.statusCode).toBe(202);
+  const question = await terminal(first.json().data.id);
+  expect(question.previewId).toBeNull();
+  const key = randomUUID();
+  const payload = {
+    version: 1,
+    idempotencyKey: key,
+    message: 'at 200 no fees',
+    holdingContext,
+  };
+  const next = await app.inject({
+    method: 'POST',
+    url: '/api/v1/chat/sessions/portfolio/runs',
+    payload,
+  });
+  expect(next.statusCode).toBe(202);
+  const run = await terminal(next.json().data.id);
+  expect(run.status).toBe('completed');
+  expect(run.previewId).toBeTruthy();
+  const preview = await r.getPreview(run.previewId!);
+  expect(preview.operation).toMatchObject({
+    kind: 'STOCK_SELL',
+    accountKey: 'margin',
+    quantity: '3',
+    price: '200',
+    fees: '0',
+  });
+  expect((await r.overview()).revision).toBe(before.revision);
+  const session = await app.inject({
+    method: 'GET',
+    url: '/api/v1/chat/sessions/portfolio',
+  });
+  expect(session.json().data.history).toContainEqual(
+    expect.objectContaining({
+      kind: 'text',
+      text: 'at 200 no fees',
+      holdingContext,
+    }),
+  );
+  const conflict = await app.inject({
+    method: 'POST',
+    url: '/api/v1/chat/sessions/portfolio/runs',
+    payload: {
+      ...payload,
+      holdingContext: { ...holdingContext, accountKey: 'different' },
+    },
+  });
+  expect(conflict.statusCode).toBe(409);
+  await r.reject(preview.id);
+});
+
+it('accepts account-only context and reads quantities without a preview or model calls', async () => {
+  const before = await r.overview();
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/v1/chat/sessions/portfolio/runs',
+    payload: {
+      version: 1,
+      idempotencyKey: randomUUID(),
+      message: 'how many aapl?',
+      holdingContext: { accountKey: 'margin' },
+    },
+  });
+  expect(response.statusCode).toBe(202);
+  const run = await terminal(response.json().data.id);
+  expect(run.status).toBe('completed');
+  expect(run.previewId).toBeNull();
+  const session = await app.inject({
+    method: 'GET',
+    url: '/api/v1/chat/sessions/portfolio',
+  });
+  expect(session.json().data.history.at(-1).text).toContain('99 AAPL shares');
+  expect((await r.overview()).revision).toBe(before.revision);
+});

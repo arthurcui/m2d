@@ -215,6 +215,16 @@ export async function chatRoutes(
       context: ctx,
       requestKey: input.idempotencyKey,
       message: input.message,
+      ...(input.holdingContext
+        ? {
+            holdingContext: {
+              accountKey: input.holdingContext.accountKey,
+              ...(input.holdingContext.instrumentKey
+                ? { instrumentKey: input.holdingContext.instrumentKey }
+                : {}),
+            },
+          }
+        : {}),
       ...(input.analysisMode ? { requestedMode: input.analysisMode } : {}),
       ...(input.parentRunId ? { parentRunId: input.parentRunId } : {}),
       provider: provider.id,
@@ -352,7 +362,11 @@ export async function chatRoutes(
           id: crypto.randomUUID(),
           kind: 'text',
           role: 'assistant',
-          text: `${message} No portfolio change was committed.`,
+          text: /No (?:financial|portfolio) changes? (?:were|was) committed\./.test(
+            message,
+          )
+            ? message
+            : `${message} No portfolio change was committed.`,
         });
         await r.checkpoint(run.id, history, undefined);
         await r.finish(
@@ -361,7 +375,14 @@ export async function chatRoutes(
           code,
           null,
         );
-        await r.event(run.id, { type: 'error', code, message });
+        await r.event(run.id, {
+          type: 'error',
+          code,
+          message,
+          ...(e instanceof LlmError && e.diagnostics
+            ? { diagnostics: e.diagnostics }
+            : {}),
+        });
       } finally {
         clearTimeout(deadline);
         await lease.release();

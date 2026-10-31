@@ -201,6 +201,7 @@ export function createChatRepository(pool: pg.Pool) {
       context: string;
       requestKey: string;
       message: string;
+      holdingContext?: { accountKey: string; instrumentKey?: string };
       parentRunId?: string;
       requestedMode?: string;
       provider: string;
@@ -217,6 +218,9 @@ export function createChatRepository(pool: pg.Pool) {
         context: input.context,
         requestKey: input.requestKey,
         message: input.message,
+        ...(input.holdingContext
+          ? { holdingContext: input.holdingContext }
+          : {}),
         parentRunId: input.parentRunId,
         requestedMode: input.requestedMode,
       });
@@ -279,6 +283,10 @@ export function createChatRepository(pool: pg.Pool) {
             kind: 'text' as const,
             role: 'user' as const,
             text: input.message,
+            ...(input.holdingContext
+              ? { holdingContext: input.holdingContext }
+              : {}),
+            createdAt: new Date().toISOString(),
           },
         ];
         const id = randomUUID();

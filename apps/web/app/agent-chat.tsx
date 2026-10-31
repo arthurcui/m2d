@@ -1,6 +1,7 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Change } from '@m2d/portfolio';
+import type { HoldingSelection } from './portfolio/holdings-table';
 import { submitAgentOnEnter } from './agent-contexts';
 type Mode = 'quick' | 'standard' | 'extensive';
 type Run = {
@@ -32,7 +33,13 @@ type Run = {
 type Session = {
   revision: number;
   draft: string;
-  history: { id: string; kind: string; role?: string; text?: string }[];
+  history: {
+    id: string;
+    kind: string;
+    role?: string;
+    text?: string;
+    holdingContext?: { accountKey: string; instrumentKey?: string };
+  }[];
   runs: Run[];
 };
 type Preview = {
@@ -43,7 +50,7 @@ type Preview = {
   expiresAt: string;
   changes: Change[];
   warnings: string[];
-  operation: { note: string };
+  operation: { note: string; transactionDate?: string };
   realized: { amount: string; currency: string; quality: string }[];
 };
 async function api<T>(
@@ -73,20 +80,40 @@ export function AgentChat({
   label,
   active,
   disabled = false,
+  selectedHolding = null,
+  onClearHolding,
 }: {
   context: string;
   label: string;
   active: boolean;
   disabled?: boolean;
+  selectedHolding?: HoldingSelection | null;
+  onClearHolding?: () => void;
 }) {
   const [session, setSession] = useState<Session | null>(null),
     [draft, setDraft] = useState(''),
     [mode, setMode] = useState<Mode>('standard'),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false),
+    [savingMode, setSavingMode] = useState(false),
     [progress, setProgress] = useState(''),
     [live, setLive] = useState(''),
     [preview, setPreview] = useState<Preview | null>(null);
+  const [acknowledgedPreviewId, setAcknowledgedPreviewId] = useState<
+    string | null
+  >(null);
+  const readingPane = useRef<HTMLDivElement>(null),
+    followLatest = useRef(true),
+    forceScroll = useRef(false);
+  const [showLatest, setShowLatest] = useState(false);
+  useLayoutEffect(() => {
+    if (!active || !readingPane.current) return;
+    if (followLatest.current || forceScroll.current) {
+      readingPane.current.scrollTop = readingPane.current.scrollHeight;
+      followLatest.current = true;
+      forceScroll.current = false;
+    }
+  }, [active, session, live, preview, error, progress, selectedHolding]);
   const revision = useRef(0),
     inFlight = useRef(false),
     draftEdited = useRef(false),
@@ -94,6 +121,7 @@ export function AgentChat({
       idempotencyKey: string;
       message: string;
       analysisMode: Mode;
+      holdingContext?: { accountKey: string; instrumentKey?: string };
     } | null>(null),
     source = useRef<EventSource | null>(null);
   const latest = session?.runs[0],
@@ -204,17 +232,42 @@ export function AgentChat({
   async function send(message = draft, parentRunId?: string) {
     if (inFlight.current || running || disabled || !message.trim()) return;
     inFlight.current = true;
+    followLatest.current = true;
+    forceScroll.current = true;
+    setShowLatest(false);
+    setProgress('Sending your message…');
     setBusy(true);
     setError('');
     try {
       const request =
         pending.current?.message === message.trim() &&
-        pending.current.analysisMode === mode
+        pending.current.analysisMode === mode &&
+        JSON.stringify(pending.current.holdingContext) ===
+          JSON.stringify(
+            selectedHolding
+              ? {
+                  accountKey: selectedHolding.accountKey,
+                  ...(selectedHolding.instrumentKey
+                    ? { instrumentKey: selectedHolding.instrumentKey }
+                    : {}),
+                }
+              : undefined,
+          )
           ? pending.current
           : {
               idempotencyKey: crypto.randomUUID(),
               message: message.trim(),
               analysisMode: mode,
+              ...(selectedHolding
+                ? {
+                    holdingContext: {
+                      accountKey: selectedHolding.accountKey,
+                      ...(selectedHolding.instrumentKey
+                        ? { instrumentKey: selectedHolding.instrumentKey }
+                        : {}),
+                    },
+                  }
+                : {}),
             };
       pending.current = request;
       localStorage.setItem(storage + ':pending', JSON.stringify(request));
@@ -229,25 +282,33 @@ export function AgentChat({
       setDraft('');
       localStorage.removeItem(storage);
       await refresh();
+      forceScroll.current = true;
+      followLatest.current = true;
+      setProgress('');
     } catch (e) {
+      setProgress('');
       setError(String(e));
     } finally {
       inFlight.current = false;
       setBusy(false);
     }
   }
-  async function saveDefault() {
+  async function saveDefault(next: Mode) {
+    setMode(next);
+    setSavingMode(true);
     setError('');
     try {
       const settings = await api<{ revision: number }>('settings/analysis');
       await api('settings/analysis', 'PATCH', {
         version: 1,
         expectedRevision: settings.revision,
-        defaultAnalysisMode: mode,
+        defaultAnalysisMode: next,
       });
-      setProgress(`Default saved: ${mode}.`);
+      setProgress(`Default saved: ${next}.`);
     } catch (e) {
       setError(String(e));
+    } finally {
+      setSavingMode(false);
     }
   }
   async function decide(confirm: boolean) {
@@ -264,10 +325,12 @@ export function AgentChat({
               version: 1,
               expectedRevision: preview.expectedRevision,
               confirmed: true,
+              tradeNotAlreadyIncluded: acknowledgedPreviewId === preview.id,
             }
           : {},
       );
       setPreview(await api<Preview>(`portfolio/changes/${preview.id}/preview`));
+      if (confirm) onClearHolding?.();
       window.dispatchEvent(new Event('m2d:portfolio-changed'));
     } catch (e) {
       setError(String(e));
@@ -282,181 +345,275 @@ export function AgentChat({
       className="agent-context"
       aria-label={`${label} chat`}
     >
-      <div role="log" aria-label={`${label} conversation`}>
-        <div className="agent-message">
-          <strong>Agent</strong>
-          <p>
-            Ask about your recorded portfolio or describe a change. I will ask
-            for missing details and show a preview before you confirm. Market
-            research and live prices are not available yet.
-          </p>
-        </div>
-        {session?.history
-          .filter((i) => i.kind === 'text')
-          .map((item) => (
-            <div
-              key={item.id}
-              className={`agent-message ${item.role === 'user' ? 'from-user' : ''}`}
-            >
-              <strong>{item.role === 'user' ? 'You' : 'Agent'}</strong>
-              <p>{item.text}</p>
-            </div>
-          ))}
-        {live && (
-          <div className="agent-message">
-            <strong>Agent · in progress</strong>
-            <p>{live}</p>
-          </div>
-        )}
-      </div>
-      {latest && (
-        <details className="muted-label">
-          <summary>
-            {latest.analysisMode} · {latest.status} · {latest.provider} /{' '}
-            {latest.model}
-          </summary>
-          <p>
-            {latest.policyVersion} · {latest.completeness} ·{' '}
-            {new Date(latest.startedAt).toLocaleString('en-CA', {
-              timeZone: 'America/Vancouver',
-            })}{' '}
-            Vancouver
-          </p>
-          <p>
-            Up to {latest.effectiveLimits.modelCalls} model attempts,{' '}
-            {latest.effectiveLimits.toolCalls} tool calls,{' '}
-            {latest.effectiveLimits.deadlineMs / 1000}s,{' '}
-            {latest.effectiveLimits.maxOutputTokens} output tokens per attempt.
-          </p>
-          <p>
-            Estimated cost:{' '}
-            {latest.estimatedCost === null
-              ? 'unknown'
-              : `USD ${latest.estimatedCost}`}
-            . Reserved: USD {latest.reservedCost}. Usage:{' '}
-            {latest.usage
-              ? `${latest.usage.inputTokens} input / ${latest.usage.outputTokens} output${latest.usage.complete ? '' : ' (incomplete)'}`
-              : 'not reported'}
-            .
-          </p>
-          {latest.limitReasons.length > 0 && (
-            <p>{latest.limitReasons.join(', ')}</p>
-          )}
-        </details>
-      )}
-      {progress && <p role="status">{progress}</p>}
-      {error && (
-        <p className="notice" role="alert">
-          {error}
-        </p>
-      )}
-      {preview && (
-        <section aria-label="Chat confirmation preview">
-          <h3>Review before confirming</h3>
-          <p>
-            {preview.status} · revision {preview.expectedRevision} · effective{' '}
-            {preview.effectiveAt}
-          </p>
-          <p>{preview.operation?.note}</p>
-          {preview.warnings.map((w) => (
-            <p className="notice" key={w}>
-              {w}
-            </p>
-          ))}
-          <div className="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>Record</th>
-                  <th>Before</th>
-                  <th>After</th>
-                </tr>
-              </thead>
-              <tbody>
-                {preview.changes.map((c) => (
-                  <tr key={c.key}>
-                    <th>{c.key}</th>
-                    <td>{c.before}</td>
-                    <td>{c.after}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {preview.realized.map((r, i) => (
-            <p key={i}>
-              Recorded close P&amp;L: {r.amount} {r.currency} · {r.quality}. Not
-              tax reporting or historical performance.
-            </p>
-          ))}
-          {preview.status === 'PENDING' && (
-            <>
-              <p>
-                Expires {preview.expiresAt}. Confirmation updates your
-                self-reported records; it does not place a trade.
-              </p>
-              <button
-                disabled={busy || running}
-                onClick={() => void decide(true)}
-              >
-                Confirm changes
-              </button>
-              <button
-                disabled={busy || running}
-                onClick={() => void decide(false)}
-              >
-                Dismiss preview
-              </button>
-            </>
-          )}
-        </section>
-      )}
-      <button
-        type="button"
-        disabled={busy || running}
-        onClick={() => {
-          void api<Session>(`chat/sessions/${context}/reset`, 'POST', {})
-            .then((s) => {
-              setSession(s);
-              setPreview(null);
-              setDraft('');
-              revision.current = s.revision;
-              localStorage.removeItem(storage);
-              localStorage.removeItem(storage + ':pending');
-              pending.current = null;
-              draftEdited.current = false;
-            })
-            .catch((e) => setError(String(e)));
+      <div
+        className="agent-reading-pane"
+        ref={readingPane}
+        onScroll={(e) => {
+          const pane = e.currentTarget;
+          if (forceScroll.current) return;
+          followLatest.current =
+            pane.scrollHeight - pane.scrollTop - pane.clientHeight < 48;
+          setShowLatest(!followLatest.current);
         }}
       >
-        New conversation
-      </button>
+        <div role="log" aria-label={`${label} conversation`}>
+          <div className="agent-message">
+            <strong>Agent</strong>
+            <p>
+              Ask about your recorded portfolio or describe a change. I will ask
+              for missing details and show a preview before you confirm. Market
+              research and live prices are not available yet.
+            </p>
+          </div>
+          {session?.history
+            .filter((i) => i.kind === 'text')
+            .map((item) => (
+              <div
+                key={item.id}
+                className={`agent-message ${item.role === 'user' ? 'from-user' : ''}`}
+              >
+                <strong>{item.role === 'user' ? 'You' : 'Agent'}</strong>
+                {item.holdingContext && (
+                  <small className="message-holding-context">
+                    {item.holdingContext.instrumentKey
+                      ?.split('|')
+                      .filter((_, i) => [1, 4, 5, 6].includes(i))
+                      .filter(Boolean)
+                      .join(' · ')}{' '}
+                    · {item.holdingContext.accountKey}
+                  </small>
+                )}
+                <p>{item.text}</p>
+              </div>
+            ))}
+          {live && (
+            <div className="agent-message">
+              <strong>Agent · in progress</strong>
+              <p>{live}</p>
+            </div>
+          )}
+        </div>
+        {latest && (
+          <details className="muted-label">
+            <summary>
+              {latest.analysisMode} · {latest.status} · {latest.provider} /{' '}
+              {latest.model}
+            </summary>
+            <p>
+              {latest.policyVersion} · {latest.completeness} ·{' '}
+              {new Date(latest.startedAt).toLocaleString('en-CA', {
+                timeZone: 'America/Vancouver',
+              })}{' '}
+              Vancouver
+            </p>
+            <p>
+              Up to {latest.effectiveLimits.modelCalls} model attempts,{' '}
+              {latest.effectiveLimits.toolCalls} tool calls,{' '}
+              {latest.effectiveLimits.deadlineMs / 1000}s,{' '}
+              {latest.effectiveLimits.maxOutputTokens} output tokens per
+              attempt.
+            </p>
+            <p>
+              Estimated cost:{' '}
+              {latest.estimatedCost === null
+                ? 'unknown'
+                : `USD ${latest.estimatedCost}`}
+              . Reserved: USD {latest.reservedCost}. Usage:{' '}
+              {latest.usage
+                ? `${latest.usage.inputTokens} input / ${latest.usage.outputTokens} output${latest.usage.complete ? '' : ' (incomplete)'}`
+                : 'not reported'}
+              .
+            </p>
+            {latest.limitReasons.length > 0 && (
+              <p>{latest.limitReasons.join(', ')}</p>
+            )}
+          </details>
+        )}
+        {progress && <p role="status">{progress}</p>}
+        {(error ||
+          latest?.events.findLast((e) => e.type === 'error')?.message) && (
+          <p className="notice" role="alert">
+            {error ||
+              latest?.events.findLast((e) => e.type === 'error')?.message}
+          </p>
+        )}
+        {preview && (
+          <section aria-label="Chat confirmation preview">
+            <h3>Review before confirming</h3>
+            <p>
+              {preview.status} · revision {preview.expectedRevision} · Recorded{' '}
+              {preview.status === 'PENDING'
+                ? 'on confirmation'
+                : preview.effectiveAt}
+            </p>
+            {preview.operation?.transactionDate && (
+              <p>
+                <strong>Trade date:</strong> {preview.operation.transactionDate}{' '}
+                · reported separately from the recording time.
+              </p>
+            )}
+            <p>{preview.operation?.note}</p>
+            {preview.warnings.map((w) => (
+              <p className="notice" key={w}>
+                {w}
+              </p>
+            ))}
+            <div className="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Record</th>
+                    <th>Before</th>
+                    <th>After</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {preview.changes.map((c) => (
+                    <tr key={c.key}>
+                      <th>{c.key}</th>
+                      <td>{c.before}</td>
+                      <td>{c.after}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {preview.realized.map((r, i) => (
+              <p key={i}>
+                Recorded close P&amp;L: {r.amount} {r.currency} · {r.quality}.
+                Not tax reporting or historical performance.
+              </p>
+            ))}
+            {preview.status === 'PENDING' && (
+              <>
+                {preview.operation?.transactionDate && (
+                  <label className="check">
+                    <input
+                      type="checkbox"
+                      checked={acknowledgedPreviewId === preview.id}
+                      onChange={(e) =>
+                        setAcknowledgedPreviewId(
+                          e.target.checked ? preview.id : null,
+                        )
+                      }
+                    />
+                    I confirm this trade is not already included in my current
+                    holdings or cash. Apply it once to my current records.
+                  </label>
+                )}
+                <p>
+                  Expires {preview.expiresAt}. Confirmation updates your
+                  self-reported records; it does not place a trade.
+                </p>
+                <button
+                  disabled={
+                    busy ||
+                    running ||
+                    (!!preview.operation?.transactionDate &&
+                      acknowledgedPreviewId !== preview.id)
+                  }
+                  onClick={() => void decide(true)}
+                >
+                  Confirm changes
+                </button>
+                <button
+                  disabled={busy || running || savingMode}
+                  onClick={() => void decide(false)}
+                >
+                  Dismiss preview
+                </button>
+              </>
+            )}
+          </section>
+        )}
+      </div>
+      {showLatest && (
+        <button
+          type="button"
+          className="latest-message"
+          onClick={() => {
+            followLatest.current = true;
+            setShowLatest(false);
+            if (readingPane.current)
+              readingPane.current.scrollTop = readingPane.current.scrollHeight;
+          }}
+        >
+          Latest message ↓
+        </button>
+      )}
+      <div className="agent-conversation-actions">
+        <button
+          type="button"
+          disabled={busy || running || savingMode}
+          onClick={() => {
+            void api<Session>(`chat/sessions/${context}/reset`, 'POST', {})
+              .then((s) => {
+                followLatest.current = true;
+                setShowLatest(false);
+                setProgress('');
+                setError('');
+                setLive('');
+                if (readingPane.current) readingPane.current.scrollTop = 0;
+                setSession(s);
+                setPreview(null);
+                setDraft('');
+                revision.current = s.revision;
+                localStorage.removeItem(storage);
+                localStorage.removeItem(storage + ':pending');
+                pending.current = null;
+                draftEdited.current = false;
+              })
+              .catch((e) => setError(String(e)));
+          }}
+        >
+          New conversation
+        </button>
+      </div>
       <form
+        className="agent-composer"
         onSubmit={(e) => {
           e.preventDefault();
           void send();
         }}
       >
-        <label>
-          Work allowance
-          <select
-            aria-label={`${label} analysis mode`}
-            value={mode}
-            disabled={busy || running}
-            onChange={(e) => setMode(e.target.value as Mode)}
-          >
-            <option value="quick">Quick</option>
-            <option value="standard">Standard</option>
-            <option value="extensive">Extensive</option>
-          </select>
-        </label>
-        <button
-          type="button"
-          onClick={() => void saveDefault()}
-          disabled={busy || running}
-        >
-          Save as default
-        </button>
+        {selectedHolding && (
+          <div className="holding-context-chip">
+            <span>
+              <strong>
+                {selectedHolding.instrumentKey
+                  ? 'Selected holding'
+                  : 'Selected account'}
+              </strong>
+              {selectedHolding.label}
+            </span>
+            <button
+              type="button"
+              aria-label={
+                selectedHolding.instrumentKey
+                  ? 'Clear selected holding'
+                  : 'Clear selected account'
+              }
+              onClick={onClearHolding}
+            >
+              ×
+            </button>
+          </div>
+        )}
+        <div className="agent-mode-settings">
+          <label className="agent-mode-field">
+            Analysis mode
+            <select
+              aria-label={`${label} analysis mode`}
+              value={mode}
+              disabled={busy || running || savingMode}
+              onChange={(e) => void saveDefault(e.target.value as Mode)}
+            >
+              <option value="quick">Quick</option>
+              <option value="standard">Standard</option>
+              <option value="extensive">Extensive</option>
+            </select>
+          </label>
+        </div>
         <label>
           {label} message
           <textarea
@@ -469,46 +626,53 @@ export function AgentChat({
               localStorage.setItem(storage, e.target.value);
             }}
             onKeyDown={submitAgentOnEnter}
-            placeholder="Describe a reported change, or ask a question"
+            placeholder={
+              selectedHolding
+                ? 'e.g. Sold 3 shares at $200, no fees'
+                : 'Message Agent…'
+            }
           />
         </label>
         <p className="muted-label">
           Enter to send · Shift+Enter for a new line. Modes change work limits;
           all changes require confirmation.
         </p>
-        {running ? (
-          <button
-            type="button"
-            onClick={() =>
-              void api(`chat/runs/${latest.id}/cancel`, 'POST', {}).catch((e) =>
-                setError(String(e)),
-              )
-            }
-          >
-            Cancel run
-          </button>
-        ) : (
-          <button
-            type="submit"
-            disabled={busy || disabled || !draft.trim() || !session}
-          >
-            Send
-          </button>
-        )}
-        {latest && latest.status !== 'running' && (
-          <button
-            type="button"
-            disabled={busy || disabled}
-            onClick={() =>
-              void send(
-                'Continue the previous question using the selected work allowance. Ask for any missing facts.',
-                latest.id,
-              )
-            }
-          >
-            Follow up in {mode}
-          </button>
-        )}
+        <div className="agent-send-actions">
+          {running ? (
+            <button
+              type="button"
+              onClick={() =>
+                void api(`chat/runs/${latest.id}/cancel`, 'POST', {}).catch(
+                  (e) => setError(String(e)),
+                )
+              }
+            >
+              Cancel run
+            </button>
+          ) : (
+            <button
+              type="submit"
+              className="primary"
+              disabled={busy || disabled || !draft.trim() || !session}
+            >
+              Send
+            </button>
+          )}
+          {latest && latest.status !== 'running' && (
+            <button
+              type="button"
+              disabled={busy || disabled}
+              onClick={() =>
+                void send(
+                  'Continue the previous question using the selected work allowance. Ask for any missing facts.',
+                  latest.id,
+                )
+              }
+            >
+              Follow up in {mode}
+            </button>
+          )}
+        </div>
       </form>
     </section>
   );

@@ -68,6 +68,7 @@ export class ChatFixtureProvider implements LlmProvider {
         }[];
         positions: {
           instrument: Record<string, unknown>;
+          instrumentKey?: string;
           accountKey: string;
         }[];
       };
@@ -82,10 +83,26 @@ export class ChatFixtureProvider implements LlmProvider {
         i.kind === 'tool_result' &&
         i.output !== null &&
         typeof i.output === 'object' &&
-        'id' in i.output,
+        'id' in i.output &&
+        !(
+          'operation' in i.output &&
+          i.output.operation &&
+          typeof i.output.operation === 'object' &&
+          'kind' in i.output.operation &&
+          i.output.operation.kind === 'NOTE_ONLY'
+        ),
+    );
+    const currentUser = request.history[last];
+    const currentContext =
+      currentUser?.kind === 'text' ? currentUser.holdingContext : undefined;
+    const changedContext = request.history.findLastIndex(
+      (i) =>
+        i.kind === 'text' &&
+        i.role === 'user' &&
+        JSON.stringify(i.holdingContext) !== JSON.stringify(currentContext),
     );
     const text = request.history
-      .slice(lastPreview + 1)
+      .slice(Math.max(lastPreview, changedContext) + 1)
       .filter((i) => i.kind === 'text' && i.role === 'user')
       .map((i) => (i.kind === 'text' ? i.text : ''))
       .join('\n');
@@ -95,18 +112,28 @@ export class ChatFixtureProvider implements LlmProvider {
       return reply(
         'NO_SIGNAL — live market data and research are not implemented in M2. I can inspect your self-reported portfolio or preview a reported change.',
       );
-    if (!/buy|sell|deposit|withdraw|cash|covered call/i.test(text))
+    if (!/buy|bought|sell|sold|deposit|withdraw|cash|covered call/i.test(text))
       return reply(
         `Your self-reported portfolio has ${output.state?.accounts.filter((a) => a.active).length ?? 0} active accounts and ${output.state?.positions.length ?? 0} holdings. This is offline fixture mode; no market analysis ran.`,
       );
+    const selected =
+      latest?.kind === 'text' ? latest.holdingContext : undefined;
+    const selectedPosition = selected
+      ? output.state?.positions.find(
+          (p) =>
+            p.accountKey === selected.accountKey &&
+            p.instrumentKey === selected.instrumentKey,
+        )
+      : undefined;
     const accounts = output.state?.accounts.filter((a) => a.active) ?? [];
     const matching = accounts.filter(
       (a) =>
         text.toLowerCase().includes(a.displayName.toLowerCase()) ||
         text.includes(a.accountKey),
     );
-    const account =
-      matching.length === 1
+    const account = selected
+      ? accounts.find((a) => a.accountKey === selected.accountKey)
+      : matching.length === 1
         ? matching[0]
         : accounts.length === 1
           ? accounts[0]
@@ -115,12 +142,23 @@ export class ChatFixtureProvider implements LlmProvider {
       return reply(
         'Which account should this change apply to? Please use its displayed account name.',
       );
-    const instrument = output.state?.positions.find(
-      (p) =>
-        p.accountKey === account.accountKey &&
-        p.instrument.assetType !== 'OPTION' &&
-        text.toUpperCase().includes(String(p.instrument.symbol)),
-    )?.instrument;
+    const instrument =
+      selectedPosition?.instrument ??
+      output.state?.positions.find(
+        (p) =>
+          p.accountKey === account.accountKey &&
+          p.instrument.assetType !== 'OPTION' &&
+          text.toUpperCase().includes(String(p.instrument.symbol)),
+      )?.instrument;
+    if (
+      selected &&
+      !selected.instrumentKey &&
+      !instrument &&
+      /sell|sold|buy|bought/i.test(text)
+    )
+      return reply(
+        'Which security in the selected account was traded? Please include its symbol, price and fees if not already supplied.',
+      );
     const common = {
       effectiveAt: new Date().toISOString(),
       note: message.slice(0, 1000),
@@ -147,8 +185,14 @@ export class ChatFixtureProvider implements LlmProvider {
       : text.match(/fees?\s*[:=]?\s*\$?(\d+(?:\.\d+)?)/i)?.[1];
     const option = text.match(/sell to open\s+(\d+)\s+(?:covered\s+)?calls?/i);
     const trade = text.match(
-      /\b(buy|sell)\s+(\d+(?:\.\d+)?)\s+(?:shares?\s+(?:of\s+)?)?([A-Z][A-Z0-9.]*)\b/i,
+      /\b(buy|bought|sell|sold)\s+(\d+(?:\.\d+)?)\s+(?:shares?\s+(?:of\s+)?)?([A-Z][A-Z0-9.]*)\b/i,
     );
+    const selectedTrade = selected
+      ? text.match(
+          /\b(buy|bought|sell|sold)\s+(\d+(?:\.\d+)?)\s+(?:shares?|contracts?)\b/i,
+        )
+      : null;
+    const effectiveTrade = selectedTrade ?? trade;
     const price = text.match(/(?:\bat\b|premium)\s*\$?(\d+(?:\.\d+)?)/i)?.[1];
     if (option) {
       const expiry = text.match(/\b\d{4}-\d{2}-\d{2}\b/)?.[0],
@@ -185,14 +229,26 @@ export class ChatFixtureProvider implements LlmProvider {
         },
       });
     }
-    if (trade && instrument && price && fees !== undefined)
+    if (selected && effectiveTrade && (!price || fees === undefined))
+      return reply(
+        'What was the sale or purchase price per share, and the fees (or no fees)? I have the selected account, security and quantity.',
+      );
+    if (
+      effectiveTrade &&
+      instrument?.assetType !== 'OPTION' &&
+      instrument &&
+      price &&
+      fees !== undefined
+    )
       return call('portfolio_preview_v1', {
         covered: false,
         operation: {
           ...common,
-          kind: trade[1]!.toLowerCase() === 'buy' ? 'STOCK_BUY' : 'STOCK_SELL',
+          kind: ['buy', 'bought'].includes(effectiveTrade[1]!.toLowerCase())
+            ? 'STOCK_BUY'
+            : 'STOCK_SELL',
           instrument,
-          quantity: trade[2],
+          quantity: effectiveTrade[2],
           price,
           fees,
         },

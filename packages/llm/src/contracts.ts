@@ -1,5 +1,12 @@
 export type CanonicalItem =
-  | { id: string; kind: 'text'; role: 'user' | 'assistant'; text: string }
+  | {
+      id: string;
+      kind: 'text';
+      role: 'user' | 'assistant';
+      text: string;
+      createdAt?: string;
+      holdingContext?: { accountKey: string; instrumentKey?: string };
+    }
   | {
       id: string;
       kind: 'tool_call';
@@ -62,6 +69,11 @@ export class LlmError extends Error {
   constructor(
     readonly code: string,
     message: string,
+    readonly diagnostics?: {
+      providerCode?: string;
+      parameter?: string;
+      requestId?: string;
+    },
   ) {
     super(message);
   }
