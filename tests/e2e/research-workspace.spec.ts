@@ -12,18 +12,26 @@ test('unified add panel preserves drafts, reports duplicates and opens documents
   const symbol = 'UI' + randomUUID().slice(0, 8).toUpperCase();
   await page.goto('/research');
   await page.getByLabel('Research ticker').fill(symbol);
+  await page.getByLabel('Research ticker').press('Enter');
   await expect(
     page.getByRole('tab', { name: 'Overview', exact: true }),
   ).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByLabel('Search stored evidence')).toBeHidden();
   await page.getByRole('button', { name: 'Add research', exact: true }).click();
   const panel = page.getByRole('region', { name: 'Add research', exact: true });
+  await expect(
+    page.getByRole('tablist', { name: 'Research views' }),
+  ).toBeHidden();
+  await expect(page.getByRole('tabpanel')).toHaveCount(0);
   await panel.getByRole('button', { name: 'Paste text', exact: true }).click();
   const body =
     'Revenue outlook improved. Customer concentration remains a material risk. Unicode evidence: café.';
   await panel.getByLabel('Document title').fill('Research note');
   await panel.getByLabel('Research text', { exact: true }).fill(body);
-  await panel.getByRole('button', { name: 'Close add research' }).click();
+  await panel.getByRole('button', { name: 'Back to Research' }).click();
+  await expect(
+    page.getByRole('tab', { name: 'Overview', exact: true }),
+  ).toHaveAttribute('aria-selected', 'true');
   await page.getByRole('tab', { name: 'Search', exact: true }).click();
   await page
     .getByRole('link', { name: 'Portfolio', exact: true })
@@ -73,7 +81,9 @@ test('unified add panel preserves drafts, reports duplicates and opens documents
   await page.screenshot({ path: '.tmp/research-overview-tabs.png' });
   await page.getByRole('button', { name: 'Add research', exact: true }).click();
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole('button', { name: 'Close Agent', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Close Advisor', exact: true })
+    .click();
   await panel.evaluate((el) => el.scrollIntoView({ block: 'start' }));
   await page.screenshot({ path: '.tmp/research-add-mobile.png' });
   expect(
@@ -89,6 +99,7 @@ test('URL browsing shows local progress, disables duplicate clicks and exposes r
   await page
     .getByLabel('Research ticker')
     .fill('URL' + randomUUID().slice(0, 8).toUpperCase());
+  await page.getByLabel('Research ticker').press('Enter');
   await page.getByRole('button', { name: 'Add research', exact: true }).click();
   await page.getByRole('button', { name: 'From URL', exact: true }).click();
   const panel = page.getByRole('region', { name: 'Add research', exact: true });
@@ -134,6 +145,7 @@ test('an ambiguous upload response reuses the original request ID on retry', asy
   await page
     .getByLabel('Research ticker')
     .fill('RETRY' + randomUUID().slice(0, 7).toUpperCase());
+  await page.getByLabel('Research ticker').press('Enter');
   await page.getByRole('button', { name: 'Add research', exact: true }).click();
   const panel = page.getByRole('region', { name: 'Add research', exact: true });
   await panel.getByLabel('Upload a company or fund document').setInputFiles({

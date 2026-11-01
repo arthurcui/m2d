@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
-test('research imports, compares, searches and keeps its state and cited Agent discussion across navigation', async ({
+test('research imports, compares, searches and keeps its state and cited Advisor discussion across navigation', async ({
   page,
 }) => {
   test.skip(
@@ -13,6 +13,7 @@ test('research imports, compares, searches and keeps its state and cited Agent d
     .getByRole('button', { name: 'Reset conversation', exact: true })
     .click();
   await page.getByLabel('Research ticker').fill(symbol);
+  await page.getByLabel('Research ticker').press('Enter');
   await page.getByRole('button', { name: 'Add research', exact: true }).click();
   await page
     .getByRole('button', { name: 'Suggested sources', exact: true })
@@ -20,7 +21,7 @@ test('research imports, compares, searches and keeps its state and cited Agent d
   await page.getByRole('button', { name: 'Load demo reports' }).click();
   const reports = page.locator('.research-documents .research-card');
   await expect(reports).toHaveCount(2, { timeout: 20000 });
-  await page.getByRole('button', { name: 'Close add research' }).click();
+  await page.getByRole('button', { name: 'Back to Research' }).click();
   await page.getByRole('tab', { name: 'Documents', exact: true }).click();
   await page
     .getByRole('button', { name: 'Compare reports', exact: true })
@@ -45,7 +46,7 @@ test('research imports, compares, searches and keeps its state and cited Agent d
     .getByRole('link', { name: 'Research', exact: true })
     .first()
     .click();
-  await expect(page.getByLabel('Research ticker')).toHaveValue(symbol);
+  await expect(page.locator('.selected-company')).toContainText(symbol);
   await expect(
     page.getByRole('tab', { name: 'Search', exact: true }),
   ).toHaveAttribute('aria-selected', 'true');
@@ -54,7 +55,7 @@ test('research imports, compares, searches and keeps its state and cited Agent d
     page.getByRole('region', { name: 'Report comparison' }),
   ).toBeVisible();
   await page
-    .getByRole('button', { name: 'Discuss with Agent', exact: true })
+    .getByRole('button', { name: 'Discuss with Advisor', exact: true })
     .click();
   const message = page.getByRole('textbox', {
     name: 'Research message',
@@ -75,10 +76,12 @@ test('research imports, compares, searches and keeps its state and cited Agent d
   await expect(
     page.getByRole('link', { name: 'Download preserved original' }),
   ).toBeVisible();
-  await page.getByText('Historical view', { exact: true }).click();
+  await page
+    .getByText('Evidence as of · Latest available', { exact: true })
+    .click();
   await page.getByLabel('Evidence available by (UTC)').fill('2020-01-01T00:00');
   await expect(reports).toHaveCount(0);
-  await page.getByRole('button', { name: 'Current view' }).click();
+  await page.getByRole('button', { name: 'Latest available' }).click();
   await expect(reports).toHaveCount(2);
   await page.getByRole('button', { name: 'Add research', exact: true }).click();
   await page.getByRole('button', { name: 'Upload file', exact: true }).click();

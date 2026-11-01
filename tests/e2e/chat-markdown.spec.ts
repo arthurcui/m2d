@@ -70,7 +70,7 @@ for (const width of [1440, 390]) {
     ).toBeVisible();
     if (width === 390) {
       const divider = page.getByRole('separator', {
-        name: 'Resize Agent panel',
+        name: 'Resize Advisor panel',
       });
       await divider.focus();
       for (let i = 0; i < 4; i++) await divider.press('ArrowUp');
@@ -84,11 +84,11 @@ for (const width of [1440, 390]) {
       ),
     ).toBe(true);
     await page
-      .getByRole('complementary', { name: 'Agent', exact: true })
+      .getByRole('complementary', { name: 'Advisor', exact: true })
       .screenshot({ path: `.tmp/chat-markdown-${width}.png` });
     await expect(
       page.getByLabel('Portfolio analysis mode').locator('..'),
-    ).toHaveCSS('flex-direction', 'row');
+    ).toHaveCSS('flex-direction', 'column');
     await page.getByLabel('Portfolio message').fill('Unsent draft');
     await page
       .getByRole('button', { name: 'Reset conversation', exact: true })

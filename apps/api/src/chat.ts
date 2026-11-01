@@ -83,20 +83,40 @@ export async function chatRoutes(
       .object({
         version: z.literal(1),
         expectedRevision: z.number().int().nonnegative(),
-        defaultAnalysisMode: z.enum(['quick', 'standard', 'extensive']),
+        defaultAnalysisMode: z
+          .enum(['quick', 'standard', 'extensive'])
+          .optional(),
+        outputLanguage: z.enum(['en', 'zh-CN']).optional(),
       })
       .strict()
+      .refine(
+        (v) =>
+          v.defaultAnalysisMode !== undefined || v.outputLanguage !== undefined,
+        'Choose a mode or output language.',
+      )
       .parse(req.body);
     return envelope(
-      await r.updateSettings(input.expectedRevision, input.defaultAnalysisMode),
+      await r.updateSettings(
+        input.expectedRevision,
+        input.defaultAnalysisMode,
+        input.outputLanguage,
+      ),
     );
   });
   app.get('/api/v1/chat/sessions/:context', async (req) =>
-    envelope(await r.session(context(req.params))),
+    envelope({
+      ...(await r.session(context(req.params))),
+      dailyUsage: await r.dailyUsage(),
+      dailyBudget: config.LLM_DAILY_BUDGET_USD ?? null,
+    }),
   );
   app.post('/api/v1/chat/sessions/:context/reset', async (req) => {
     await r.reset(context(req.params));
-    return envelope(await r.session(context(req.params)));
+    return envelope({
+      ...(await r.session(context(req.params))),
+      dailyUsage: await r.dailyUsage(),
+      dailyBudget: config.LLM_DAILY_BUDGET_USD ?? null,
+    });
   });
   app.patch('/api/v1/chat/sessions/:context', async (req) => {
     const input = z
@@ -234,6 +254,10 @@ export async function chatRoutes(
           }
         : {}),
       ...(input.analysisMode ? { requestedMode: input.analysisMode } : {}),
+      ...(input.outputLanguage
+        ? { requestedLanguage: input.outputLanguage }
+        : {}),
+      outputLanguage: input.outputLanguage ?? saved.outputLanguage,
       ...(input.parentRunId ? { parentRunId: input.parentRunId } : {}),
       provider: provider.id,
       model: config.LLM_MODEL,
@@ -285,6 +309,7 @@ export async function chatRoutes(
             provider,
             history,
             mode,
+            outputLanguage: run.outputLanguage === 'zh-CN' ? 'zh-CN' : 'en',
             limits,
             signal: controller.signal,
             ...(ctx === 'research'
@@ -404,7 +429,7 @@ export async function chatRoutes(
         const message =
           e instanceof LlmError || e instanceof PortfolioError
             ? e.message
-            : 'Agent could not finish. No change was committed.';
+            : 'Advisor could not finish. No change was committed.';
         // Keep canonical history provider-valid after interrupted tool batches.
         const answered = new Set(
           history.filter((i) => i.kind === 'tool_result').map((i) => i.callId),
@@ -450,7 +475,7 @@ export async function chatRoutes(
     })();
     running.set(run.id, { controller, task });
     void task.catch(() =>
-      app.log.error('Agent run persistence failed; recovery required.'),
+      app.log.error('Advisor run persistence failed; recovery required.'),
     );
     return reply.code(202).send(envelope(run));
   });

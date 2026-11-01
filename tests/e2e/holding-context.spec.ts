@@ -71,7 +71,7 @@ test('select a holding, preserve context across navigation, and submit shorthand
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto('/portfolio');
   const choose = page.getByRole('button', {
-    name: 'Discuss CRWV in Questrade TFSA with Agent',
+    name: 'Discuss CRWV in Questrade TFSA with Advisor',
   });
   await choose.click();
   await expect(choose).toHaveAttribute('aria-pressed', 'true');
@@ -95,7 +95,10 @@ test('select a holding, preserve context across navigation, and submit shorthand
     },
   });
   const composer = page.locator('.agent-context:not([hidden]) .agent-composer');
-  const panel = page.getByRole('complementary', { name: 'Agent', exact: true });
+  const panel = page.getByRole('complementary', {
+    name: 'Advisor',
+    exact: true,
+  });
   expect(
     (await composer.boundingBox())!.y + (await composer.boundingBox())!.height,
   ).toBeLessThanOrEqual(

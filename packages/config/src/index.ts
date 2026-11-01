@@ -144,6 +144,6 @@ export function aiStatus(config: Pick<Config, 'LLM_PROVIDER' | 'LLM_MODEL'>) {
           ? ('unconfigured' as const)
           : ('not_implemented' as const),
     message:
-      'AI workbook parsing requires a configured backend parser. Agent chat uses the separately configured chat service.',
+      'AI workbook parsing requires a configured backend parser. Advisor chat uses the separately configured chat service.',
   };
 }

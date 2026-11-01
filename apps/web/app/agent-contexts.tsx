@@ -46,7 +46,7 @@ export function PlannedAgentConversation({
     <div hidden={!active} className="agent-context">
       <div role="log" aria-label={`${context.label} conversation`}>
         <div className="agent-message">
-          <strong>Agent</strong>
+          <strong>Advisor</strong>
           <p>
             This is your {context.label} conversation. Keep questions and notes
             here for this session. Assistance for this function is planned for{' '}

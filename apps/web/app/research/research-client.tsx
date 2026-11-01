@@ -1,8 +1,14 @@
 'use client';
 import { useEffect, useState, useRef } from 'react';
 import { CompanySearch } from './company-search';
-import { AddResearch } from './add-research';
-import type { ImportResult } from './import-feedback';
+import { AddResearch, type ResearchImportControl } from './add-research';
+import { CompanyPicker } from './company-picker';
+import {
+  OperationFeedback,
+  importSummary,
+  type Operation,
+  type ImportResult,
+} from './import-feedback';
 import { CompanyCharts } from './company-charts';
 import { useSearchParams } from 'next/navigation';
 export type ResearchContext = { symbol: string; at?: string };
@@ -36,10 +42,11 @@ type Document = Doc & {
     chunk_index: number;
   }[];
 };
-type Import = ImportResult & { finished_at?: string | null };
+type Import = ImportResult & { finished_at?: string | null; provider?: string };
 type Overview = {
   provider: string;
   configured: boolean;
+  companyChoices?: { symbol: string; hidden: boolean }[];
   companies: { symbol: string; name: string; documents: number }[];
   imports: Import[];
 };
@@ -103,7 +110,6 @@ export function ResearchClient({
   const [loadedSelection, setLoadedSelection] = useState('');
   const [overview, setOverview] = useState<Overview | null>(null),
     [symbol, setSymbol] = useState(''),
-    [companyInput, setCompanyInput] = useState(''),
     [at, setAt] = useState(''),
     [documents, setDocuments] = useState<Doc[]>([]),
     [facts, setFacts] = useState<Fact[]>([]),
@@ -115,6 +121,39 @@ export function ResearchClient({
     [busy, setBusy] = useState(false),
     [job, setJob] = useState<string | null>(null),
     [holdings, setHoldings] = useState<string[]>([]);
+  const importControl = useRef<ResearchImportControl>(null);
+  const [secOperation, setSecOperation] = useState<Operation>();
+  const [reportCheck, setReportCheck] = useState<{
+    symbol: string;
+    result: Import | null;
+  } | null>(null);
+  const page = useRef<HTMLDivElement>(null);
+  const addButton = useRef<HTMLButtonElement>(null);
+  const savedScroll = useRef<{ element: Element; top: number } | null>(null);
+  function openAdd() {
+    if (!addOpen) {
+      let element: Element | null = page.current?.parentElement ?? null;
+      while (
+        element &&
+        !/(auto|scroll)/.test(getComputedStyle(element).overflowY)
+      )
+        element = element.parentElement;
+      element ??= window.document.scrollingElement;
+      if (element) savedScroll.current = { element, top: element.scrollTop };
+    }
+    setAddOpen(true);
+    requestAnimationFrame(() =>
+      page.current?.scrollIntoView({ block: 'start' }),
+    );
+  }
+  function closeAdd() {
+    setAddOpen(false);
+    requestAnimationFrame(() => {
+      if (savedScroll.current)
+        savedScroll.current.element.scrollTop = savedScroll.current.top;
+      addButton.current?.focus({ preventScroll: true });
+    });
+  }
   const documentId = useSearchParams().get('document');
   const lastCitation = useRef('');
   useEffect(() => {
@@ -151,12 +190,15 @@ export function ResearchClient({
     const requestedSelection = symbol + suffix;
     setOverview(await api<Overview>(''));
     if (symbol) {
-      const result = await api<{ documents: Doc[]; facts: Fact[] }>(
-        `/companies/${symbol}${suffix}`,
-      );
+      const result = await api<{
+        documents: Doc[];
+        facts: Fact[];
+        reportCheck?: Import | null;
+      }>(`/companies/${symbol}${suffix}`);
       if (selection.current === requestedSelection) {
         setDocuments(result.documents);
         setFacts(result.facts);
+        setReportCheck({ symbol, result: result.reportCheck ?? null });
         setLoadedSelection(requestedSelection);
       }
     }
@@ -179,7 +221,10 @@ export function ResearchClient({
       .then((o) => {
         setOverview(o);
         const pending = o.imports.find((i) => i.status === 'running');
-        if (pending) setJob(pending.id);
+        if (pending) {
+          setJob(pending.id);
+          setSymbol((current) => current || pending.symbol);
+        }
       })
       .catch((e) => setError(String(e)));
     void fetch('/api/v1/portfolio/overview')
@@ -226,13 +271,14 @@ export function ResearchClient({
       return;
     }
     let live = true;
-    void api<{ documents: Doc[]; facts: Fact[] }>(
+    void api<{ documents: Doc[]; facts: Fact[]; reportCheck?: Import | null }>(
       `/companies/${symbol}${suffix}`,
     )
       .then((r) => {
         if (live) {
           setDocuments(r.documents);
           setFacts(r.facts);
+          setReportCheck({ symbol, result: r.reportCheck ?? null });
           setLoadedSelection(symbol + suffix);
         }
       })
@@ -250,7 +296,6 @@ export function ResearchClient({
     void api<Document>(`/documents/${id}${suffix}`)
       .then((d) => {
         setSymbol(d.symbol);
-        setCompanyInput(d.symbol);
         setDocument(d);
         if (lastCitation.current !== id + suffix) {
           setTab('documents');
@@ -307,65 +352,40 @@ export function ResearchClient({
       new CustomEvent('m2d:research-discuss', { detail: message }),
     );
   }
+  const completedReport =
+    reportCheck?.symbol === symbol ? reportCheck.result : null;
+  const secFeedback: Operation | undefined =
+    secOperation ??
+    (completedReport
+      ? {
+          state: 'done',
+          message: importSummary(completedReport),
+          result: completedReport,
+        }
+      : undefined);
   return (
-    <div hidden={!active} className="research-page">
+    <div ref={page} hidden={!active} className="research-page">
       <div className="eyebrow">MOTIVE · EVIDENCE</div>
       <h1>Research</h1>
-      <p className="intro">
+      <p className="intro" hidden={addOpen}>
         Understand what changed, inspect the evidence, and discuss the
-        implications with Agent.
+        implications with Advisor.
       </p>
-      <section className="research-toolbar" aria-label="Research selection">
-        <label>
-          Company name or underlying ticker
-          <input
-            disabled={adding || !!job}
-            aria-label="Research ticker"
-            list="research-tickers"
-            value={companyInput}
-            maxLength={150}
-            placeholder="e.g. TSLA"
-            onChange={(e) => {
-              const value = e.target.value;
-              setCompanyInput(value);
-              const known = overview?.companies.find(
-                (c) =>
-                  c.name.toLowerCase() === value.toLowerCase() ||
-                  c.symbol === value.toUpperCase(),
-              );
-              setSymbol(
-                known?.symbol ??
-                  (/^[A-Z0-9.-]{1,24}$/i.test(value)
-                    ? value.toUpperCase()
-                    : ''),
-              );
-            }}
-          />
-          <datalist id="research-tickers">
-            {[
-              ...new Set([
-                ...holdings,
-                ...(overview?.companies ?? []).map((c) => c.symbol),
-              ]),
-            ].map((s) => (
-              <option
-                key={s}
-                value={s}
-                label={overview?.companies.find((c) => c.symbol === s)?.name}
-              />
-            ))}
-            {(overview?.companies ?? [])
-              .filter((c) => c.name !== c.symbol)
-              .map((c) => (
-                <option
-                  key={`name:${c.symbol}`}
-                  value={c.name}
-                  label={c.symbol}
-                />
-              ))}
-          </datalist>
-        </label>
-        <button disabled={!symbol} onClick={() => setAddOpen(true)}>
+      <section
+        hidden={addOpen}
+        className="research-toolbar"
+        aria-label="Research selection"
+      >
+        <CompanyPicker
+          companies={overview?.companies ?? []}
+          portfolioSymbols={holdings}
+          choices={overview?.companyChoices ?? []}
+          selected={symbol}
+          disabled={adding || !!job}
+          onSelect={setSymbol}
+          onChoicesChange={refresh}
+        />
+        <button ref={addButton} disabled={!symbol} onClick={openAdd}>
           Add research
         </button>
         <button
@@ -376,10 +396,16 @@ export function ResearchClient({
             )
           }
         >
-          Discuss with Agent
+          Discuss with Advisor
         </button>
         <details className="research-history-control">
-          <summary>Historical view{at ? ' · active' : ''}</summary>{' '}
+          <summary>
+            Evidence as of · {at ? 'historical cutoff' : 'Latest available'}
+          </summary>{' '}
+          <p>
+            Advanced: include only evidence available by this time. This is not
+            the report period. Leave empty for all currently available evidence.
+          </p>
           <label>
             Evidence available by (UTC)
             <input
@@ -393,11 +419,12 @@ export function ResearchClient({
             />
           </label>
           <button onClick={() => setAt('')} disabled={!at || adding || !!job}>
-            Current view
+            Latest available
           </button>
         </details>
       </section>
       <div
+        hidden={addOpen}
         className="research-tabs"
         role="tablist"
         aria-label="Research views"
@@ -442,13 +469,15 @@ export function ResearchClient({
       {job && !addOpen && (
         <p role="status">
           Import processing…{' '}
-          <button onClick={() => setAddOpen(true)}>View import progress</button>
+          <button onClick={openAdd}>View import progress</button>
         </p>
       )}
       <AddResearch
+        controlRef={importControl}
+        onSecStatus={setSecOperation}
         symbol={symbol}
         open={addOpen}
-        onClose={() => setAddOpen(false)}
+        onClose={closeAdd}
         historical={!!cutoff}
         activity={adding}
         provider={overview?.provider ?? 'fixture'}
@@ -472,10 +501,48 @@ export function ResearchClient({
         id="research-panel-overview"
         role="tabpanel"
         aria-labelledby="research-tab-overview"
-        hidden={tab !== 'overview'}
+        hidden={addOpen || tab !== 'overview'}
       >
         {!symbol && (
           <p>Choose a company to see its research and market context.</p>
+        )}
+        {symbol && (
+          <section className="overview-reports" aria-label="Company reports">
+            <div className="research-heading">
+              <div>
+                <h2>
+                  {overview?.provider === 'fixture'
+                    ? 'Demo reports'
+                    : 'SEC company reports'}
+                </h2>
+                <p>
+                  Latest filings and reported financial history. For ETFs, add
+                  fund documents.
+                </p>
+              </div>
+              <button
+                disabled={adding || !!job || !!cutoff || !overview?.configured}
+                onClick={() => importControl.current?.refreshSec()}
+              >
+                {adding && secOperation?.state === 'working'
+                  ? 'Refreshing reports…'
+                  : overview?.provider === 'fixture'
+                    ? 'Load demo reports'
+                    : 'Refresh SEC reports'}
+              </button>
+            </div>
+            <p className="muted-label">
+              Last successful check:{' '}
+              {time(completedReport?.finished_at ?? null)}
+              {cutoff
+                ? ' · Switch to Latest available to refresh reports.'
+                : ''}
+            </p>
+            <OperationFeedback
+              operation={cutoff ? undefined : secFeedback}
+              onOpen={(id) => void action(() => openDoc(id))}
+            />
+          </section>
         )}
         {symbol && (
           <div className="research-coverage">
@@ -505,7 +572,7 @@ export function ResearchClient({
             key={symbol}
             symbol={symbol}
             at={cutoff}
-            active={active && tab === 'overview'}
+            active={active && !addOpen && tab === 'overview'}
             facts={loadedSelection === symbol + suffix ? facts : []}
             documents={loadedSelection === symbol + suffix ? documents : []}
             onOpen={(id) => void action(() => openDoc(id))}
@@ -562,7 +629,7 @@ export function ResearchClient({
         id="research-panel-search"
         role="tabpanel"
         aria-labelledby="research-tab-search"
-        hidden={tab !== 'search'}
+        hidden={addOpen || tab !== 'search'}
       >
         {symbol && (
           <CompanySearch
@@ -577,7 +644,7 @@ export function ResearchClient({
         id="research-panel-documents"
         role="tabpanel"
         aria-labelledby="research-tab-documents"
-        hidden={tab !== 'documents'}
+        hidden={addOpen || tab !== 'documents'}
       >
         {symbol && (
           <>
@@ -782,7 +849,7 @@ export function ResearchClient({
                 <h3>Analyst Research · attributed opinions</h3>
                 <p>
                   Exact labelled excerpts, not verified values. Missing fields
-                  remain unknown; ask Agent to interpret other report formats.
+                  remain unknown; ask Advisor to interpret other report formats.
                 </p>
                 <dl>
                   {document.analyst.fields.map((f) => (
@@ -814,7 +881,7 @@ export function ResearchClient({
                     )
                   }
                 >
-                  Analyze / compare analyst reports with Agent
+                  Analyze / compare analyst reports with Advisor
                 </button>
               </section>
             )}

@@ -12,6 +12,7 @@ function setup() {
     id: 1,
     revision: 0,
     defaultAnalysisMode: 'extensive',
+    outputLanguage: 'en',
     marketProvider: null,
     listingProvider: null,
     priceRefreshSeconds: 0,

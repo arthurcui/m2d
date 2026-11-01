@@ -373,7 +373,7 @@ export function CompanySearch({
                   )
                 }
               >
-                Ask Agent about results
+                Ask Advisor about results
               </button>
             )}
           </div>

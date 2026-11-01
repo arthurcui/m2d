@@ -1,4 +1,4 @@
-# M2 — Persistent portfolio Agent
+# M2 — Persistent portfolio Advisor
 
 M2 adds conversation-based self-reported portfolio updates. It does not add market feeds, research retrieval, order execution or autonomous monitoring. Existing workbook interpretation and confirmation remain available.
 
@@ -6,7 +6,7 @@ These are the M2 delivery notes. [M3](M3_MARKET.md) subsequently adds cached mar
 
 ## Use
 
-Start with `docker compose up --build --detach --wait --wait-timeout 180`, then open http://127.0.0.1:3000. The shared Agent panel has a separate PostgreSQL-backed conversation for every navigation function. Enter sends; Shift+Enter inserts a line. Drafts are saved to PostgreSQL after a short debounce, with an immediate browser-local copy. Navigating or closing the panel does not cancel a run. Reload reconnects to saved progress. **Cancel run** explicitly stops inference. **New conversation** archives the previous session and retains its run audit records.
+Start with `docker compose up --build --detach --wait --wait-timeout 180`, then open http://127.0.0.1:3000. The shared Advisor panel has a separate PostgreSQL-backed conversation for every navigation function. Enter sends; Shift+Enter inserts a line. Drafts are saved to PostgreSQL after a short debounce, with an immediate browser-local copy. Navigating or closing the panel does not cancel a run. Reload reconnects to saved progress. **Cancel run** explicitly stops inference. **New conversation** archives the previous session and retains its run audit records.
 
 Use Quick, Standard or Extensive to select a work allowance. Standard is initially selected; changing the selection automatically persists the preference. An explicit request overrides the saved default, then the deployment default. A follow-up is a new run with a parent ID and the explicitly selected mode. Later research and strategy tools remain unavailable regardless of mode.
 
@@ -92,7 +92,7 @@ Late-report verification: 87 unit tests and 23 PostgreSQL integration tests pass
 
 ### Panel and repeated-report usability
 
-Drag the divider (or focus it and use arrow keys) to resize Agent. Desktop panes scroll independently; narrow screens use a bottom panel with adjustable height. Sizes persist in this browser. Mode changes save automatically, with visible save errors. Older portfolio snapshot copies are omitted only from inference context; canonical evidence and all messages remain stored. Native continuation is rebuilt when that projection changes. Current state is supplied on every attempt, and the existing input/cost ceilings remain unchanged. Saved run failures remain visible after reload.
+Drag the divider (or focus it and use arrow keys) to resize Advisor. Desktop panes scroll independently; narrow screens use a bottom panel with adjustable height. Sizes persist in this browser. Mode changes save automatically, with visible save errors. Older portfolio snapshot copies are omitted only from inference context; canonical evidence and all messages remain stored. Native continuation is rebuilt when that projection changes. Current state is supplied on every attempt, and the existing input/cost ceilings remain unchanged. Saved run failures remain visible after reload.
 
 ### Capital visual direction and workbook confirmation
 
@@ -102,17 +102,17 @@ A repeated upload of an already-confirmed workbook stays idempotent. Its review 
 
 ### Selected holding context and Capital layout
 
-Holdings are grouped by account with collapsible rows and search. **Ask Agent** selects an exact account/instrument pair and shows a removable context chip in the docked composer. Selection survives navigation and reload in this browser and is cleared after confirmation or with the clear control. Symbols alone never disambiguate option contracts or accounts.
+Holdings are grouped by account with collapsible rows and search. **Ask Advisor** selects an exact account/instrument pair and shows a removable context chip in the docked composer. Selection survives navigation and reload in this browser and is cleared after confirmation or with the clear control. Symbols alone never disambiguate option contracts or accounts.
 
-The version-1 chat request accepts optional `holdingContext: { accountKey, instrumentKey }`. It participates in the idempotency fingerprint and is persisted on the canonical user message. The Agent resolves it against current holdings before inference and rejects missing holdings or mismatched trade proposals. No stale quantity, cost or cash is copied from the browser. “Sold 3 shares” supplies quantity and direction, while the selected holding supplies account/security; missing execution price and fees are still clarified. Average cost is never substituted for execution price. Preview, revision checks and human confirmation remain mandatory. This additive JSON metadata needs no database migration.
+The version-1 chat request accepts optional `holdingContext: { accountKey, instrumentKey }`. It participates in the idempotency fingerprint and is persisted on the canonical user message. The Advisor resolves it against current holdings before inference and rejects missing holdings or mismatched trade proposals. No stale quantity, cost or cash is copied from the browser. “Sold 3 shares” supplies quantity and direction, while the selected holding supplies account/security; missing execution price and fees are still clarified. Average cost is never substituted for execution price. Preview, revision checks and human confirmation remain mandatory. This additive JSON metadata needs no database migration.
 
 The screen follows the approved light mockup's narrow icon rail, white surfaces, serif headings, account groups, muted separators and bottom-docked composer. Monograms identify securities without adding external logo requests. Unsupported market values/P&L from the illustrative mockup are omitted.
 
 ### Account scope and conversation following
 
-**Ask Agent** beside an account selects that account without selecting a security. The existing context metadata has an optional `instrumentKey`; saved holding selections remain compatible. Account scope supplies the account for trade reports, but a missing ticker still requires clarification. Cross-account trade proposals remain rejected.
+**Ask Advisor** beside an account selects that account without selecting a security. The existing context metadata has an optional `instrumentKey`; saved holding selections remain compatible. Account scope supplies the account for trade reports, but a missing ticker still requires clarification. Cross-account trade proposals remain rejected.
 
-Selection is a default scope for read-only questions, not a topic restriction. An explicit ticker replaces the selected ticker. Simple “how many TSLA?” queries use a deterministic decimal-safe share count from current records, defaulting to the selected account. “Across all accounts” overrides that scope. Replies label the account scope, net share quantity and record timestamp/revision; options are excluded. A closed selected holding does not block these questions. Other wording remains handled by Agent with the same scope instructions.
+Selection is a default scope for read-only questions, not a topic restriction. An explicit ticker replaces the selected ticker. Simple “how many TSLA?” queries use a deterministic decimal-safe share count from current records, defaulting to the selected account. “Across all accounts” overrides that scope. Replies label the account scope, net share quantity and record timestamp/revision; options are excluded. A closed selected holding does not block these questions. Other wording remains handled by Advisor with the same scope instructions.
 
 New sends follow the latest conversation content, and streamed replies stay in view when already following. Scrolling upward pauses following and exposes **Latest message**; starting a new conversation resets its viewport. No database schema change or paid test is required.
 

@@ -2911,3 +2911,132 @@ footer {
   resize: vertical;
   min-height: 180px;
 }
+
+/* Explicit research context and compact per-reply controls. */
+.research-toolbar .company-picker {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+.company-picker form {
+  display: flex;
+  gap: 10px;
+  align-items: end;
+}
+.company-picker label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+.company-picker input {
+  width: 100%;
+  min-width: 0;
+}
+.company-picker small {
+  display: block;
+  margin: 8px 0;
+  color: #62746a;
+  font-size: 11px;
+}
+.company-suggestions {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px;
+  background: white;
+}
+.company-suggestions ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 230px;
+  overflow-y: auto;
+}
+.company-suggestions li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid #edf1ee;
+}
+.company-suggestions li > button:first-child {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  display: flex;
+  gap: 12px;
+  border: 0;
+  background: transparent;
+}
+.company-suggestions li > button:first-child:hover {
+  background: #edf4ef;
+}
+.company-suggestions span {
+  color: #62746a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.company-remove {
+  flex: 0 0 auto;
+}
+.selected-company {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: #edf4ef;
+  border-radius: 8px;
+  color: #17482f;
+}
+.overview-reports {
+  padding: 16px;
+  margin: 16px 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.overview-reports h2 {
+  margin: 0;
+  font-size: 16px;
+}
+.overview-reports p {
+  font-size: 12px;
+}
+.agent-conversation-actions .agent-mode-settings {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  width: 100%;
+}
+.agent-conversation-actions .agent-mode-field {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  min-width: 0;
+}
+.agent-mode-field select {
+  width: 100%;
+  min-width: 0;
+}
+.agent-next-send-note {
+  grid-column: 1 / -1;
+  color: #62746a;
+  font-size: 11px;
+  line-height: 1.5;
+}
+@media (max-width: 650px) {
+  .company-picker form {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .company-picker form > button {
+    align-self: flex-start;
+  }
+  .selected-company {
+    overflow-wrap: anywhere;
+  }
+  .overview-reports .research-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

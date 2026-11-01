@@ -26,6 +26,7 @@ erDiagram
         text provider
         text model
         text analysis_mode
+        text output_language "nullable"
         text policy_version
         text prompt_version
         text adapter_version
@@ -68,6 +69,7 @@ erDiagram
         integer id PK
         integer revision
         text default_analysis_mode "nullable"
+        text output_language
         text market_provider "nullable"
         text listing_provider "nullable"
         integer price_refresh_seconds
@@ -265,6 +267,11 @@ erDiagram
         text name
         text cik "nullable"
         timestamp_with_time_zone created_at
+    }
+    research_company_choices {
+        text symbol PK
+        boolean hidden
+        timestamp_with_time_zone updated_at
     }
     research_embedding_usage {
         uuid id PK

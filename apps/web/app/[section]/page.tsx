@@ -66,15 +66,15 @@ export default async function Placeholder({
         <div>
           <h2>
             {section === 'chat'
-              ? 'Talk with Agent'
+              ? 'Talk with Advisor'
               : 'Coming in a later milestone'}
           </h2>
           <p>
-            Use the Agent panel for questions about your recorded portfolio. No
-            market data has been retrieved.
+            Use the Advisor panel for questions about your recorded portfolio.
+            No market data has been retrieved.
           </p>
           <p>
-            Agent saves a separate conversation for this function. Currently,
+            Advisor saves a separate conversation for this function. Currently,
             portfolio assistance is available in the Portfolio conversation;
             your unfinished work is preserved while you navigate.
           </p>

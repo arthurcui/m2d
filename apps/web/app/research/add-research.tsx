@@ -1,13 +1,23 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import {
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type Ref,
+} from 'react';
 import { SourceLibrary } from './source-library';
 import {
   researchRequest,
+  importSummary,
   OperationFeedback,
   type ImportResult,
   type Operation,
 } from './import-feedback';
+export type ResearchImportControl = { refreshSec: () => void };
 export function AddResearch({
+  controlRef,
+  onSecStatus,
   symbol,
   open,
   onClose,
@@ -22,6 +32,8 @@ export function AddResearch({
   onOpen,
   onSearch,
 }: {
+  controlRef: Ref<ResearchImportControl>;
+  onSecStatus: (operation: Operation | undefined) => void;
   symbol: string;
   open: boolean;
   onClose: () => void;
@@ -55,6 +67,14 @@ export function AddResearch({
   const operation = (key: string) => operations[slot(key)];
   const update = (key: string, value: Operation) =>
     setOperations((old) => ({ ...old, [key]: value }));
+  useImperativeHandle(controlRef, () => ({
+    refreshSec: () => {
+      void run('sec', '/import', { symbol });
+    },
+  }));
+  useEffect(() => {
+    onSecStatus(operations[`${symbol}:sec`]);
+  }, [operations, symbol, onSecStatus]);
   useEffect(() => {
     if (!job) return;
     lock.current = true;
@@ -81,12 +101,7 @@ export function AddResearch({
           r.status === 'completed'
             ? {
                 state: 'done',
-                message:
-                  r.added_count === null
-                    ? `Import complete · ${r.document_ids.length} documents.`
-                    : r.added_count === 0
-                      ? `Already saved · ${r.reused_count} document${r.reused_count === 1 ? '' : 's'} reused · ${r.passage_count} searchable passages.`
-                      : `Imported ${r.added_count} new document${r.added_count === 1 ? '' : 's'} · ${r.reused_count} already saved · ${r.passage_count} searchable passages.`,
+                message: importSummary(r),
                 result: r,
               }
             : {
@@ -219,7 +234,7 @@ export function AddResearch({
             Evidence for <strong>{symbol || 'choose a company'}</strong>
           </p>
         </div>
-        <button onClick={onClose}>Close add research</button>
+        <button onClick={onClose}>Back to Research</button>
       </div>
       {(busy || activity) && (
         <p role="status">

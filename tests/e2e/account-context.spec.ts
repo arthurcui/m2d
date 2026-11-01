@@ -72,7 +72,7 @@ test('account context scopes messages and new messages scroll into view', async 
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto('/portfolio');
   await page
-    .getByRole('button', { name: 'Use Questrade TFSA as Agent context' })
+    .getByRole('button', { name: 'Use Questrade TFSA as Advisor context' })
     .click();
   await expect(page.locator('.holding-context-chip')).toContainText(
     'Selected account',

@@ -9,10 +9,13 @@ test('company charts use stored evidence, cite sources, retain selections and en
   );
   const writes: string[] = [];
   page.on('request', (r) => {
-    if (r.method() === 'POST') writes.push(r.url());
+    // Saving a company choice is local preference persistence, not a data refresh.
+    if (r.method() === 'POST' && !r.url().endsWith('/companies/selection'))
+      writes.push(r.url());
   });
   await page.goto('/research');
   await page.getByLabel('Research ticker').fill('NVDA');
+  await page.getByLabel('Research ticker').press('Enter');
   const price = page.getByRole('article', { name: 'Price and events' });
   const finances = page.getByRole('article', { name: 'Financial trends' });
   await expect(price).toBeVisible();
@@ -22,7 +25,7 @@ test('company charts use stored evidence, cite sources, retain selections and en
     .getByRole('button', { name: 'Suggested sources', exact: true })
     .click();
   await page.getByRole('button', { name: 'Load demo reports' }).click();
-  await page.getByRole('button', { name: 'Close add research' }).click();
+  await page.getByRole('button', { name: 'Back to Research' }).click();
   await expect(
     finances.getByRole('group', { name: 'NVDA reported financial trend' }),
   ).toBeVisible({ timeout: 20000 });
@@ -67,7 +70,9 @@ test('company charts use stored evidence, cite sources, retain selections and en
     .toBe('completed');
   // A fresh company read discovers the newly stored source without a provider request.
   await page.getByLabel('Research ticker').fill('AAPL');
+  await page.getByLabel('Research ticker').press('Enter');
   await page.getByLabel('Research ticker').fill('NVDA');
+  await page.getByLabel('Research ticker').press('Enter');
   await expect(price).toContainText('1 publication marker');
   await price
     .getByRole('link', { name: 'Open event: chart-event.txt' })
@@ -109,7 +114,7 @@ test('company charts use stored evidence, cite sources, retain selections and en
   await page.setViewportSize({ width: 1440, height: 1400 });
   await price.screenshot({ path: '.tmp/company-price-desktop.png' });
   await finances.screenshot({ path: '.tmp/company-financial-desktop.png' });
-  await page.getByRole('button', { name: 'Close Agent' }).click();
+  await page.getByRole('button', { name: 'Close Advisor' }).click();
   await page.setViewportSize({ width: 390, height: 1400 });
   expect(
     await page.evaluate(
@@ -118,7 +123,9 @@ test('company charts use stored evidence, cite sources, retain selections and en
   ).toBe(true);
   await price.screenshot({ path: '.tmp/company-price-mobile.png' });
   await finances.screenshot({ path: '.tmp/company-financial-mobile.png' });
-  await page.getByText('Historical view', { exact: true }).click();
+  await page
+    .getByText('Evidence as of · Latest available', { exact: true })
+    .click();
   await page.getByLabel('Evidence available by (UTC)').fill('2020-01-01T00:00');
   await expect(price.getByRole('group')).toHaveCount(0);
   await expect(finances.getByRole('group')).toHaveCount(0);
@@ -142,6 +149,7 @@ test('chart listing resolution skips the exchange form and asks only for genuine
   });
   await page.goto('/research');
   await page.getByLabel('Research ticker').fill('SPY');
+  await page.getByLabel('Research ticker').press('Enter');
   const chart = page.getByRole('article', { name: 'Price and events' });
   await expect(chart.getByRole('combobox')).toHaveCount(0);
   await chart
@@ -157,6 +165,7 @@ test('chart listing resolution skips the exchange form and asks only for genuine
     listingId: 'SPY:ARCA',
   });
   await page.getByLabel('Research ticker').fill('DUAL');
+  await page.getByLabel('Research ticker').press('Enter');
   requests.length = 0;
   await chart
     .getByRole('button', { name: 'Refresh price history', exact: true })
@@ -186,6 +195,7 @@ test('chart listing resolution skips the exchange form and asks only for genuine
     chart.getByRole('button', { name: /synthetic listing.*NYSE/ }),
   ).toHaveAttribute('aria-pressed', 'true');
   await page.getByLabel('Research ticker').fill('NORESULT');
+  await page.getByLabel('Research ticker').press('Enter');
   await chart
     .getByRole('button', { name: 'Refresh price history', exact: true })
     .click();

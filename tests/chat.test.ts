@@ -131,6 +131,50 @@ function harness(
   };
 }
 describe('M2 chat orchestration', () => {
+  it('starts a fresh allowance per send while retaining context and changing reply language', async () => {
+    const provider = new ChatFixtureProvider();
+    const requests: ModelRequest[] = [];
+    const generate = provider.generate.bind(provider);
+    provider.generate = async (request) => {
+      requests.push(request);
+      return generate(request);
+    };
+    const h = harness(provider, 'hello');
+    const first = await h.start({
+      mode: 'quick',
+      limits: resolvePolicy('quick', ceilings),
+      outputLanguage: 'en',
+    });
+    const boundary = requests.length;
+    const prior = h.history();
+    const second = await h.start({
+      history: [...prior, user('Continue our discussion')],
+      mode: 'extensive',
+      limits: {
+        ...resolvePolicy('extensive', ceilings),
+        modelCalls: first.attempts,
+      },
+      outputLanguage: 'zh-CN',
+    });
+    expect(second.attempts).toBeGreaterThan(0);
+    expect(second.attempts).toBeLessThanOrEqual(first.attempts);
+    expect(requests[0]!.instructions).toContain('Output language: English');
+    expect(requests[boundary]!.instructions).toContain(
+      'Output language: Simplified Chinese',
+    );
+    expect(requests[boundary]!.history).toEqual(
+      expect.arrayContaining(prior.filter((i) => i.kind === 'text')),
+    );
+    expect(h.changes).toHaveLength(0);
+  });
+  it('honors Chinese output on the deterministic share-count path without inference', async () => {
+    const h = harness(undefined, 'how many AAPL?');
+    const result = await h.start({ outputLanguage: 'zh-CN' });
+    expect(result.attempts).toBe(0);
+    expect(h.history().at(-1)).toMatchObject({
+      text: expect.stringContaining('100 AAPL 股'),
+    });
+  });
   it.each([undefined, '2026-10-30T18:25:00Z'])(
     'passes selected company and explicit temporal intent to the model (%s)',
     async (at) => {

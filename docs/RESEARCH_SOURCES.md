@@ -1,6 +1,6 @@
 # Public research sources (M4 extension)
 
-Research → select a ticker → **Add research → Suggested sources** (or **From URL**). Import a preset, browse its document links, or save a public HTTPS URL under a company. Saving a link does not fetch or index it. Imported evidence is shared by the user search screen and Agent, with source filters, passage citations and historical availability. No portfolio changes follow from research.
+Research → select a ticker → **Add research → Suggested sources** (or **From URL**). Import a preset, browse its document links, or save a public HTTPS URL under a company. Saving a link does not fetch or index it. Imported evidence is shared by the user search screen and Advisor, with source filters, passage citations and historical availability. No portfolio changes follow from research.
 
 | Category                     | Included inputs                                                                                     | Important distinction                                                                                                                    |
 | ---------------------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
@@ -18,7 +18,7 @@ Curated issuer examples cover Tesla and NVIDIA; the Tesla Q3 2026 deck is explic
 
 Massive reuses `MASSIVE_API_KEY` on the API backend. The key is never returned to the browser, appended to evidence URLs or forwarded on redirects. No additional account/key is needed for the other supported public sources. News consumes the same provider entitlement/rate quota as market-data calls; HTTP 429 is reported without retry storms or switching providers. Availability and licensing remain publisher-specific; content requiring authentication/paywall access is not bypassed.
 
-Retrieval and keyword search do not invoke an LLM. **Build / resume semantic index** and Agent questions use the existing configured inference provider and deployment budgets. These remain explicit user operations. Continuous polling, discovery/scheduling, change-triggered alerts and automatic semantic indexing are future milestones, not part of this extension.
+Retrieval and keyword search do not invoke an LLM. **Build / resume semantic index** and Advisor questions use the existing configured inference provider and deployment budgets. These remain explicit user operations. Continuous polling, discovery/scheduling, change-triggered alerts and automatic semantic indexing are future milestones, not part of this extension.
 
 ## Preservation and bounds
 
@@ -56,9 +56,9 @@ pnpm eval:research-sources
 pnpm eval:research-sources --live
 ```
 
-The harness creates/drops its own randomly named database, preserves original hashes, checks source categories and availability, indexes the small TSLL corpus, executes shared hybrid search and a cited Agent question, and verifies no financial state changes. It never reads the actual portfolio. Live ceilings are the lesser of deployment limits and USD 0.25, 20,000 embedding input bytes, five model attempts, four tools, 1,024 output tokens and 45 seconds per Agent run. Known model pricing is reused only for the supported mini model; other models need configured pricing. Per-source failures remain visible even when the rest of the pipeline passes. Reports and usage are saved under ignored `.tmp/research-sources-*-report.json`.
+The harness creates/drops its own randomly named database, preserves original hashes, checks source categories and availability, indexes the small TSLL corpus, executes shared hybrid search and a cited Advisor question, and verifies no financial state changes. It never reads the actual portfolio. Live ceilings are the lesser of deployment limits and USD 0.25, 20,000 embedding input bytes, five model attempts, four tools, 1,024 output tokens and 45 seconds per Advisor run. Known model pricing is reused only for the supported mini model; other models need configured pricing. Per-source failures remain visible even when the rest of the pipeline passes. Reports and usage are saved under ignored `.tmp/research-sources-*-report.json`.
 
-Live checks on November 1, 2026 imported Tesla’s Q3 deck, NVIDIA releases, Direxion’s fact sheet, Fed policy and BLS CPI/employment feeds, and five Massive summaries. All 12 stored-document hashes were verified. Hybrid retrieval and a real OpenAI Agent answer about TSLL daily compounding passed with citations and no financial changes. Index/query usage was 12,030 bytes / 2,793 embedding tokens; the Agent used 37,982 input and 844 output tokens.
+Live checks on November 1, 2026 imported Tesla’s Q3 deck, NVIDIA releases, Direxion’s fact sheet, Fed policy and BLS CPI/employment feeds, and five Massive summaries. All 12 stored-document hashes were verified. Hybrid retrieval and a real OpenAI Advisor answer about TSLL daily compounding passed with citations and no financial changes. Index/query usage was 12,030 bytes / 2,793 embedding tokens; the Advisor used 37,982 input and 844 output tokens.
 
 OCC directory and memo requests returned HTTP 403, so live OCC ingestion is **not verified**. Tesla’s IR landing page also returned 403, while its separately published public deck downloaded successfully. SEC remains unverified until a genuine contact identity is configured. Blocked sites require a user-provided permitted document or another accessible official source; there is no authentication/access-control workaround.
 
@@ -66,6 +66,6 @@ The official Fed meeting calendar and BLS current release calendar also download
 
 Final verification: 182 unit tests, 47 PostgreSQL/API integration tests and 33 Playwright tests passed. Formatting, lint, strict TypeScript checks, ERD consistency, Compose validation and all application image builds passed. The final local deployment passed desktop/mobile read-only checks with zero browser errors and all four services healthy. The recorded portfolio, holdings/cash and saved provider/analysis preferences were unchanged. A database backup was taken before the additive migration; live test documents stayed in disposable databases. The browser checks also exposed and fixed a pending-conversation-reset race that could erase the next typed message.
 
-See [Analyst Research](ANALYST_RESEARCH.md) for public bank sources, categorized uploads, cited fields and Agent comparisons.
+See [Analyst Research](ANALYST_RESEARCH.md) for public bank sources, categorized uploads, cited fields and Advisor comparisons.
 
 The unified Add research panel keeps browse results under their source, disables repeat operations until completion, and displays durable new/reused import counts. General market presets are collapsed separately from company-specific and saved sources. Exact duplicate uploads are also reused across filenames within the same company/category and attributed URL; changed public-source bytes remain versioned evidence.

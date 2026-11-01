@@ -17,7 +17,7 @@ test('a pending conversation reset cannot erase the next message', async ({
     await route.fulfill({ response });
   });
   await page.goto('/research');
-  const agent = page.getByRole('complementary', { name: 'Agent' });
+  const agent = page.getByRole('complementary', { name: 'Advisor' });
   await agent
     .getByRole('button', { name: 'Reset conversation', exact: true })
     .click();
@@ -42,6 +42,7 @@ test('saved research sources survive navigation, import with citations and show 
   const symbol = `SRC${randomUUID().slice(0, 8).toUpperCase()}`;
   await page.goto('/research');
   await page.getByLabel('Research ticker').fill(symbol);
+  await page.getByLabel('Research ticker').press('Enter');
   const library = page.locator('.research-sources');
   await page.getByRole('button', { name: 'Add research', exact: true }).click();
   await page.getByRole('button', { name: 'From URL', exact: true }).click();
@@ -94,12 +95,18 @@ test('saved research sources survive navigation, import with citations and show 
   await page
     .getByRole('button', { name: 'Suggested sources', exact: true })
     .click();
-  await page.getByText('Historical view', { exact: true }).click();
+  await page.getByRole('button', { name: 'Back to Research' }).click();
+  await page
+    .getByText('Evidence as of · Latest available', { exact: true })
+    .click();
   await page.getByLabel('Evidence available by (UTC)').fill('2020-01-01T00:00');
+  await page.getByRole('button', { name: 'Add research', exact: true }).click();
   await expect(
     card.getByRole('button', { name: 'Import page / feed' }),
   ).toBeDisabled();
-  await page.getByRole('button', { name: 'Current view' }).click();
+  await page.getByRole('button', { name: 'Back to Research' }).click();
+  await page.getByRole('button', { name: 'Latest available' }).click();
+  await page.getByRole('button', { name: 'Add research', exact: true }).click();
   await card.getByRole('button', { name: 'Remove link' }).click();
   await expect(card).toHaveCount(0);
   await expect(page.locator('.research-documents .research-card')).toHaveCount(
@@ -125,6 +132,7 @@ test('analyst upload preserves labelled opinions and prepares a cited comparison
   await page
     .getByLabel('Research ticker')
     .fill('AR' + randomUUID().slice(0, 8).toUpperCase());
+  await page.getByLabel('Research ticker').press('Enter');
   await page.getByRole('button', { name: 'Add research', exact: true }).click();
   await page.getByLabel('Document category').selectOption('analyst');
   await page.getByLabel('Upload a company or fund document').setInputFiles({
@@ -139,7 +147,7 @@ test('analyst upload preserves labelled opinions and prepares a cited comparison
     .click();
   const card = page.locator('.research-documents .research-card');
   await expect(card).toHaveCount(1, { timeout: 20000 });
-  await page.getByRole('button', { name: 'Close add research' }).click();
+  await page.getByRole('button', { name: 'Back to Research' }).click();
   await page.getByRole('tab', { name: 'Documents', exact: true }).click();
   await card.getByRole('button', { name: 'analyst.txt' }).click();
   const details = page.getByRole('region', { name: 'Analyst report details' });
@@ -147,7 +155,7 @@ test('analyst upload preserves labelled opinions and prepares a cited comparison
   await expect(details).toContainText('Unknown');
   await details
     .getByRole('button', {
-      name: 'Analyze / compare analyst reports with Agent',
+      name: 'Analyze / compare analyst reports with Advisor',
     })
     .click();
   await expect(page.getByLabel('Research message')).toHaveValue(

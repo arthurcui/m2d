@@ -409,18 +409,36 @@ export async function researchRoutes(
     envelope({
       ...s.status(),
       companies: await s.repository.companies(),
+      companyChoices: await s.repository.companyChoices(),
       imports: await s.repository.imports(),
     }),
   );
   app.get('/api/v1/research/imports/:id', async (req) =>
     envelope(await s.repository.import(docId(req.params))),
   );
+  app.post('/api/v1/research/companies/selection', async (req) => {
+    const input = z
+      .object({
+        version: z.literal(1),
+        symbol: symbolSchema,
+        hidden: z.boolean(),
+      })
+      .strict()
+      .parse(req.body);
+    return envelope(
+      await s.repository.setCompanyChoice(input.symbol, input.hidden),
+    );
+  });
   app.get('/api/v1/research/companies/:symbol', async (req) => {
     const { symbol } = z.object({ symbol: symbolSchema }).parse(req.params),
       { at } = query.parse(req.query);
     return envelope({
       documents: await s.repository.timeline(symbol, at),
       facts: await s.repository.facts(symbol, at),
+      reportCheck: await s.repository.latestReportCheck(
+        symbol,
+        s.status().provider,
+      ),
     });
   });
   app.get('/api/v1/research/documents/:id', async (req) =>

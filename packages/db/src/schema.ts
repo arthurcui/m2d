@@ -390,12 +390,14 @@ export const appSettings = pgTable(
     id: integer('id').primaryKey().default(1),
     revision: integer('revision').notNull().default(0),
     defaultAnalysisMode: text('default_analysis_mode'),
+    outputLanguage: text('output_language').notNull().default('en'),
     marketProvider: text('market_provider'),
     listingProvider: text('listing_provider'),
     priceRefreshSeconds: integer('price_refresh_seconds').notNull().default(0),
   },
   (t) => [
     check('settings_singleton', sql`${t.id} = 1`),
+    check('settings_language', sql`${t.outputLanguage} in ('en','zh-CN')`),
     check(
       'settings_market_provider',
       sql`${t.marketProvider} in ('fixture','massive','ibkr','twelvedata')`,
@@ -412,6 +414,17 @@ export const appSettings = pgTable(
       'settings_mode',
       sql`${t.defaultAnalysisMode} in ('quick','standard','extensive')`,
     ),
+  ],
+);
+export const researchCompanyChoices = pgTable(
+  'research_company_choices',
+  {
+    symbol: text('symbol').primaryKey(),
+    hidden: boolean('hidden').notNull().default(false),
+    updatedAt: utc('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    check('research_choice_symbol', sql`${t.symbol} ~ '^[A-Z0-9.-]{1,24}$'`),
   ],
 );
 export const agentSessions = pgTable('agent_sessions', {
@@ -437,6 +450,7 @@ export const agentRuns = pgTable(
     provider: text('provider').notNull(),
     model: text('model').notNull(),
     analysisMode: text('analysis_mode').notNull(),
+    outputLanguage: text('output_language'),
     policyVersion: text('policy_version').notNull(),
     promptVersion: text('prompt_version').notNull(),
     adapterVersion: text('adapter_version').notNull(),
@@ -463,6 +477,7 @@ export const agentRuns = pgTable(
       'agent_run_mode',
       sql`${t.analysisMode} in ('quick','standard','extensive')`,
     ),
+    check('agent_run_language', sql`${t.outputLanguage} in ('en','zh-CN')`),
     check(
       'agent_run_status',
       sql`${t.status} in ('running','completed','failed','cancelled','interrupted')`,

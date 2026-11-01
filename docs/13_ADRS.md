@@ -170,3 +170,8 @@ Research charts no longer default to NASDAQ or ask for an exchange. Versioned ma
 ## ADR-048 — Task-focused Research workspace and durable import outcomes
 
 Keep Overview, Documents and Search mounted to preserve in-progress Research state. Consolidate file, pasted text, public URL and preset retrieval in one Add research panel. Reuse versioned upload/source APIs with optional title/URL metadata and stable per-operation request IDs on uncertain retries. Persist import counts in the same transaction as documents (migration 0019) rather than deriving duplicate results from client snapshots or timestamps. Reuse identical renamed uploads within a company/category/attributed URL while retaining public-source provenance and changed-byte revisions. No automatic ingestion, indexing, inference or portfolio changes are introduced. See [M4 Research](M4_RESEARCH.md).
+
+
+## ADR-049 — Per-reply Advisor policy and explicit Research context
+
+Keep conversation history independent of per-run mode, language and budgets. Persist a workspace language preference and snapshot it on each new run, with null for historical runs. Expose daily reservation usage separately from per-reply usage without raising limits. Add an independent research_company_choices table for persistent additions/dismissals; do not delete research or modify holdings when removing suggestions. Typed company input only filters choices until explicit selection. Add research hides, but does not unmount, Research tabs; SEC refresh on Overview shares the existing import controller, idempotency and progress. See [Analysis modes](15_ANALYSIS_MODES.md) and [M4 Research](M4_RESEARCH.md).

@@ -89,7 +89,7 @@ it('embeds identical extracted passages only once across revisions in the same b
     ),
   ).toEqual({ total: 2, indexed: 2, pending: 0 });
 });
-it('shares filtered evidence retrieval with the API and Agent; caches queries and idempotent indexes', async () => {
+it('shares filtered evidence retrieval with the API and Advisor; caches queries and idempotent indexes', async () => {
   const liquidity = await upload(
       'Existing liquidity supports six months of operations. Management is seeking additional funding.',
     ),

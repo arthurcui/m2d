@@ -43,6 +43,40 @@ afterAll(async () => {
   await admin.pool.query(`DROP DATABASE "${name}"`);
   await admin.close();
 });
+it('persists explicit company choices idempotently without deleting research or holdings', async () => {
+  const portfolio = await db.portfolio.overview();
+  await service.start({
+    idempotencyKey: randomUUID(),
+    symbol: 'CHOICE',
+  });
+  await service.close();
+  const docs = await db.research.timeline('CHOICE');
+  for (const hidden of [true, true, false]) {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/research/companies/selection',
+      payload: { version: 1, symbol: 'CHOICE', hidden },
+    });
+    expect(response.statusCode, response.body).toBe(200);
+    const overview = (await app.inject('/api/v1/research')).json().data;
+    expect(
+      overview.companyChoices.filter(
+        (c: { symbol: string }) => c.symbol === 'CHOICE',
+      ),
+    ).toEqual([{ symbol: 'CHOICE', hidden }]);
+    expect(await db.research.timeline('CHOICE')).toEqual(docs);
+  }
+  expect(
+    (
+      await app.inject({
+        method: 'POST',
+        url: '/api/v1/research/companies/selection',
+        payload: { version: 1, symbol: 'invalid symbol', hidden: true },
+      })
+    ).statusCode,
+  ).toBe(400);
+  expect(await db.portfolio.overview()).toEqual(portfolio);
+});
 it('imports, deduplicates, searches, compares, cites and preserves the recorded portfolio', async () => {
   const id = randomUUID(),
     input = { version: 1, symbol: 'DEMO', idempotencyKey: id };

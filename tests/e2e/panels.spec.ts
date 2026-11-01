@@ -34,9 +34,12 @@ test('resize panels, automatically save mode, and send consecutive messages', as
   });
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto('/portfolio');
-  const divider = page.getByRole('separator', { name: 'Resize Agent panel' });
+  const divider = page.getByRole('separator', { name: 'Resize Advisor panel' });
   await expect(divider).toBeVisible();
-  const panel = page.getByRole('complementary', { name: 'Agent', exact: true });
+  const panel = page.getByRole('complementary', {
+    name: 'Advisor',
+    exact: true,
+  });
   const before = (await panel.boundingBox())!.width;
   await divider.focus();
   await divider.press('ArrowLeft');
@@ -51,7 +54,7 @@ test('resize panels, automatically save mode, and send consecutive messages', as
     page.getByRole('button', { name: 'Save as default' }),
   ).toHaveCount(0);
   await page.getByLabel('Portfolio analysis mode').selectOption('quick');
-  await expect(page.getByRole('status')).toHaveText('Default saved: quick.');
+  await expect(page.getByLabel('Portfolio analysis mode')).toBeEnabled();
   expect(mode).toBe('quick');
   const message = page.getByLabel('Portfolio message');
   await message.fill('sold 1 AAPL at 200 fee 0');

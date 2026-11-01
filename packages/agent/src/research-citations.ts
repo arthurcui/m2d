@@ -52,6 +52,6 @@ export function validateResearchCitations(
     if (!allowed.has(match[1]!))
       throw new LlmError(
         'LLM_INVALID_OUTPUT',
-        'Agent cited a document that was not retrieved. Ask again to retrieve the source evidence.',
+        'Advisor cited a document that was not retrieved. Ask again to retrieve the source evidence.',
       );
 }

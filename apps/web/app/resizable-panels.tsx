@@ -65,7 +65,7 @@ export function ResizablePanels({
         className="panel-divider"
         role="separator"
         tabIndex={0}
-        aria-label="Resize Agent panel"
+        aria-label="Resize Advisor panel"
         aria-orientation={narrow ? 'horizontal' : 'vertical'}
         aria-valuemin={25}
         aria-valuemax={narrow ? 70 : 65}

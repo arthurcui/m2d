@@ -45,6 +45,7 @@ test('hybrid company search finds paraphrases, keeps filters and opens cited evi
     .getByRole('button', { name: 'Reset conversation', exact: true })
     .click();
   await page.getByLabel('Research ticker').fill(symbol);
+  await page.getByLabel('Research ticker').press('Enter');
   await page.getByRole('tab', { name: 'Search', exact: true }).click();
   const search = page.getByRole('region', { name: 'Company evidence search' });
   await search.getByText('Search options', { exact: true }).click();
@@ -84,7 +85,9 @@ test('hybrid company search finds paraphrases, keeps filters and opens cited evi
   await expect(search.getByLabel('Search stored evidence')).toHaveValue(
     'Could it run out of money?',
   );
-  await search.getByRole('button', { name: 'Ask Agent about results' }).click();
+  await search
+    .getByRole('button', { name: 'Ask Advisor about results' })
+    .click();
   const message = page.getByRole('textbox', {
     name: 'Research message',
     exact: true,

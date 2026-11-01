@@ -13,6 +13,13 @@ export type Operation = {
   message: string;
   result?: ImportResult;
 };
+export function importSummary(r: ImportResult) {
+  if (r.added_count == null)
+    return `Import complete · ${r.document_ids.length} documents.`;
+  return r.added_count === 0
+    ? `Already saved · ${r.reused_count} document${r.reused_count === 1 ? '' : 's'} reused · ${r.passage_count} searchable passages.`
+    : `Imported ${r.added_count} new document${r.added_count === 1 ? '' : 's'} · ${r.reused_count} already saved · ${r.passage_count} searchable passages.`;
+}
 export async function researchRequest<T>(
   path: string,
   body?: unknown,

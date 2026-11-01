@@ -59,7 +59,7 @@ it('deduplicates repeated passages and gives different documents a place before 
     hits.filter((h) => h.text.toLowerCase() === rows[0]!.text.toLowerCase()),
   ).toHaveLength(1);
 });
-it('bounds public/Agent search contracts and rejects reversed date filters', () => {
+it('bounds public/Advisor search contracts and rejects reversed date filters', () => {
   expect(
     evidenceSearchSchema.safeParse({
       symbol: 'TSLA',

@@ -104,6 +104,20 @@ export function createChatRepository(pool: pg.Pool) {
   };
   return {
     settings,
+    async dailyUsage() {
+      // Same UTC boundary and reservation ledger as reserve(); across conversations.
+      const [row] = await db
+        .select({
+          budgetedCost: sql<string>`coalesce(sum(${t.agentRuns.reservedCost}),0) + (select coalesce(sum(cost),0) from research_embedding_usage where agent_run_id is null and created_at >= date_trunc('day',now() at time zone 'UTC') at time zone 'UTC')`,
+          replies: sql<number>`count(*)::int`,
+          unpricedReplies: sql<number>`count(*) filter (where ${t.agentRuns.provider} <> 'fixture' and (${t.agentRuns.estimatedCost} is null or ${t.agentRuns.priceVersion} is null))::int`,
+        })
+        .from(t.agentRuns)
+        .where(
+          sql`${t.agentRuns.startedAt} >= date_trunc('day',now() at time zone 'UTC') at time zone 'UTC'`,
+        );
+      return row!;
+    },
     async recover() {
       const client = await pool.connect();
       let held = false;
@@ -139,11 +153,15 @@ export function createChatRepository(pool: pg.Pool) {
         await tx.insert(t.agentSessions).values({ context });
       });
     },
-    async updateSettings(revision: number, mode: string) {
+    async updateSettings(revision: number, mode?: string, language?: string) {
       await settings();
       const [r] = await db
         .update(t.appSettings)
-        .set({ defaultAnalysisMode: mode, revision: revision + 1 })
+        .set({
+          ...(mode ? { defaultAnalysisMode: mode } : {}),
+          ...(language ? { outputLanguage: language } : {}),
+          revision: revision + 1,
+        })
         .where(
           and(eq(t.appSettings.id, 1), eq(t.appSettings.revision, revision)),
         )
@@ -204,6 +222,8 @@ export function createChatRepository(pool: pg.Pool) {
       holdingContext?: { accountKey: string; instrumentKey?: string };
       parentRunId?: string;
       requestedMode?: string;
+      requestedLanguage?: string;
+      outputLanguage?: string;
       provider: string;
       model: string;
       analysisMode: string;
@@ -223,6 +243,7 @@ export function createChatRepository(pool: pg.Pool) {
           : {}),
         parentRunId: input.parentRunId,
         requestedMode: input.requestedMode,
+        requestedLanguage: input.requestedLanguage,
       });
       const [old] = await db
         .select()
@@ -247,7 +268,7 @@ export function createChatRepository(pool: pg.Pool) {
         if (!held)
           throw new PortfolioError(
             'AGENT_BUSY',
-            'Agent is already processing a workbook or conversation. Try again when it finishes.',
+            'Advisor is already processing a workbook or conversation. Try again when it finishes.',
             409,
           );
         const [repeated] = await db
@@ -302,6 +323,7 @@ export function createChatRepository(pool: pg.Pool) {
               provider: input.provider,
               model: input.model,
               analysisMode: input.analysisMode,
+              outputLanguage: input.outputLanguage ?? 'en',
               policyVersion: input.policyVersion,
               promptVersion: input.promptVersion,
               adapterVersion: input.adapterVersion,

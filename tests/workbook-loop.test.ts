@@ -12,7 +12,7 @@ import {
 } from '../packages/agent/src/index.js';
 import { arbitraryWorkbook } from './flexible-fixture.js';
 
-it('retains row context without copying Agent examples into evidence', () => {
+it('retains row context without copying Advisor examples into evidence', () => {
   const facts = scopedAnswer(
     'Tab "IKBR Margin", row 6: what is the asset class? For example ETF.',
     'CASH',

@@ -295,8 +295,8 @@ export class OpenAiProvider implements LlmProvider {
           ? 'OpenAI API quota is exhausted. Check API billing before retrying.'
           : code === 'LLM_INVALID_REQUEST'
             ? error.code === 'invalid_function_parameters'
-              ? 'Agent’s tool definition was rejected by the provider. This is an application error; changing your answer or work allowance will not fix it.'
-              : 'The provider rejected Agent’s request format. This is an application error; changing your answer or work allowance will not fix it.'
+              ? 'Advisor’s tool definition was rejected by the provider. This is an application error; changing your answer or work allowance will not fix it.'
+              : 'The provider rejected Advisor’s request format. This is an application error; changing your answer or work allowance will not fix it.'
             : `Provider request failed (${code}). No financial changes were committed.`,
         {
           ...(typeof error.code === 'string' &&

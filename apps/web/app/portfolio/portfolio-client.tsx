@@ -258,10 +258,10 @@ export function PortfolioClient({ children }: { children?: ReactNode }) {
     }
   }, []);
   const [conversation, setConversation] = useState<
-    { role: 'Agent' | 'You'; text: string }[]
+    { role: 'Advisor' | 'You'; text: string }[]
   >([
     {
-      role: 'Agent',
+      role: 'Advisor',
       text: 'Upload your workbook. I will identify broker accounts, cash and holdings, ask about any unclear format, and show the changes for your confirmation.',
     },
   ]);
@@ -280,7 +280,7 @@ export function PortfolioClient({ children }: { children?: ReactNode }) {
     setAgentOpen(open);
     localStorage.setItem('m2d.agent.closed', String(!open));
   };
-  const say = (role: 'Agent' | 'You', text: string) =>
+  const say = (role: 'Advisor' | 'You', text: string) =>
     setConversation((messages) => [...messages, { role, text }]);
   const [review, setReview] = useState<ParseContext | null>(null);
   const [data, setData] = useState<Overview | null>(null),
@@ -347,7 +347,7 @@ export function PortfolioClient({ children }: { children?: ReactNode }) {
   const show = (p: Preview) => {
     if (window.location.pathname === '/portfolio') toggleAgent(true);
     say(
-      'Agent',
+      'Advisor',
       p.status === 'CONFIRMED'
         ? 'This workbook was already confirmed.'
         : 'Please review these portfolio changes and confirm the full replacement. I will remember eligible format rules after confirmation.',
@@ -419,11 +419,11 @@ export function PortfolioClient({ children }: { children?: ReactNode }) {
     setErrors([]);
     if (result.ai.accountQuestions?.length)
       say(
-        'Agent',
+        'Advisor',
         `Is "${result.ai.accountQuestions[0]!.sheet}" a new account or a rename? ${result.ai.accountQuestions.length} ${result.ai.accountQuestions.length === 1 ? 'tab remains' : 'tabs remain'} to identify. Your earlier choices are kept; nothing changes until you confirm the portfolio preview.`,
       );
     const reply = result.ai.reply || result.ai.questions[0];
-    if (reply) say('Agent', reply);
+    if (reply) say('Advisor', reply);
     if (result.preview) {
       show({
         ...result.preview,
@@ -502,7 +502,7 @@ export function PortfolioClient({ children }: { children?: ReactNode }) {
         },
       );
       say(
-        'Agent',
+        'Advisor',
         `Confirmed revision ${result.revision}. Your portfolio and eligible format memory are saved.`,
       );
       setPreview(null);
@@ -700,12 +700,12 @@ export function PortfolioClient({ children }: { children?: ReactNode }) {
           </div>
         )}
       </div>
-      <aside className="agent-panel" aria-label="Agent" hidden={!agentOpen}>
+      <aside className="agent-panel" aria-label="Advisor" hidden={!agentOpen}>
         <div className="agent-heading">
-          <h2>Agent · {context.label}</h2>
+          <h2>Advisor · {context.label}</h2>
           <button
             type="button"
-            aria-label="Close Agent"
+            aria-label="Close Advisor"
             onClick={() => toggleAgent(false)}
           >
             Close
@@ -752,14 +752,14 @@ export function PortfolioClient({ children }: { children?: ReactNode }) {
             <div
               className="agent-transcript"
               role="log"
-              aria-label="Conversation with Agent"
+              aria-label="Conversation with Advisor"
             >
               {conversation.map((m, i) => (
                 <div
                   className={`agent-message ${m.role === 'You' ? 'from-user' : ''}`}
                   key={i}
                 >
-                  <strong>{m.role}</strong>
+                  <strong>{m.role === 'You' ? 'You' : 'Advisor'}</strong>
                   <ChatMarkdown text={m.text} />
                 </div>
               ))}
@@ -819,14 +819,14 @@ export function PortfolioClient({ children }: { children?: ReactNode }) {
                         </div>
                       )}
                     <p id="agent-reply-help" className="muted-label">
-                      Answer this question, or ask Agent what it means. Asking
+                      Answer this question, or ask Advisor what it means. Asking
                       for help keeps the question open and does not supply a
                       workbook value. Enter to send · Shift+Enter for a new
                       line.
                     </p>
                     <fieldset disabled={busy}>
                       <label>
-                        Message Agent
+                        Message Advisor
                         <textarea
                           maxLength={4000}
                           onKeyDown={submitAgentOnEnter}
@@ -854,7 +854,7 @@ export function PortfolioClient({ children }: { children?: ReactNode }) {
                           ? 'Retry interpretation'
                           : review.ai?.status === 'failed'
                             ? 'Retry AI parsing'
-                            : 'Send to Agent'}
+                            : 'Send to Advisor'}
                       </button>
                       {review.ai?.questions[0] && (
                         <button
@@ -1095,7 +1095,7 @@ export function PortfolioClient({ children }: { children?: ReactNode }) {
           className="agent-reopen primary"
           onClick={() => toggleAgent(true)}
         >
-          Open Agent
+          Open Advisor
         </button>
       )}
     </ResizablePanels>

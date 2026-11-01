@@ -29,6 +29,41 @@ const columns = `d.id,d.company_id,c.symbol,d.title,d.form,d.provider,d.url,d.pu
 const date = (at?: string) => at ?? new Date().toISOString();
 export function createResearchRepository(pool: pg.Pool) {
   return {
+    async latestReportCheck(symbol: string, provider: string) {
+      return (
+        (
+          await pool.query<{
+            id: string;
+            symbol: string;
+            provider: string;
+            status: string;
+            finished_at: Date;
+            document_ids: string[];
+            error: string | null;
+            added_count: number | null;
+            reused_count: number | null;
+            passage_count: number | null;
+          }>(
+            "select id,symbol,provider,status,finished_at,document_ids,error,added_count,reused_count,passage_count from research_imports where symbol=$1 and provider=$2 and status='completed' order by finished_at desc,id limit 1",
+            [symbol, provider],
+          )
+        ).rows[0] ?? null
+      );
+    },
+    async companyChoices() {
+      return (
+        await pool.query<{ symbol: string; hidden: boolean }>(
+          'select symbol,hidden from research_company_choices order by symbol',
+        )
+      ).rows;
+    },
+    async setCompanyChoice(symbol: string, hidden: boolean) {
+      await pool.query(
+        'insert into research_company_choices(symbol,hidden) values($1,$2) on conflict(symbol) do update set hidden=excluded.hidden,updated_at=now()',
+        [symbol, hidden],
+      );
+      return { symbol, hidden };
+    },
     async sourceLinks(symbol: string) {
       return (
         await pool.query<SavedSourceLink>(

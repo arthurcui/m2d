@@ -119,7 +119,7 @@ export function StatusPanel() {
             {data
               ? `${data.ai.provider} / ${data.ai.model || 'model unset'}`
               : 'Configuration unavailable'}{' '}
-            · portfolio Agent
+            · portfolio Advisor
           </small>
         </article>
       </div>

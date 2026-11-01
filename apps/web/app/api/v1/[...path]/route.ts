@@ -12,7 +12,7 @@ async function proxy(
   const researchRead =
     /^research(?:\/(?:sources|imports\/[0-9a-f-]{36}|companies(?:\/[A-Z0-9.-]{1,24})?|documents\/[0-9a-f-]{36}(?:\/raw)?|search(?:\/(?:status|jobs\/[0-9a-f-]{36}))?))?$/;
   const researchWrite =
-    /^research\/(?:import|upload|compare|sources(?:\/(?:remove|discover|import))?|search(?:\/index)?)$/;
+    /^research\/(?:import|upload|compare|companies\/selection|sources(?:\/(?:remove|discover|import))?|search(?:\/index)?)$/;
   const marketRead =
     /^(portfolio\/(?:valuation|listings)|market\/(?:settings|status|quotes|fx|snapshots|listings\/[0-9a-f-]{36}\/logo|ibkr\/status|(?:bars|options|resolutions)\/[A-Z0-9.^-]{1,24}))$/;
   const marketWrite =
