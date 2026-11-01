@@ -69,3 +69,7 @@ M2 implements selection, saved defaults, policy resolution, metadata, cancellati
 Verify default/override precedence, invalid modes, preference persistence, scheduled-mode independence and immutable active runs. All three profiles must pass the same freshness, financial validation and portfolio-confirmation cases. Test that deployment/cost caps cannot be raised by request fields, that retries consume the original allowance, and that Quick's exhausted budget yields limited/unfinished analysis without automatic escalation. Fixture runs exercise each mode without real API keys or timing claims.
 
 M2 implementation notes and the separate M1 workbook accounting limitation: [M2_CHAT.md](M2_CHAT.md).
+
+### Search retrieval accounting
+
+An uncached semantic search query made by Agent consumes one model attempt and records embedding usage/cost in that run; cached query vectors do not. Query embeddings respect the existing run deadline/cancellation, request timeout and run/daily cost ceilings. Explicit indexing from Research is separately bounded by durable daily input-byte reservations and the same configured daily inference cost gate. Indexing is never an automatic analysis-mode escalation. The search UI exposes partial coverage and unavailable/error states rather than silently changing retrieval/provider behavior.

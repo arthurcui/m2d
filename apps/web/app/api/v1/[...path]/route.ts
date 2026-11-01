@@ -10,8 +10,9 @@ async function proxy(
   const path = (await context.params).path.join('/');
   const post = request.method !== 'GET';
   const researchRead =
-    /^research(?:\/(?:imports\/[0-9a-f-]{36}|companies\/[A-Z0-9.-]{1,24}|documents\/[0-9a-f-]{36}(?:\/raw)?|search))?$/;
-  const researchWrite = /^research\/(?:import|upload|compare)$/;
+    /^research(?:\/(?:imports\/[0-9a-f-]{36}|companies(?:\/[A-Z0-9.-]{1,24})?|documents\/[0-9a-f-]{36}(?:\/raw)?|search(?:\/(?:status|jobs\/[0-9a-f-]{36}))?))?$/;
+  const researchWrite =
+    /^research\/(?:import|upload|compare|search(?:\/index)?)$/;
   const marketRead =
     /^(portfolio\/(?:valuation|listings)|market\/(?:settings|status|quotes|fx|snapshots|listings\/[0-9a-f-]{36}\/logo|ibkr\/status|(?:bars|options)\/[A-Z0-9.^-]{1,24}))$/;
   const marketWrite =

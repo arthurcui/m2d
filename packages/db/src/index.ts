@@ -1,4 +1,6 @@
 import { createResearchRepository } from './research.js';
+import { createResearchSearchRepository } from './research-search.js';
+export type { ResearchSearchRepository } from './research-search.js';
 export { type ResearchRepository, type ResearchDocument } from './research.js';
 import { createChatRepository } from './chat.js';
 import { createMarketRepository } from './market.js';
@@ -93,6 +95,7 @@ export function createDatabase(connectionString: string) {
     chat: createChatRepository(pool),
     market: createMarketRepository(pool),
     research: createResearchRepository(pool),
+    researchSearch: createResearchSearchRepository(pool),
     close: () => pool.end(),
   };
 }

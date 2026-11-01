@@ -12,6 +12,8 @@ import {
   primaryKey,
   index,
   uniqueIndex,
+  vector,
+  foreignKey,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import type {
@@ -628,5 +630,88 @@ export const researchImports = pgTable(
       sql`${t.status} in ('running','completed','failed','interrupted')`,
     ),
     index('research_import_symbol').on(t.symbol, t.startedAt),
+  ],
+);
+
+export const researchEmbeddings = pgTable(
+  'research_embeddings',
+  {
+    id: text('id').primaryKey(),
+    profile: text('profile').notNull(),
+    purpose: text('purpose').notNull(),
+    embedding: vector('embedding', { dimensions: 1536 }).notNull(),
+    createdAt: utc('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    check('embedding_id_sha256', sql`${t.id} ~ '^[a-f0-9]{64}$'`),
+    check('embedding_purpose', sql`${t.purpose} in ('query','passage')`),
+  ],
+);
+export const researchChunkEmbeddings = pgTable(
+  'research_chunk_embeddings',
+  {
+    documentId: uuid('document_id').notNull(),
+    chunkIndex: integer('chunk_index').notNull(),
+    profile: text('profile').notNull(),
+    embeddingId: text('embedding_id')
+      .notNull()
+      .references(() => researchEmbeddings.id),
+  },
+  (t) => [
+    primaryKey({ columns: [t.documentId, t.chunkIndex, t.profile] }),
+    foreignKey({
+      columns: [t.documentId, t.chunkIndex],
+      foreignColumns: [documentChunks.documentId, documentChunks.chunkIndex],
+    }),
+  ],
+);
+export const researchEmbeddingUsage = pgTable(
+  'research_embedding_usage',
+  {
+    id: uuid('id').primaryKey(),
+    profile: text('profile').notNull(),
+    purpose: text('purpose').notNull(),
+    agentRunId: uuid('agent_run_id').references(() => agentRuns.id),
+    inputBytes: integer('input_bytes').notNull(),
+    inputTokens: integer('input_tokens'),
+    cost: numeric('cost').notNull(),
+    priceVersion: text('price_version').notNull(),
+    status: text('status').notNull(),
+    createdAt: utc('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    check(
+      'embedding_usage_positive',
+      sql`${t.inputBytes}>0 and (${t.inputTokens} is null or ${t.inputTokens}>=0) and ${t.cost}>=0`,
+    ),
+    check(
+      'embedding_usage_status',
+      sql`${t.status} in ('reserved','completed','uncertain')`,
+    ),
+    check('embedding_usage_purpose', sql`${t.purpose} in ('query','passage')`),
+    index('embedding_usage_date').on(t.createdAt),
+  ],
+);
+export const researchSearchJobs = pgTable(
+  'research_search_jobs',
+  {
+    id: uuid('id').primaryKey(),
+    symbol: text('symbol').notNull(),
+    profile: text('profile').notNull(),
+    status: text('status').notNull(),
+    processed: integer('processed').notNull().default(0),
+    error: text('error'),
+    startedAt: utc('started_at').notNull().defaultNow(),
+    finishedAt: utc('finished_at'),
+  },
+  (t) => [
+    check(
+      'search_job_status',
+      sql`${t.status} in ('running','completed','failed','interrupted')`,
+    ),
+    check('search_job_progress', sql`${t.processed}>=0`),
+    uniqueIndex('one_search_index_job')
+      .on(t.status)
+      .where(sql`${t.status}='running'`),
   ],
 );

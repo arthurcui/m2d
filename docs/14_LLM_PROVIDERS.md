@@ -163,3 +163,7 @@ This is a design revision. Runtime conformance is established only when the rele
 ## M1 workbook scope extension — 2026-10-31
 
 User authorization advances only workbook interpretation into M1. `packages/llm` now implements a provider-neutral, one-response structured extraction contract and a native OpenAI Responses adapter, with explicit offline fixtures. `packages/agent` owns workbook context, prompt, output schema, evidence grounding and deterministic validation. There are no tools, streams, model-controlled commits, automatic fallbacks or hidden retries. Every clarification starts a fresh stateless extraction using the original workbook plus the full user clarification; no native continuation is discarded because there is no tool loop in this flow. M2 still owns general chat, incremental parsing, canonical tool history/opaque continuation and analysis modes. See M1 notes for exact limits and audit behavior.
+
+### Company-search embeddings (M4)
+
+`LlmProvider.embed` is an optional typed embedding capability, separate from conversational continuation. OpenAI SDK request/response types stay inside the adapter. The adapter validates model, dimensions, response ordering, finite nonzero vectors and input limits. Search caches immutable profile-scoped vectors; it does not reuse chat continuation or switch models on failure. The fixture adapter supplies synthetic vectors only. See [company search](COMPANY_SEARCH.md) for explicit indexing, usage reservations, selected-mode attempt accounting and model costs.

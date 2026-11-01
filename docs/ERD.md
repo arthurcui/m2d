@@ -253,11 +253,36 @@ erDiagram
         text quality
         text notes
     }
+    research_chunk_embeddings {
+        uuid document_id
+        integer chunk_index
+        text profile
+        text embedding_id FK
+    }
     research_companies {
         uuid id PK
         text symbol
         text name
         text cik "nullable"
+        timestamp_with_time_zone created_at
+    }
+    research_embedding_usage {
+        uuid id PK
+        text profile
+        text purpose
+        uuid agent_run_id FK "nullable"
+        integer input_bytes
+        integer input_tokens "nullable"
+        numeric cost
+        text price_version
+        text status
+        timestamp_with_time_zone created_at
+    }
+    research_embeddings {
+        text id PK
+        text profile
+        text purpose
+        vector_1536_ embedding
         timestamp_with_time_zone created_at
     }
     research_findings {
@@ -278,6 +303,16 @@ erDiagram
         timestamp_with_time_zone finished_at "nullable"
         jsonb document_ids
         text error "nullable"
+    }
+    research_search_jobs {
+        uuid id PK
+        text symbol
+        text profile
+        text status
+        integer processed
+        text error "nullable"
+        timestamp_with_time_zone started_at
+        timestamp_with_time_zone finished_at "nullable"
     }
     source_documents {
         uuid id PK
@@ -331,6 +366,9 @@ erDiagram
     portfolio_imports |o--o{ portfolio_previews : "import_id"
     accounts ||--o{ position_projection : "account_key"
     instruments ||--o{ position_projection : "instrument_id"
+    research_embeddings ||--o{ research_chunk_embeddings : "embedding_id"
+    document_chunks ||--o{ research_chunk_embeddings : "document_id, chunk_index"
+    agent_runs |o--o{ research_embedding_usage : "agent_run_id"
     source_documents ||--o{ research_findings : "document_id"
     research_companies ||--o{ source_documents : "company_id"
 ```

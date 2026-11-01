@@ -83,3 +83,7 @@ Current state is built from **latest confirmed `portfolio_baseline`** and increm
 ## Implemented M4 research schema
 
 Migration 0014 adds research_companies, source_documents, document_chunks, company_facts, research_findings and research_imports. Original bytes and source revisions remain immutable. Availability is conservatively the first observation or known later publication time; parent document availability gates facts, passages and quoted claims. See [ERD](ERD.md) and [research semantics](M4_RESEARCH.md).
+
+### M4 company-search index
+
+Migration 0015 adds `research_embeddings` (profile-scoped 1536-dimension vector cache), `research_chunk_embeddings` (immutable chunk associations), `research_embedding_usage` (durable byte/cost reservations, actual or uncertain usage, optional Agent-run attribution), and `research_search_jobs` (idempotent indexing progress and interruption recovery). pgvector is installed in the existing PostgreSQL 17 database. Original source/chunk/fact records and portfolio tables are unchanged. [Company search](COMPANY_SEARCH.md) specifies retrieval and budget behavior; [ERD](ERD.md) is generated from the implemented schema.

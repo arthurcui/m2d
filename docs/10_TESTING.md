@@ -64,3 +64,7 @@ CI uses fixtures and mocked transports throughout. Optional live verification re
 
 ## 6. Final completion report for each milestone
 Codex must provide: scope delivered, exact commands, migration changes, tests executed/results, E2E verification, known limitations, and next milestone blockers. No claiming success with skipped or broken tests.
+
+### Company search (M4 extension)
+
+Use PostgreSQL 17 with pgvector for integration tests. Cover shared UI/Agent contracts; exact keyword hits and decimal strings; rank fusion and repeated-source diversity; company/source/form/publication filters; latest revisions as of a cutoff; passage context; structured fact unit/period filters; idempotent indexing and cache reuse; unknown usage and restart recovery; daily-byte/cost and Agent-attempt ceilings; invalid provider output; mobile citation navigation and retained drafts. Synthetic vectors test retrieval mechanics only. An authorized live evaluation on representative questions is required to establish OpenAI semantic relevance.

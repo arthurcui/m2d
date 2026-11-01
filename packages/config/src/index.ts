@@ -85,6 +85,12 @@ const configSchema = z.object({
     .enum(['none', 'fixture', 'massive', 'ibkr'])
     .default('none'),
   RESEARCH_PROVIDER: z.enum(['fixture', 'sec']).default('fixture'),
+  RESEARCH_EMBEDDING_DAILY_BYTES: z.coerce
+    .number()
+    .int()
+    .min(8000)
+    .max(10000000)
+    .default(1000000),
   SEC_USER_AGENT: z.string().max(250).default(''),
   MARKET_PROVIDER: z
     .enum(['fixture', 'twelvedata', 'massive', 'ibkr'])

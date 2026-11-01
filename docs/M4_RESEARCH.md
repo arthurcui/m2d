@@ -32,7 +32,7 @@ The importer resolves the ticker against SEC's issuer map and retrieves the two 
 - Duplicate `(company, provider, upstream key, content hash)` records reuse the original document. Different content for the same upstream key creates a new revision. Upload filename is its upstream key: keep the filename to revise a document; distinct filenames remain separate sources.
 - `available_at` is the later of first ingestion and known publication time. Historical queries conservatively use what M²D had received, not what an external party might have known earlier. SEC's current XBRL response is never backdated to old reporting periods.
 - Financial values preserve decimal source tokens, taxonomy/tag, native unit, start/end period, accession and filing date. Historical fact queries select the latest source revision **available at the requested time**, retaining distinct reported accessions/restatements. Financial history shows up to 500 rows; Agent fact retrieval is bounded to 40 rows. No ratios, restatement reconciliation, FX conversion or derived returns are inferred.
-- Source passages preserve PDF page numbers and stable document-local indexes. PostgreSQL English full-text search uses a GIN index and returns at most 12 matching passages, with provenance. No vector store or embeddings are required.
+- Source passages preserve PDF page numbers and stable document-local indexes. Company search combines indexed English full-text retrieval with optional pgvector semantic retrieval, applies company/date/source filters before ranking, and preserves passage citations. Indexing is explicit and cached; the UI and Agent share the same service. See [company search](COMPANY_SEARCH.md) for contracts, budgets and limits.
 - Claims are **quoted issuer statements**, selected by deterministic guidance/risk/financial keyword rules (`quoted-passages-v1`), not verified truths or model-extracted numerical facts. They cite exact stored passages. Agent adds interpretation only on request and must separate it from the source claims.
 - Comparison shows exact changed passages side by side, with source links. It does not pretend to align semantically equivalent sections or calculate like-for-like growth from mismatched periods. The UI caps each side at 20 passages; Agent comparison reads cap each side at three, explicitly reporting truncation. Full source text remains available.
 - Agent citation document IDs are checked against research evidence actually retrieved in the conversation. Original HTML/PDF downloads are attachment-only with sandbox/nosniff headers; source text is rendered as text. Model text is not executed as HTML.
@@ -59,7 +59,7 @@ All responses use the existing versioned envelope. Writes use the same-origin we
 | `GET /api/v1/research/search?symbol=…&query=…&at=…` | PostgreSQL full-text search                                                       |
 | `POST /api/v1/research/compare`                     | Version, before/after document IDs and optional cutoff                            |
 
-Agent read tools are `research_search_filings_v1`, `research_search_documents_v1`, `research_get_company_facts_v1` and `research_compare_revisions_v1`. They cannot download external data, execute SQL or mutate financial state. All inference continues through the existing provider-neutral `LlmProvider` and run budgets.
+The shared search additions are `research_search_evidence_v2`, `research_read_passage_v1`, `research_query_facts_v2` and `research_find_company_v1`. Compatible original Agent read tools are `research_search_filings_v1`, `research_search_documents_v1`, `research_get_company_facts_v1` and `research_compare_revisions_v1`. They cannot download external data, execute SQL or mutate financial state. All inference continues through the existing provider-neutral `LlmProvider` and run budgets.
 
 ## Verification
 
@@ -74,9 +74,9 @@ docker compose config --quiet
 docker compose up -d --build --wait --wait-timeout 180
 ```
 
-Integration tests require `TEST_DATABASE_URL` pointing to disposable PostgreSQL. Full E2E requires a fresh fixture-only stack, `E2E_BASE_URL` for that stack and `E2E_ALLOW_PORTFOLIO_WRITES=1`; never enable write tests against a real portfolio. Research coverage includes precision, HTML/PDF handling, SEC adapter contracts, raw-file preservation, atomic failures, deduplication, historical revisions, comparison/search, citations, navigation and mobile layout.
+Integration tests require `TEST_DATABASE_URL` pointing to disposable PostgreSQL 17 with pgvector installed. Full E2E requires a fresh fixture-only stack, `E2E_BASE_URL` for that stack and `E2E_ALLOW_PORTFOLIO_WRITES=1`; never enable write tests against a real portfolio. Research coverage includes precision, HTML/PDF handling, SEC adapter contracts, raw-file preservation, atomic failures, deduplication, historical revisions, comparison/search, citations, navigation and mobile layout.
 
-### Verification for this delivery
+### Original M4 verification
 
 The offline suite passed 163 unit tests, 38 database/API integration tests and 30 Playwright browser tests. Formatting, lint, strict typecheck, generated ERD checks, Compose validation and Docker builds/startup passed. A separate Docker PDF upload verified extracted page anchors, exact original SHA-256, desktop/mobile rendering and no browser errors. Historical-context tests also prevent later conversation evidence from being replayed into an earlier research boundary.
 

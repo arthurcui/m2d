@@ -1,3 +1,5 @@
+import { createResearchSearchService } from './research-search.js';
+import { createLlmProvider } from '@m2d/llm';
 import { createResearchService } from './research.js';
 import { FixtureResearchProvider, SecResearchProvider } from '@m2d/research';
 import { readConfig } from '@m2d/config';
@@ -50,11 +52,22 @@ const listingProvider =
   config.LISTING_PROVIDER === 'none'
     ? undefined
     : providers[config.LISTING_PROVIDER];
+const researchSearch = createResearchSearchService(
+  database.researchSearch,
+  config.LLM_PROVIDER === 'fixture' || process.env.OPENAI_API_KEY?.trim()
+    ? createLlmProvider(config, process.env.OPENAI_API_KEY ?? '')
+    : null,
+  {
+    dailyBytes: config.RESEARCH_EMBEDDING_DAILY_BYTES,
+    dailyBudget: config.LLM_DAILY_BUDGET_USD ?? null,
+  },
+);
 const research = createResearchService(
   database.research,
   config.RESEARCH_PROVIDER === 'sec'
     ? new SecResearchProvider(config.SEC_USER_AGENT)
     : new FixtureResearchProvider(),
+  researchSearch,
 );
 const app = buildApp(
   database.repository,
@@ -95,6 +108,7 @@ for (const signal of ['SIGINT', 'SIGTERM'])
   });
 try {
   await database.research.recover();
+  await database.researchSearch.recover();
   await database.chat.recover();
   await database.market.recover();
   await app.listen({ host: config.API_HOST, port: config.API_PORT });

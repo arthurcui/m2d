@@ -302,8 +302,39 @@ export async function chatRoutes(
             overview: () => portfolio.overview(),
             ...(research
               ? {
-                  research: (name: string, args: unknown) =>
-                    research.tool(name, args, input.researchContext?.at),
+                  research: (
+                    name: string,
+                    args: unknown,
+                    beforeEmbedding: () => void,
+                  ) =>
+                    research.tool(name, args, input.researchContext?.at, {
+                      agentRunId: run.id,
+                      signal: controller.signal,
+                      before: async (cost) => {
+                        beforeEmbedding();
+                        await r.reserve(
+                          run.id,
+                          cost,
+                          limits.maxRunCost,
+                          limits.dailyBudget,
+                        );
+                      },
+                      after: async (tokens, reserved, actual) => {
+                        await r.recordUsage(
+                          run.id,
+                          tokens === null
+                            ? null
+                            : { inputTokens: tokens, outputTokens: 0 },
+                          reserved,
+                          actual,
+                        );
+                        await r.event(run.id, {
+                          type: 'search_embedding_usage',
+                          inputTokens: tokens,
+                          estimatedCost: actual,
+                        });
+                      },
+                    }),
                 }
               : {}),
             ...(market ? { valuation: () => market.valuation() } : {}),

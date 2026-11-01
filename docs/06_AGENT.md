@@ -76,3 +76,5 @@ Record every candidate with immutable feature snapshot, source versions, strateg
 ## Implemented M4 research tools
 
 The four research reads are available through versioned `research_*_v1` contracts; see [M4_RESEARCH.md](M4_RESEARCH.md). They retrieve saved evidence only and cannot initiate external downloads or commit financial changes. Research questions inherit their selected company and cutoff, and the backend clamps all research reads to that historical boundary. Citation document IDs must occur in retrieved evidence. Source statements remain separate from Agent interpretation.
+
+M4 company research now shares the UI retrieval engine through `research_search_evidence_v2`, with company lookup, neighboring passages and filtered exact financial facts. Query embeddings respect selected-mode attempts, cancellation and costs. Search-index creation stays an explicit UI operation outside Agent tools. See [company search](COMPANY_SEARCH.md).

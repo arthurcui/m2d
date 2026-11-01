@@ -7,6 +7,9 @@ test('research imports, compares, searches and keeps its state and cited Agent d
     'Uses the isolated writable fixture stack only.',
   );
   await page.goto('/research');
+  await page
+    .getByRole('button', { name: 'New conversation', exact: true })
+    .click();
   await page.getByLabel('Research ticker').fill('M4DEMO');
   await page.getByRole('button', { name: 'Load demo reports' }).click();
   const reports = page.locator('.research-documents .research-card');

@@ -1,7 +1,7 @@
 name: m2d
 services:
   postgres:
-    image: postgres:17.6-bookworm
+    image: pgvector/pgvector:0.8.7-pg17-bookworm
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-m2d}
       POSTGRES_USER: ${POSTGRES_USER:-m2d}
@@ -43,6 +43,7 @@ services:
       LLM_REQUEST_TIMEOUT_MS: ${LLM_REQUEST_TIMEOUT_MS:-60000}
       LLM_RUN_TIMEOUT_MS: ${LLM_RUN_TIMEOUT_MS:-300000}
       RESEARCH_PROVIDER: ${RESEARCH_PROVIDER:-fixture}
+      RESEARCH_EMBEDDING_DAILY_BYTES: ${RESEARCH_EMBEDDING_DAILY_BYTES:-1000000}
       SEC_USER_AGENT: ${SEC_USER_AGENT:-}
       MARKET_PROVIDER: ${MARKET_PROVIDER:-fixture}
       LISTING_PROVIDER: ${LISTING_PROVIDER:-none}

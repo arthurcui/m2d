@@ -5,7 +5,7 @@
 - `web`: Next.js/React/Tailwind/shadcn/ui; ECharts or Lightweight Charts for timeseries; TanStack Table optional. SSR and client UI.
 - `api`: Fastify + Zod route validators, OpenAPI generation, SSE chat/event streaming; application services call pure domain engines.
 - `worker`: TypeScript Node process running pg-boss schedules, refreshers, scanners, research ingestion, alert evaluation; common shared packages.
-- `db`: PostgreSQL with Drizzle SQL migrations, numeric/decimal money, JSONB provenance, optional pgvector extension when semantic retrieval arrives.
+- `db`: PostgreSQL with Drizzle SQL migrations, numeric/decimal money, JSONB provenance, pgvector extension for M4 company semantic retrieval alongside PostgreSQL full-text search. Indexing remains explicit; see [company search](COMPANY_SEARCH.md).
 - `files`: `./data/uploads` and `./data/research` mapped to Docker volume/mount; abstract `FileStore` so S3-compatible backend can replace local disk in cloud.
 
 ## 2. Logical diagram

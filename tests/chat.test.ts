@@ -131,6 +131,36 @@ function harness(
   };
 }
 describe('M2 chat orchestration', () => {
+  it('counts uncached search embeddings inside the selected model-attempt allowance', async () => {
+    const h = harness(
+      undefined,
+      'Research context: ACME\nCould it run out of money?',
+    );
+    let embedded = 0;
+    h.deps.research = async (_name, _args, beforeEmbedding) => {
+      beforeEmbedding();
+      embedded++;
+      return { hits: [] };
+    };
+    await expect(
+      h.start({ mode: 'quick', limits: { ...ceilings, modelCalls: 2 } }),
+    ).rejects.toMatchObject({ code: 'LLM_BUDGET' });
+    expect(embedded).toBe(1);
+    expect(h.changes).toHaveLength(0);
+    const denied = harness(
+      undefined,
+      'Research context: ACME\nCould it run out of money?',
+    );
+    denied.deps.research = async (_name, _args, beforeEmbedding) => {
+      beforeEmbedding();
+      embedded++;
+      return { hits: [] };
+    };
+    await expect(
+      denied.start({ mode: 'quick', limits: { ...ceilings, modelCalls: 1 } }),
+    ).rejects.toMatchObject({ code: 'LLM_BUDGET' });
+    expect(embedded).toBe(1);
+  });
   it('reads cached valuation without a financial preview or invented market values', async () => {
     const h = harness(undefined, 'What is my portfolio valuation?');
     h.deps.valuation = async () => ({

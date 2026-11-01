@@ -7,7 +7,11 @@ import {
   type ModelEvent,
 } from './contracts.js';
 import { OpenAiProvider } from './openai.js';
+import { fixtureEmbeddings } from './fixture-embeddings.js';
 export class ChatFixtureProvider implements LlmProvider {
+  async embed(...args: Parameters<typeof fixtureEmbeddings>) {
+    return fixtureEmbeddings(...args);
+  }
   readonly id = 'fixture' as const;
   readonly adapterVersion = 'fixture-chat-v1';
   capabilities(model: string) {
@@ -68,24 +72,32 @@ export class ChatFixtureProvider implements LlmProvider {
         /Research context: ([A-Z0-9.-]+)/.exec(user.text)?.[1] ?? 'TSLA'
       ).replace(/\.$/, '');
       if (!result)
-        return call('research_search_documents_v1', {
+        return call('research_search_evidence_v2', {
           symbol,
-          query: 'revenue OR risk OR outlook',
+          query: /Review the stored research/.test(user.text)
+            ? 'revenue OR risk OR outlook'
+            : user.text
+                .replace(/^Research context:[^\n]*\n/, '')
+                .split('\n')[0]!
+                .slice(0, 500),
         });
-      const rows = Array.isArray(result.output)
-        ? (result.output as {
-            id: string;
-            title: string;
-            text: string;
-            chunk_index: number;
-            provider: string;
-            available_at: string;
-          }[])
-        : [];
+      const output = result.output as {
+        hits?: {
+          document_id: string;
+          title: string;
+          text: string;
+          chunk_index: number;
+          provider: string;
+          available_at: string;
+        }[];
+        error?: { message: string };
+      };
+      if (output.error) return reply(output.error.message);
+      const rows = output.hits ?? [];
       const source = rows[0];
       return source
         ? reply(
-            `Synthetic fixture research. The retrieved source states: ${source.text.slice(0, 220)} [${source.title}](/research?document=${source.id}#chunk-${source.chunk_index}). Available: ${source.available_at}. This quote is evidence, not a trading recommendation. Interpretation: inspect the changed outlook and concentration risks before deciding. NO_SIGNAL: no executable strategy is evaluated.`,
+            `Synthetic fixture research. The retrieved source states: ${source.text.slice(0, 220)} [${source.title}](/research?document=${source.document_id}#chunk-${source.chunk_index}). Available: ${source.available_at}. This quote is evidence, not a trading recommendation. Interpretation: inspect the changed outlook and concentration risks before deciding. NO_SIGNAL: no executable strategy is evaluated.`,
           )
         : reply(
             'NO_SIGNAL: No matching stored research. Import reports on Research first.',

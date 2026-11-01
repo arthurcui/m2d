@@ -421,7 +421,7 @@ export function createChatRepository(pool: pg.Pool) {
           );
         const [row] = await tx
           .select({
-            total: sql<string>`coalesce(sum(${t.agentRuns.reservedCost}),0)`,
+            total: sql<string>`coalesce(sum(${t.agentRuns.reservedCost}),0) + (select coalesce(sum(cost),0) from research_embedding_usage where agent_run_id is null and created_at >= date_trunc('day',now() at time zone 'UTC') at time zone 'UTC')`,
           })
           .from(t.agentRuns)
           .where(

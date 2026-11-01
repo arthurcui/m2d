@@ -84,3 +84,7 @@ M3 implementation details and actual version 1 market routes are in [M3_MARKET.m
 ## Implemented M4 research contracts
 
 See [M4 HTTP/tool table](M4_RESEARCH.md#http-and-tools) for research import, upload, timeline, document, comparison and full-text search endpoints. Uploads are bounded base64 JSON; original bytes download as attachments only. Research errors use stable codes and do not modify prior evidence or the portfolio.
+
+### Company evidence search
+
+`POST /api/v1/research/search` accepts body `version: 2` with the shared `EvidenceSearch` schema. GET `/research/search` remains v1 compatible. Typed Agent tools `research_search_evidence_v2`, `research_read_passage_v1`, `research_query_facts_v2` and `research_find_company_v1` use the same source/cutoff gates. Index updates are explicit version-1 POST requests with UUID idempotency keys and durable progress. Full request fields, response provenance and index-status routes: [company search contracts](COMPANY_SEARCH.md#contracts-and-database).

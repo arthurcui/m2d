@@ -1,3 +1,5 @@
+import { createResearchSearchService } from '../apps/api/src/research-search.js';
+import { ChatFixtureProvider } from '../packages/llm/dist/index.js';
 import { randomUUID } from 'node:crypto';
 import { beforeAll, afterAll, it, expect } from 'vitest';
 import { createDatabase } from '../packages/db/src/index.js';
@@ -15,7 +17,14 @@ const admin = createDatabase(url),
 target.pathname = `/${name}`;
 const db = createDatabase(target.toString()),
   provider = new FixtureResearchProvider(),
-  service = createResearchService(db.research, provider);
+  service = createResearchService(
+    db.research,
+    provider,
+    createResearchSearchService(db.researchSearch, new ChatFixtureProvider(), {
+      dailyBytes: 1000000,
+      dailyBudget: null,
+    }),
+  );
 const app = buildApp(
   db.repository,
   readConfig({ DATABASE_URL: target.toString() }),

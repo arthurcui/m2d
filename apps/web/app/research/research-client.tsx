@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState, useRef } from 'react';
+import { CompanySearch } from './company-search';
 import { useSearchParams } from 'next/navigation';
 export type ResearchContext = { symbol: string; at?: string };
 type Doc = {
@@ -92,14 +93,11 @@ export function ResearchClient({
 }) {
   const [overview, setOverview] = useState<Overview | null>(null),
     [symbol, setSymbol] = useState(''),
+    [companyInput, setCompanyInput] = useState(''),
     [at, setAt] = useState(''),
     [documents, setDocuments] = useState<Doc[]>([]),
     [facts, setFacts] = useState<Fact[]>([]),
     [document, setDocument] = useState<Document | null>(null),
-    [query, setQuery] = useState(''),
-    [hits, setHits] = useState<
-      (Doc & { chunk_index: number; text: string; page: number | null })[]
-    >([]),
     [before, setBefore] = useState(''),
     [after, setAfter] = useState(''),
     [comparison, setComparison] = useState<Comparison | null>(null),
@@ -183,7 +181,6 @@ export function ResearchClient({
         : null,
     );
     setComparison(null);
-    setHits([]);
     setBefore('');
     setAfter('');
     if (!symbol) {
@@ -243,6 +240,7 @@ export function ResearchClient({
     void api<Document>(`/documents/${id}${suffix}`)
       .then((d) => {
         setSymbol(d.symbol);
+        setCompanyInput(d.symbol);
         setDocument(d);
         requestAnimationFrame(() =>
           window.document
@@ -272,18 +270,28 @@ export function ResearchClient({
       </p>
       <section className="research-toolbar" aria-label="Research selection">
         <label>
-          Company or underlying ticker
+          Company name or underlying ticker
           <input
             aria-label="Research ticker"
             list="research-tickers"
-            value={symbol}
-            maxLength={24}
+            value={companyInput}
+            maxLength={150}
             placeholder="e.g. TSLA"
-            onChange={(e) =>
+            onChange={(e) => {
+              const value = e.target.value;
+              setCompanyInput(value);
+              const known = overview?.companies.find(
+                (c) =>
+                  c.name.toLowerCase() === value.toLowerCase() ||
+                  c.symbol === value.toUpperCase(),
+              );
               setSymbol(
-                e.target.value.toUpperCase().replace(/[^A-Z0-9.-]/g, ''),
-              )
-            }
+                known?.symbol ??
+                  (/^[A-Z0-9.-]{1,24}$/i.test(value)
+                    ? value.toUpperCase()
+                    : ''),
+              );
+            }}
           />
           <datalist id="research-tickers">
             {[
@@ -292,8 +300,21 @@ export function ResearchClient({
                 ...(overview?.companies ?? []).map((c) => c.symbol),
               ]),
             ].map((s) => (
-              <option key={s} value={s} />
+              <option
+                key={s}
+                value={s}
+                label={overview?.companies.find((c) => c.symbol === s)?.name}
+              />
             ))}
+            {(overview?.companies ?? [])
+              .filter((c) => c.name !== c.symbol)
+              .map((c) => (
+                <option
+                  key={`name:${c.symbol}`}
+                  value={c.name}
+                  label={c.symbol}
+                />
+              ))}
           </datalist>
         </label>
         <label>
@@ -392,6 +413,14 @@ export function ResearchClient({
             ? 'Processing research documents… Your portfolio is unchanged.'
             : 'Loading evidence…'}
         </p>
+      )}
+      {symbol && (
+        <CompanySearch
+          symbol={symbol}
+          at={cutoff}
+          documents={documents}
+          onOpen={(id) => void action(() => openDoc(id))}
+        />
       )}
       {symbol && (
         <>
@@ -531,42 +560,6 @@ export function ResearchClient({
               </button>
             </section>
           )}
-          <form
-            className="research-actions"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void action(async () =>
-                setHits(
-                  await api(
-                    `/search?symbol=${symbol}&query=${encodeURIComponent(query)}${cutoff ? '&at=' + encodeURIComponent(cutoff) : ''}`,
-                  ),
-                ),
-              );
-            }}
-          >
-            <label>
-              Search stored evidence
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                maxLength={200}
-                placeholder="revenue outlook, customer concentration…"
-              />
-            </label>
-            <button disabled={!query.trim() || busy}>Search documents</button>
-          </form>
-          {hits.map((h) => (
-            <article className="research-card" key={`${h.id}-${h.chunk_index}`}>
-              <button onClick={() => void action(() => openDoc(h.id))}>
-                {h.title} ·{' '}
-                {h.page ? `page ${h.page}` : `passage ${h.chunk_index + 1}`}
-              </button>
-              <p>{h.text}</p>
-              <small>
-                {h.provider} · available {time(h.available_at)}
-              </small>
-            </article>
-          ))}
           <details>
             <summary>
               Financial history · {facts.length}

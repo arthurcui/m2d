@@ -54,6 +54,10 @@ export type ModelEvent =
 export interface LlmProvider {
   readonly id: 'openai' | 'fixture';
   readonly adapterVersion: string;
+  embed?(
+    request: EmbeddingRequest,
+    signal?: AbortSignal,
+  ): Promise<EmbeddingResponse>;
   capabilities(model: string): {
     structuredOutput: boolean;
     tools?: boolean;
@@ -65,6 +69,17 @@ export interface LlmProvider {
     signal?: AbortSignal,
   ): AsyncIterable<ModelEvent>;
 }
+export type EmbeddingRequest = {
+  model: string;
+  input: string[];
+  dimensions: number;
+  timeoutMs: number;
+};
+export type EmbeddingResponse = {
+  vectors: number[][];
+  inputTokens: number;
+  providerRequestId: string | null;
+};
 export class LlmError extends Error {
   constructor(
     readonly code: string,

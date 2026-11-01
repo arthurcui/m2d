@@ -1,3 +1,4 @@
+import type { ResearchSearchService, SearchBudget } from './research-search.js';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import type { FastifyInstance } from 'fastify';
@@ -7,6 +8,9 @@ import {
   compareSchema,
   lookupSchema,
   searchSchema,
+  evidenceSearchSchema,
+  passageSchema,
+  factQuerySchema,
   symbolSchema,
   ResearchError,
   type ResearchProvider,
@@ -23,6 +27,7 @@ export type ResearchComparison = {
 };
 export interface ResearchService {
   repository: ResearchRepository;
+  discovery?: ResearchSearchService;
   status(): { provider: 'fixture' | 'sec'; configured: boolean };
   close(): Promise<void>;
   start(input: {
@@ -35,18 +40,26 @@ export interface ResearchService {
     after: string,
     at?: string,
   ): Promise<ResearchComparison>;
-  tool(name: string, args: unknown, at?: string): Promise<unknown>;
+  tool(
+    name: string,
+    args: unknown,
+    at?: string,
+    budget?: SearchBudget,
+  ): Promise<unknown>;
 }
 export function createResearchService(
   repository: ResearchRepository,
   provider: ResearchProvider,
+  discovery?: ResearchSearchService,
 ): ResearchService {
   const running = new Map<string, Promise<void>>();
   return {
     repository,
+    ...(discovery ? { discovery } : {}),
     status: () => ({ provider: provider.id, configured: provider.configured }),
     async close() {
       await Promise.allSettled(running.values());
+      await discovery?.close();
     },
     async start(input: {
       idempotencyKey: string;
@@ -156,13 +169,46 @@ export function createResearchService(
           'Exact passage changes; changed passages are not necessarily semantically equivalent. Financial periods and units must be compared explicitly.',
       };
     },
-    async tool(name: string, args: unknown, at?: string): Promise<unknown> {
+    async tool(
+      name: string,
+      args: unknown,
+      at?: string,
+      budget?: SearchBudget,
+    ): Promise<unknown> {
       if (at) {
         const record = z.record(z.string(), z.unknown()).parse(args);
         args = {
           ...record,
           at: typeof record.at === 'string' && record.at < at ? record.at : at,
         };
+      }
+      if (
+        name === 'research_search_evidence_v2' ||
+        name === 'research_read_passage_v1' ||
+        name === 'research_find_company_v1' ||
+        name === 'research_query_facts_v2'
+      ) {
+        if (!discovery)
+          throw new ResearchError(
+            'SEARCH_UNAVAILABLE',
+            'Company search is not configured.',
+            503,
+          );
+        if (name === 'research_search_evidence_v2')
+          return discovery.search(evidenceSearchSchema.parse(args), budget);
+        if (name === 'research_query_facts_v2')
+          return discovery.repository.facts(factQuerySchema.parse(args));
+        if (name === 'research_read_passage_v1') {
+          const a = passageSchema.parse(args);
+          return discovery.repository.passage(a.documentId, a.chunkIndex, a.at);
+        }
+        const a = z
+          .object({
+            query: z.string().trim().min(1).max(150),
+            at: z.iso.datetime().optional(),
+          })
+          .parse(args);
+        return discovery.repository.companies(a.query, a.at);
       }
       if (name === 'research_search_filings_v1') {
         const a = lookupSchema.parse(args);
@@ -273,6 +319,51 @@ export async function researchRoutes(
     const a = searchSchema.parse(req.query);
     return envelope(await s.repository.search(a.symbol, a.query, a.at));
   });
+  if (s.discovery) {
+    const search = s.discovery;
+    app.post('/api/v1/research/search', async (req) => {
+      const { version, ...input } = evidenceSearchSchema
+        .safeExtend({ version: z.literal(2) })
+        .parse(req.body);
+      return {
+        ...envelope(await search.search(input)),
+        meta: {
+          version,
+          asOf: new Date().toISOString(),
+          source: s.status().provider,
+        },
+      };
+    });
+    app.get('/api/v1/research/search/status', async (req) => {
+      const a = lookupSchema.parse(req.query);
+      return envelope(await search.status(a.symbol, a.at));
+    });
+    app.get('/api/v1/research/search/jobs/:id', async (req) =>
+      envelope(await search.repository.job(docId(req.params))),
+    );
+    app.get('/api/v1/research/companies', async (req) => {
+      const a = z
+        .object({
+          query: z.string().trim().min(1).max(150),
+          at: z.iso.datetime().optional(),
+        })
+        .parse(req.query);
+      return envelope(await search.repository.companies(a.query, a.at));
+    });
+    app.post('/api/v1/research/search/index', async (req, reply) => {
+      const a = z
+        .object({
+          version: z.literal(1),
+          symbol: symbolSchema,
+          idempotencyKey: z.uuid(),
+        })
+        .strict()
+        .parse(req.body);
+      return reply
+        .code(202)
+        .send(envelope(await search.startIndex(a.symbol, a.idempotencyKey)));
+    });
+  }
   app.post('/api/v1/research/compare', async (req) => {
     const a = compareSchema.extend({ version: z.literal(1) }).parse(req.body);
     return envelope(await s.compare(a.before, a.after, a.at));
