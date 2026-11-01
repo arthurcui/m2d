@@ -1,4 +1,9 @@
 import { chatRoutes } from './chat.js';
+import { marketRoutes, type MarketService } from './market.js';
+import type { MarketSelection } from './market-selection.js';
+import { MarketError, type MarketProvider } from '@m2d/market';
+import type { IbkrConnection } from '@m2d/market/ibkr-connection';
+import type { MarketRepository } from '@m2d/db';
 import type { ChatRepository } from '@m2d/db';
 import { LlmError } from '@m2d/llm';
 import Fastify, { LogController } from 'fastify';
@@ -22,6 +27,14 @@ export function buildApp(
   logger = false,
   portfolio?: PortfolioRepository,
   aiOptions?: { key?: string; provider?: LlmProvider; chat?: ChatRepository },
+  market?: {
+    repository: MarketRepository;
+    provider: MarketProvider;
+    listingProvider?: MarketProvider | undefined;
+    service: MarketService;
+    selection?: MarketSelection;
+    ibkr?: IbkrConnection;
+  },
 ) {
   const workbookAi = portfolio
     ? createWorkbookAi(portfolio, config, aiOptions?.key, aiOptions?.provider)
@@ -37,6 +50,11 @@ export function buildApp(
     dataQuality: 'OPERATIONAL' as const,
   });
   app.setErrorHandler((error, _request, reply) => {
+    if (error instanceof MarketError)
+      return reply.code(error.status).send({
+        error: { code: error.code, message: error.message },
+        meta: meta(),
+      });
     if (error instanceof LlmError)
       return reply.code(400).send({
         error: { code: error.code, message: error.message },
@@ -87,11 +105,13 @@ export function buildApp(
   });
   if (portfolio && workbookAi)
     app.register(portfolioRoutes, { repository: portfolio, workbookAi });
+  if (market) app.register(marketRoutes, market);
   if (portfolio && aiOptions?.chat)
     app.register(chatRoutes, {
       repository: aiOptions.chat,
       portfolio,
       config,
+      ...(market ? { market: market.service } : {}),
       ...(aiOptions.key ? { key: aiOptions.key } : {}),
       ...(aiOptions.provider ? { provider: aiOptions.provider } : {}),
     });
@@ -142,7 +162,7 @@ export function buildApp(
     const now = new Date();
     return systemStatusSchema.parse({
       data: {
-        milestone: 'M1',
+        milestone: 'M3',
         database,
         worker: {
           status:
@@ -163,7 +183,19 @@ export function buildApp(
                   : 'stale',
         },
         ai: workbookAi?.status ?? aiStatus(config),
-        market: { provider: 'fixture', status: 'not_implemented' },
+        market: await (async () => {
+          const state = market
+            ? await market.service.status().catch(() => null)
+            : null;
+          return {
+            provider: state?.provider ?? config.MARKET_PROVIDER,
+            status: state?.configured
+              ? state.provider === 'fixture'
+                ? 'fixture_only'
+                : 'ready'
+              : 'unconfigured',
+          };
+        })(),
         displayTimezone: config.APP_TIMEZONE,
         marketTimezone: config.MARKET_TIMEZONE,
       },

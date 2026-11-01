@@ -1,13 +1,78 @@
 import { readConfig } from '@m2d/config';
+import { fileURLToPath } from 'node:url';
 import { createDatabase } from '@m2d/db';
 import { buildApp } from './app.js';
+import { createMarketService } from './market.js';
+import { createMarketSelection } from './market-selection.js';
+import {
+  FixtureMarketProvider,
+  TwelveDataProvider,
+  MassiveBasicProvider,
+  IbkrMcpMarketDataProvider,
+} from '@m2d/market';
+import { IbkrConnection, ibkrFileStore } from '@m2d/market/ibkr-connection';
 
 const config = readConfig(process.env);
 const database = createDatabase(config.DATABASE_URL);
-const app = buildApp(database.repository, config, true, database.portfolio, {
-  key: process.env.OPENAI_API_KEY ?? '',
-  chat: database.chat,
+const ibkr = new IbkrConnection(
+  ibkrFileStore(
+    process.env.IBKR_CREDENTIAL_PATH ??
+      fileURLToPath(
+        new URL('../../../data/credentials/ibkr.json', import.meta.url),
+      ),
+  ),
+  new URL('/api/ibkr/callback', config.PUBLIC_APP_URL).toString(),
+  () => database.market.waitForIbkrRequest(),
+);
+await ibkr.load();
+const providers = {
+  fixture: new FixtureMarketProvider(),
+  ibkr: new IbkrMcpMarketDataProvider(
+    () => ibkr.open(),
+    () => ibkr.connected,
+  ),
+  massive: new MassiveBasicProvider(process.env.MASSIVE_API_KEY ?? '', () =>
+    database.market.waitForMassiveRequest(),
+  ),
+  twelvedata: new TwelveDataProvider(
+    process.env.TWELVE_DATA_API_KEY ?? '',
+    config.MARKET_DELAY_MINUTES,
+  ),
+};
+const selection = createMarketSelection(database.market, providers, {
+  priceProvider: config.MARKET_PROVIDER,
+  listingProvider: config.LISTING_PROVIDER,
 });
+const marketProvider = providers[config.MARKET_PROVIDER];
+const listingProvider =
+  config.LISTING_PROVIDER === 'none'
+    ? undefined
+    : providers[config.LISTING_PROVIDER];
+const app = buildApp(
+  database.repository,
+  config,
+  true,
+  database.portfolio,
+  {
+    key: process.env.OPENAI_API_KEY ?? '',
+    chat: database.chat,
+  },
+  {
+    repository: database.market,
+    selection,
+    ibkr,
+    provider: marketProvider,
+    listingProvider,
+    service: createMarketService(
+      database.market,
+      database.portfolio,
+      marketProvider,
+      config.BASE_CURRENCY,
+      listingProvider,
+      selection,
+    ),
+  },
+);
 app.addHook('onClose', async () => database.close());
 let stopping = false;
 async function shutdown() {
@@ -21,6 +86,7 @@ for (const signal of ['SIGINT', 'SIGTERM'])
   });
 try {
   await database.chat.recover();
+  await database.market.recover();
   await app.listen({ host: config.API_HOST, port: config.API_PORT });
 } catch {
   console.error(

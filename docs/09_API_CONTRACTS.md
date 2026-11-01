@@ -78,3 +78,5 @@ The parse route also accepts optional `dialogue: {message, question, explain?, h
 ## Implemented M2 chat contracts
 
 Persistent sessions, run execution/SSE/cancellation, and revision-guarded analysis settings are described in [M2_CHAT.md](M2_CHAT.md#versioned-api). Chat previews use the existing financial confirmation endpoints; no commit tool is exposed to a model.
+
+M3 implementation details and actual version 1 market routes are in [M3_MARKET.md](M3_MARKET.md). Refreshes are explicit POST requests; GET routes read persisted evidence only. M3 uses singular `symbol` plus explicit exchange/currency for exact quote identity. Research routes above remain future work.

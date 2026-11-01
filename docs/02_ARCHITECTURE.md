@@ -47,7 +47,7 @@ flowchart TD
 - Worker jobs carry entity IDs/idempotency keys, not huge document/secret payloads. Retry safely.
 - External feeds behind interfaces: `QuoteProvider`, `BarsProvider`, `OptionsProvider`, `FxProvider`, `FilingsProvider`, `NewsProvider`, `LlmProvider`, `FileStore`.
 - `packages/agent` owns context, tools, run limits and financial validation; `packages/llm` owns neutral model contracts, provider selection and native adapters. Provider SDK imports are confined to adapter modules. The frontend calls M²D's API; only `api`/`worker` receive model API keys.
-- No broker service abstractions; all holdings originate from user input.
+- All holdings originate from user input. The explicitly authorized M3 IBKR hosted MCP adapter retrieves market data only; its read-only OAuth and tool allowlist cannot synchronize accounts or submit trading instructions. See `IBKR_MCP.md` and ADR-038.
 
 ## 4. Technology decisions
 - Node current supported LTS, pnpm workspaces, TypeScript strict, ESLint/Prettier, Vitest, Playwright.

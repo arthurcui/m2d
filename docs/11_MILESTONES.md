@@ -20,6 +20,8 @@ Include Quick/Standard/Extensive selection with Standard default, saved workspac
 **Deliver:** provider interfaces + fixture adapter, one real market provider integration if configured, stock OHLCV/quotes, FX, options chain/snapshot where licensed; timestamp/session/freshness tracking; NAV, P&L with quality labels, charting.
 **Accept:** delayed/closed prices labelled; unavailable options Greeks degrade cleanly; no provider required to run fixture E2E.
 
+User-authorized M3 extension: optional IBKR hosted MCP for allowlisted market data and separate read-only authorization. No broker-account synchronization or trading tools. See [IBKR setup and limits](IBKR_MCP.md); M4 remains unimplemented.
+
 ## M4 — Research and motive intelligence
 **Deliver:** SEC company filings/XBRL importer, upload PDF and plain text, document version/hash, extract claims and citations, company timeline, compare filings, full-text search first; optional pgvector later.
 **Accept:** new filing changes appear with before/after and source links; older historical view preserves old data.
@@ -47,4 +49,4 @@ For each milestone Codex must: (1) make short implementation plan, (2) implement
 
 The global Agent panel now remains mounted across navigation and preserves unfinished portfolio import work. Unfamiliar account-bearing tabs require new-account/rename selection; rename retains stable account IDs and historical baselines. Optional transactionDate is holding metadata only. These user-requested M1 extensions do not enable M2 general trade-language chat or later research/analysis functions. See M1_PORTFOLIO.md and ADR-031.
 
-M2 implementation: see [M2_CHAT.md](M2_CHAT.md) for the shipped boundaries and cost-accounting limitation of the separate M1 workbook path. M3 and later remain unimplemented.
+M2 implementation: see [M2_CHAT.md](M2_CHAT.md) for the shipped boundaries and cost-accounting limitation of the separate M1 workbook path. M3 implementation: see [M3_MARKET.md](M3_MARKET.md) for market evidence, valuation, fixtures, provider configuration and limits. M4 and later remain unimplemented.

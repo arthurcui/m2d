@@ -1,4 +1,7 @@
 import { createChatRepository } from './chat.js';
+import { createMarketRepository } from './market.js';
+export { marketRequestSchema, marketSubject } from './market.js';
+export type { MarketRepository, MarketRequest } from './market.js';
 export type { ChatRepository } from './chat.js';
 import pg from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
@@ -36,6 +39,8 @@ export function createDatabase(connectionString: string) {
     async checkReady() {
       // Checking application tables distinguishes a reachable DB from a migrated DB.
       await pool.query('select id from agent_sessions limit 1');
+      await pool.query('select id from market_observations limit 1');
+      await pool.query('select provider from market_provider_limits limit 1');
       await db.select().from(workerHeartbeats).limit(1);
       await db.select().from(demoJobRuns).limit(1);
       await db.select().from(portfolioRevision).limit(1);
@@ -84,6 +89,7 @@ export function createDatabase(connectionString: string) {
     repository,
     portfolio: createPortfolioRepository(pool),
     chat: createChatRepository(pool),
+    market: createMarketRepository(pool),
     close: () => pool.end(),
   };
 }

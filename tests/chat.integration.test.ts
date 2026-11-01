@@ -126,6 +126,9 @@ it('persists mode preference, canonical conversation and preview, with one expli
   const id = response.json().data.id as string,
     run = await terminal(id);
   expect(run.status, JSON.stringify(run.events)).toBe('completed');
+  expect(run.events).toEqual(
+    expect.arrayContaining([expect.objectContaining({ type: 'completed' })]),
+  );
   expect(run.analysisMode).toBe('quick');
   expect(run.previewId).toBeTruthy();
   expect(run).not.toHaveProperty('continuation');

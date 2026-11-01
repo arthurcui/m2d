@@ -131,6 +131,23 @@ function harness(
   };
 }
 describe('M2 chat orchestration', () => {
+  it('reads cached valuation without a financial preview or invented market values', async () => {
+    const h = harness(undefined, 'What is my portfolio valuation?');
+    h.deps.valuation = async () => ({
+      nav: null,
+      knownValue: '500',
+      baseCurrency: 'USD',
+      quality: 'INCOMPLETE',
+      oldestAsOf: '2026-10-30T20:00:00Z',
+    });
+    const result = await h.start();
+    expect(result.previewId).toBeNull();
+    expect(h.changes).toHaveLength(0);
+    expect(h.history().at(-1)).toMatchObject({
+      kind: 'text',
+      text: expect.stringContaining('incomplete (known subtotal 500)'),
+    });
+  });
   it('applies mode precedence and clamps every policy to deployment ceilings', () => {
     expect(selectMode(undefined, undefined, 'standard')).toBe('standard');
     expect(selectMode('quick', 'extensive', 'standard')).toBe('quick');
@@ -526,7 +543,7 @@ it('sends a strict provider-compatible tool schema with disjoint operation varia
   const provider = new OpenAiProvider('test-key', async (_url, init) => {
     calls++;
     const body = JSON.parse(String(init?.body)) as {
-      tools: { parameters: Record<string, unknown> }[];
+      tools: { name: string; parameters: Record<string, unknown> }[];
     };
     function check(value: unknown) {
       if (!value || typeof value !== 'object') return;
@@ -547,10 +564,8 @@ it('sends a strict provider-compatible tool schema with disjoint operation varia
     }
     body.tools.forEach((t) => check(t.parameters));
     const operation = (
-      body.tools[1]!.parameters.properties as Record<
-        string,
-        { anyOf: Record<string, unknown>[] }
-      >
+      body.tools.find((t) => t.name === 'portfolio_preview_v1')!.parameters
+        .properties as Record<string, { anyOf: Record<string, unknown>[] }>
     )['operation']!;
     const seen = new Set<string>();
     for (const branch of operation.anyOf) {

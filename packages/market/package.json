@@ -1,0 +1,22 @@
+{
+  "name": "@m2d/market",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./dist/index.js",
+    "./ibkr-connection": "./dist/ibkr-connection.js"
+  },
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "build:types": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@m2d/portfolio": "workspace:*",
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "decimal.js": "10.6.0",
+    "zod": "^4.1.12"
+  }
+}

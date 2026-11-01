@@ -41,3 +41,5 @@ Each datum has at least `event_period`, `published_at`, `available_at`, `observe
 - Track calls, coverage and model costs; use watchlist/holdings before broad scanning.
 - Persist raw and parsed results; failed parsing never replaces last-good records.
 - News is untrusted content: cannot instruct agent to mutate portfolios, change tools or reveal configuration.
+
+M3 implementation and provider limitations: [M3_MARKET.md](M3_MARKET.md). The research-ingestion portions of this design remain M4 and later.

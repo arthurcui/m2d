@@ -486,6 +486,7 @@ export function createChatRepository(pool: pg.Pool) {
       status: 'completed' | 'failed' | 'cancelled',
       reason: string | null,
       previewId: string | null,
+      terminalEvent?: Record<string, unknown>,
     ) {
       const r = await getRun(id);
       await db.transaction(async (tx) => {
@@ -493,6 +494,11 @@ export function createChatRepository(pool: pg.Pool) {
           .update(t.agentRuns)
           .set({
             status,
+            ...(terminalEvent
+              ? {
+                  events: sql`${t.agentRuns.events} || ${JSON.stringify([{ ...terminalEvent, at: new Date().toISOString() }])}::jsonb`,
+                }
+              : {}),
             completeness:
               status === 'completed' && !reason ? 'complete' : 'limited',
             limitReasons: reason ? [reason] : [],

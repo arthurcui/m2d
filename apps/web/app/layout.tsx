@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Navigation } from './navigation';
 import './globals.css';
 import { PortfolioClient } from './portfolio/portfolio-client';
+import { MarketDataProvider } from './market/market-context';
 export const metadata: Metadata = {
   title: 'M²D · Move · Motive · Decision',
   description:
@@ -31,7 +32,9 @@ export default function Layout({
               <span className="badge">M2 · Portfolio Agent</span>
             </header>
             <main id="main">
-              <PortfolioClient>{children}</PortfolioClient>
+              <MarketDataProvider>
+                <PortfolioClient>{children}</PortfolioClient>
+              </MarketDataProvider>
             </main>
             <footer>
               <details>

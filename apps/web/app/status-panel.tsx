@@ -129,7 +129,8 @@ export function StatusPanel() {
           : status
             ? `Observed ${time(status.meta.asOf, status.data.displayTimezone)} · ${status.data.displayTimezone}`
             : 'Connecting…'}{' '}
-        · Market data is not connected.
+        · Market: {data?.market.provider ?? 'unknown'} /{' '}
+        {data?.market.status ?? 'unavailable'}.
       </p>
     </section>
   );

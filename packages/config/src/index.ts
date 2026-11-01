@@ -81,7 +81,36 @@ const configSchema = z.object({
     (v) => (v === '' ? undefined : v),
     z.string().min(1).optional(),
   ),
-  MARKET_PROVIDER: z.literal('fixture').default('fixture'),
+  LISTING_PROVIDER: z
+    .enum(['none', 'fixture', 'massive', 'ibkr'])
+    .default('none'),
+  MARKET_PROVIDER: z
+    .enum(['fixture', 'twelvedata', 'massive', 'ibkr'])
+    .default('fixture'),
+  PUBLIC_APP_URL: z
+    .url()
+    .default('http://127.0.0.1:3000')
+    .refine((v) => {
+      const u = new URL(v);
+      return (
+        !u.username &&
+        !u.password &&
+        !u.search &&
+        !u.hash &&
+        u.pathname === '/' &&
+        (u.protocol === 'https:' ||
+          (u.protocol === 'http:' &&
+            ['127.0.0.1', 'localhost', '[::1]'].includes(u.hostname)))
+      );
+    }),
+  BASE_CURRENCY: z
+    .string()
+    .regex(/^[A-Z]{3}$/)
+    .default('USD'),
+  MARKET_DELAY_MINUTES: z.preprocess(
+    (v) => (v === '' || v === undefined ? null : v),
+    z.coerce.number().int().min(0).max(1440).nullable(),
+  ),
 });
 export type Config = z.infer<typeof configSchema>;
 export function readConfig(env: Record<string, string | undefined>): Config {

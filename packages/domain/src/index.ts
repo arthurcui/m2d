@@ -41,7 +41,7 @@ export const DEMO_STALE_MS = 180_000;
 
 export const systemStatusSchema = z.object({
   data: z.object({
-    milestone: z.literal('M1'),
+    milestone: z.literal('M3'),
     database: z.enum(['ready', 'unavailable']),
     worker: z.object({
       status: z.enum(['online', 'stale', 'unavailable']),
@@ -62,8 +62,13 @@ export const systemStatusSchema = z.object({
       message: z.string(),
     }),
     market: z.object({
-      provider: z.literal('fixture'),
-      status: z.literal('not_implemented'),
+      provider: z.enum(['fixture', 'twelvedata', 'massive', 'ibkr']),
+      status: z.enum([
+        'not_implemented',
+        'fixture_only',
+        'ready',
+        'unconfigured',
+      ]),
     }),
     displayTimezone: z.string(),
     marketTimezone: z.literal('America/New_York'),

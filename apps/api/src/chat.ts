@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import type { MarketService } from './market.js';
 import { z } from 'zod';
 import { Decimal } from 'decimal.js';
 import type { ChatRepository, PortfolioRepository } from '@m2d/db';
@@ -27,12 +28,14 @@ export async function chatRoutes(
     config,
     key,
     provider: override,
+    market,
   }: {
     repository: ChatRepository;
     portfolio: PortfolioRepository;
     config: Config;
     key?: string;
     provider?: LlmProvider;
+    market?: MarketService;
   },
 ) {
   const running = new Map<
@@ -283,6 +286,7 @@ export async function chatRoutes(
           },
           {
             overview: () => portfolio.overview(),
+            ...(market ? { valuation: () => market.valuation() } : {}),
             preview: async (data) => {
               const preview = await portfolio.preview(data);
               staged.push(preview.id);
@@ -326,13 +330,13 @@ export async function chatRoutes(
           'completed',
           result.limitReason,
           result.previewId,
+          {
+            type: 'completed',
+            previewId: result.previewId,
+            attempts: result.attempts,
+            toolCalls: result.toolCalls,
+          },
         );
-        await r.event(run.id, {
-          type: 'completed',
-          previewId: result.previewId,
-          attempts: result.attempts,
-          toolCalls: result.toolCalls,
-        });
       } catch (e) {
         for (const previewId of staged)
           await portfolio.reject(previewId).catch(() => undefined);
@@ -374,15 +378,15 @@ export async function chatRoutes(
           code === 'LLM_CANCELLED' ? 'cancelled' : 'failed',
           code,
           null,
+          {
+            type: 'error',
+            code,
+            message,
+            ...(e instanceof LlmError && e.diagnostics
+              ? { diagnostics: e.diagnostics }
+              : {}),
+          },
         );
-        await r.event(run.id, {
-          type: 'error',
-          code,
-          message,
-          ...(e instanceof LlmError && e.diagnostics
-            ? { diagnostics: e.diagnostics }
-            : {}),
-        });
       } finally {
         clearTimeout(deadline);
         await lease.release();

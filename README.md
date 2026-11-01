@@ -2,7 +2,7 @@
 
 **See the Move. Understand the Motive. Make the Decision.**
 
-**Status:** M2 — Persistent portfolio Agent, natural-language change previews, streaming and analysis-mode policies implemented on the M1 ledger. See [M2 implementation notes](docs/M2_CHAT.md) for usage, limits and verification. The design specification (revision 1.2) below also describes future milestones. See [M1 implementation notes](docs/M1_PORTFOLIO.md) for accounting rules, Excel templates, confirmation contracts, verification, and limitations; [M0 notes](docs/M0_FOUNDATION.md) retain foundation details.
+**Status:** M3 — Market evidence, optional Massive Basic (free end-of-day), Twelve Data and [IBKR hosted MCP](docs/IBKR_MCP.md) integration, indicative NAV/P&L, OHLCV charts and saved valuations implemented on the M1/M2 portfolio Agent. See [M3 market setup and limits](docs/M3_MARKET.md). See [M2 implementation notes](docs/M2_CHAT.md) for usage, limits and verification. The design specification (revision 1.2) below also describes future milestones. See [M1 implementation notes](docs/M1_PORTFOLIO.md) for accounting rules, Excel templates, confirmation contracts, verification, and limitations; [M0 notes](docs/M0_FOUNDATION.md) retain foundation details.
 
 ## Run locally
 
@@ -44,7 +44,7 @@ pnpm test:e2e
 
 Portfolio E2E writes fictional records: run it only in a fresh disposable Compose project with E2E_ALLOW_PORTFOLIO_WRITES=1. See [M1 verification instructions](docs/M1_PORTFOLIO.md#verification). Unit tests are offline and need no database or API key. CI also runs PostgreSQL integration tests and the full browser suite.
 
-The Portfolio page now supports multi-tab Excel import with inferred column mappings and confirmed full-state replacement, revision-guarded preview/confirmation, and immutable change history. Upload an existing workbook and review its interpreted portfolio; the replacement takes effect when confirmed. Individual changes use the persistent Agent chat and explicit preview confirmation. AI workbook interpretation is implemented in M1 through a provider-neutral OpenAI/fixture boundary. It creates a validated replacement preview and asks plain-language questions for missing facts; no column mapping is required. Market feeds remain unimplemented. M2 adds general chat, incremental natural-language updates, tool continuity, and Quick/Standard/Extensive work allowances. Later market/research features remain unavailable.
+The Portfolio page now supports multi-tab Excel import with inferred column mappings and confirmed full-state replacement, revision-guarded preview/confirmation, and immutable change history. Upload an existing workbook and review its interpreted portfolio; the replacement takes effect when confirmed. Individual changes use the persistent Agent chat and explicit preview confirmation. AI workbook interpretation is implemented in M1 through a provider-neutral OpenAI/fixture boundary. It creates a validated replacement preview and asks plain-language questions for missing facts; no column mapping is required. M3 adds fixture and optional Twelve Data market evidence, FX, indicative valuation and charts. M2 adds general chat, incremental natural-language updates, tool continuity, and Quick/Standard/Extensive work allowances. Research, risk planning and automated monitoring remain later milestones.
 
 ## Current AI access decision
 
@@ -61,7 +61,7 @@ Build a single-user, standalone, Docker-first AI investment intelligence and dec
 ## Invariants / non-goals
 
 - **No OpenClaw or other ready-made agent orchestrator.** Implement a small, testable agent runtime within M²D using an LLM provider API.
-- **No broker connectivity, no broker credentials, no order placement.** IBKR and Questrade are labels for manually created accounts only.
+- **No broker account synchronization, brokerage passwords, or order placement.** Accounts remain manually defined. The user-authorized M3 exception is optional IBKR hosted MCP for allowlisted market data, using separate read-only OAuth authorization; see [IBKR setup](docs/IBKR_MCP.md).
 - **No tenancy, multi-user management, signup, RBAC, subscriptions, billing, or SaaS infrastructure.** One personal workspace.
 - Portfolio updates: (1) natural-language instructions -> validated preview -> confirm; (2) uploaded Excel workbook -> validated full-state replacement preview -> confirm. Excel is authoritative **current state**, not a replacement for history.
 - Market, financial, news, filings, and options data may be imported from external third-party/public data services.
@@ -124,7 +124,7 @@ m2d/
 
 ## Quality bar
 
-Each milestone must end with runnable code, tests, sample data, reproducible commands, known limitations and screenshots or route/UI verification. No real brokerage integrations, order execution, financial claims without evidence, or invented history.
+Each milestone must end with runnable code, tests, sample data, reproducible commands, known limitations and screenshots or route/UI verification. Brokerage connections are limited to the explicitly authorized IBKR market-data MCP adapter. No account synchronization, order execution, financial claims without evidence, or invented history.
 
 ### Current M1 account and Agent behavior
 

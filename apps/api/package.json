@@ -10,6 +10,7 @@
     "dev": "node --env-file-if-exists=../../.env --watch dist/main.js"
   },
   "dependencies": {
+    "@m2d/market": "workspace:*",
     "@m2d/portfolio": "workspace:*",
     "@m2d/ingestion": "workspace:*",
     "@fastify/multipart": "10.1.6",

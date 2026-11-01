@@ -8,6 +8,7 @@ export default ts.config(
       '**/.next/**',
       '**/next-env.d.ts',
       '**/drizzle/meta/**',
+      '.tmp/**',
       'playwright-report/**',
       'test-results/**',
     ],

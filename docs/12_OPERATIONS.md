@@ -41,7 +41,7 @@ STOCK_QUOTE_FRESHNESS_SECONDS=90
 OPTION_QUOTE_FRESHNESS_SECONDS=180
 FEATURE_RESEARCH_EMBEDDINGS=false
 ```
-`contact@example.com` is a placeholder; configure honest contact identification before SEC calls. Do not commit a real `.env` or keys. No broker variables or code paths.
+`contact@example.com` is a placeholder; configure honest contact identification before SEC calls. Do not commit a real `.env` or keys. The optional IBKR market-data connection stores its own read-only OAuth tokens in a private API credential volume (ignored `data/credentials` for native development); never include these files in source control or unprotected backups. See `IBKR_MCP.md` for callback origin, renewal, and revocation.
 
 Set `LLM_MODEL` to an explicit model available to the configured API project; this design does not hardcode a model or account entitlement. The step/token/timeout numbers above are initial engineering defaults, not provider guarantees. For offline development and CI set `LLM_PROVIDER=fixture` and `LLM_MODEL=fixture-v1`; no API key or network is required. Only the selected real provider's credentials are required. Reserved providers return `LLM_PROVIDER_NOT_IMPLEMENTED` until their adapters and contract tests exist.
 

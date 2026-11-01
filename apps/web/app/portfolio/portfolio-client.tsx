@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { HoldingsTable, type HoldingSelection } from './holdings-table';
 import { ResizablePanels } from '../resizable-panels';
 import { AgentChat } from '../agent-chat';
+import { ValuationPanel } from '../market/valuation';
 import { agentContexts, submitAgentOnEnter } from '../agent-contexts';
 import { usePathname } from 'next/navigation';
 import {
@@ -186,8 +187,8 @@ export function PortfolioSummary() {
         )}
       </div>
       <div className="card-note">
-        Market valuation, historical performance, and tax cost basis are not
-        established. Cash remains in its native currency.
+        Historical performance and tax cost basis are not established. Valuation
+        coverage and FX sources appear separately below.
       </div>
     </section>
   );
@@ -277,6 +278,9 @@ export function PortfolioClient({ children }: { children?: ReactNode }) {
     [errorScope, setErrorScope] = useState('records'),
     [filter, setFilter] = useState(''),
     [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    window.dispatchEvent(new Event('m2d-market-updated'));
+  }, [data?.revision]);
   const refresh = async () => {
     const [d, h] = await Promise.all([
       api<Overview>('portfolio/overview'),
@@ -551,10 +555,11 @@ export function PortfolioClient({ children }: { children?: ReactNode }) {
                 {data.warnings.map((w) => (
                   <p key={w}>{w}</p>
                 ))}
-                No live valuation, FX aggregation, historical returns, or
-                tax-basis claim.
+                Market values are indicative; inspect price and FX coverage in
+                the valuation section. No historical-return or tax-basis claim.
               </div>
             </section>
+            <ValuationPanel key={data.revision} />
             <section className="workspace-card" aria-label="Replace from Excel">
               <div className="card-heading">
                 <h2>Replace from Excel</h2>

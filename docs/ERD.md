@@ -2,7 +2,7 @@
 
 Generated from the implemented Drizzle schema. Run `pnpm docs:erd` after schema changes; `pnpm docs:erd:check` fails when this document is stale.
 
-This is the current M2 application schema. PostgreSQL also contains pg-boss-managed queue tables, which are maintained by pg-boss and omitted here. Historical baselines and interpretation results contain typed JSON snapshots; positions and cash below are the rebuildable current projections. Stable account IDs preserve history across display-name changes. Confirmed sheet aliases point back to the same account. Holding transaction dates are optional date-only metadata, not a reconstructed transaction ledger.
+This is the current M3 application schema. PostgreSQL also contains pg-boss-managed queue tables, which are maintained by pg-boss and omitted here. Historical baselines and interpretation results contain typed JSON snapshots; positions and cash below are the rebuildable current projections. Stable account IDs preserve history across display-name changes. Confirmed sheet aliases point back to the same account. Holding transaction dates are optional date-only metadata, not a reconstructed transaction ledger.
 
 The diagram shows declared database foreign keys. Logical references without a database foreign key (including revision baseline IDs, mapping preview IDs and JSON identifiers) are deliberately not drawn. Nullable attributes are marked in quotes.
 
@@ -68,6 +68,9 @@ erDiagram
         integer id PK
         integer revision
         text default_analysis_mode "nullable"
+        text market_provider "nullable"
+        text listing_provider "nullable"
+        integer price_refresh_seconds
     }
     cash_projection {
         text account_key FK
@@ -88,6 +91,32 @@ erDiagram
         text exchange
         text currency
         numeric_30__12_ multiplier
+    }
+    market_observations {
+        uuid id PK
+        text provider
+        text kind
+        text subject
+        text content_hash
+        timestamp_with_time_zone as_of
+        timestamp_with_time_zone received_at
+        timestamp_with_time_zone available_at
+        jsonb payload
+        jsonb raw
+    }
+    market_provider_limits {
+        text provider PK
+        timestamp_with_time_zone next_allowed_at
+    }
+    market_refreshes {
+        text request_key PK
+        text fingerprint
+        text provider
+        text subject
+        timestamp_with_time_zone started_at
+        text status
+        text error_code "nullable"
+        uuid observation_id FK "nullable"
     }
     portfolio_account_aliases {
         text sheet_name PK
@@ -207,6 +236,16 @@ erDiagram
         text quality
         text notes
     }
+    valuation_snapshots {
+        uuid id PK
+        text request_key
+        integer portfolio_revision
+        timestamp_with_time_zone computed_at
+        text provider
+        text base_currency
+        jsonb valuation
+        jsonb observation_ids
+    }
     worker_heartbeats {
         text id PK
         uuid instance_id
@@ -217,6 +256,7 @@ erDiagram
     portfolio_previews |o--o{ agent_runs : "preview_id"
     agent_runs ||--o{ agent_tool_calls : "run_id"
     accounts ||--o{ cash_projection : "account_key"
+    market_observations |o--o{ market_refreshes : "observation_id"
     accounts ||--o{ portfolio_account_aliases : "account_key"
     portfolio_imports ||--o{ portfolio_account_aliases : "source_import_id"
     portfolio_previews ||--o{ portfolio_baselines : "preview_id"
