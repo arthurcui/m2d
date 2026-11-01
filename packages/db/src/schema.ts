@@ -543,7 +543,7 @@ export const sourceDocuments = pgTable(
     rawBase64: text('raw_base64').notNull(),
   },
   (t) => [
-    uniqueIndex('source_document_content').on(
+    index('source_document_content').on(
       t.companyId,
       t.provider,
       t.upstreamKey,

@@ -1144,3 +1144,33 @@ it('account-only context still requires a security and prevents changes to anoth
     ),
   ).toThrow('selected account');
 });
+
+it('holds research text until citation validation and never checkpoints an invented passage', async () => {
+  const provider = new ChatFixtureProvider();
+  const bad = `[source](/research?document=${randomUUID()}#chunk-999)`;
+  provider.stream = async function* () {
+    yield { type: 'text_delta', delta: bad };
+    yield {
+      type: 'result',
+      result: {
+        status: 'completed',
+        items: [
+          { id: randomUUID(), kind: 'text', role: 'assistant', text: bad },
+        ],
+        structuredOutput: null,
+        usage: null,
+        providerRequestId: null,
+      },
+    };
+  };
+  const h = harness(provider, 'Review research');
+  await expect(
+    h.start({ researchScope: { symbol: 'ACME', query: 'Review research' } }),
+  ).rejects.toMatchObject({ code: 'LLM_INVALID_OUTPUT' });
+  expect(h.events).not.toContainEqual(
+    expect.objectContaining({ type: 'text_delta' }),
+  );
+  expect(
+    h.history().some((i) => i.kind === 'text' && i.role === 'assistant'),
+  ).toBe(false);
+});

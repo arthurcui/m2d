@@ -293,3 +293,61 @@ it('reports durable new/reused outcomes, deduplicates renamed uploads and preser
   ).rejects.toThrow();
   expect((await db.portfolio.overview()).revision).toBe(before);
 });
+
+it('records A to B to A as three immutable revisions and reuses only current content', async () => {
+  const original = (await provider.fetch('REVERT')).sources[0]!;
+  const ids: string[] = [],
+    cutoffs: string[] = [];
+  for (const text of [
+    'Outlook is strong.',
+    'Outlook is weak.',
+    'Outlook is strong.',
+    'Outlook is strong.',
+  ]) {
+    const id = randomUUID();
+    await db.research.begin(id, 'REVERT', 'upload', randomUUID());
+    ids.push(
+      (
+        await db.research.commit(
+          id,
+          'REVERT',
+          'Reversion test',
+          null,
+          'upload',
+          [
+            {
+              ...original,
+              key: 'report.txt',
+              url: null,
+              publishedAt: null,
+              raw: Buffer.from(text),
+              chunks: [{ index: 0, page: null, text }],
+            },
+          ],
+        )
+      )[0]!,
+    );
+    cutoffs.push(new Date().toISOString());
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  expect(new Set(ids).size).toBe(3);
+  expect(ids[3]).toBe(ids[2]);
+  const timeline = await db.research.timeline('REVERT');
+  expect(timeline.map((d) => d.revision)).toEqual([3, 2, 1]);
+  expect(timeline[0]!.hash).toBe(timeline[2]!.hash);
+  for (let i = 0; i < 3; i++) {
+    const rows = await db.researchSearch.lexical({
+      symbol: 'REVERT',
+      query: 'outlook',
+      at: cutoffs[i],
+      revisions: 'latest',
+    });
+    expect(rows.map((r) => r.document_id)).toEqual([ids[i]]);
+  }
+  const latest = await db.researchSearch.lexical({
+    symbol: 'REVERT',
+    query: 'outlook',
+    revisions: 'latest',
+  });
+  expect(latest[0]!.text).toBe('Outlook is strong.');
+});

@@ -179,7 +179,11 @@ export function createResearchRepository(pool: pg.Pool) {
         for (const s of sources) {
           const hash = createHash('sha256').update(s.raw).digest('hex');
           const duplicate = await client.query<{ id: string }>(
-            `select id from source_documents where company_id=$1 and provider=$2 and (upstream_key=$3 or ($2 in ('upload','analyst') and url is not distinct from $5::text)) and hash=$4 order by observed_at,id limit 1`,
+            `select d.id from source_documents d where d.company_id=$1 and d.provider=$2 and d.hash=$4
+             and (d.upstream_key=$3 or ($2 in ('upload','analyst') and d.url is not distinct from $5::text
+               and not exists(select 1 from source_documents own where own.company_id=$1 and own.provider=$2 and own.upstream_key=$3)))
+             and not exists(select 1 from source_documents newer where newer.company_id=d.company_id and newer.provider=d.provider and newer.upstream_key=d.upstream_key and newer.revision>d.revision)
+             order by d.observed_at,d.id limit 1`,
             [companyId, provider, s.key, hash, s.url],
           );
           if (duplicate.rows[0]) {

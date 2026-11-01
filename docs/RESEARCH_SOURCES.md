@@ -60,7 +60,7 @@ The harness creates/drops its own randomly named database, preserves original ha
 
 Live checks on November 1, 2026 imported Tesla’s Q3 deck, NVIDIA releases, Direxion’s fact sheet, Fed policy and BLS CPI/employment feeds, and five Massive summaries. All 12 stored-document hashes were verified. Hybrid retrieval and a real OpenAI Advisor answer about TSLL daily compounding passed with citations and no financial changes. Index/query usage was 12,030 bytes / 2,793 embedding tokens; the Advisor used 37,982 input and 844 output tokens.
 
-OCC directory and memo requests returned HTTP 403, so live OCC ingestion is **not verified**. Tesla’s IR landing page also returned 403, while its separately published public deck downloaded successfully. SEC remains unverified until a genuine contact identity is configured. Blocked sites require a user-provided permitted document or another accessible official source; there is no authentication/access-control workaround.
+OCC directory and memo requests returned HTTP 403, so live OCC ingestion is **not verified**. Tesla’s IR landing page also returned 403, while its separately published public deck downloaded successfully. SEC ingestion was subsequently verified with a configured contact identity; see [M4 verification](M4_RESEARCH.md#live-sec-verification--november-1-2026). Blocked sites require a user-provided permitted document or another accessible official source; there is no authentication/access-control workaround.
 
 The official Fed meeting calendar and BLS current release calendar also downloaded and parsed successfully (11 and 6 passages respectively); these are research snapshots, not automated reminders.
 

@@ -74,7 +74,10 @@ export function createResearchSearchRepository(pool: pg.Pool) {
       ).rows;
       return {
         symbol: input.symbol,
-        facts: rows.slice(0, limit),
+        facts: rows.slice(0, limit).map((row) => ({
+          ...row,
+          citation: `/research?document=${row.document_id}`,
+        })),
         truncated: rows.length > limit,
         notice:
           'Original reported values and units. Compare matching periods; separate accessions can be restatements. No derived ratios.',

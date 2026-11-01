@@ -120,6 +120,8 @@ it('blocks invented research citation IDs', () => {
             hash: 'a'.repeat(64),
             available_at: '2026-01-01T00:00:00Z',
             provider: 'fixture',
+            chunk_index: 0,
+            text: 'Revenue declined.',
           },
         ],
       },
@@ -204,4 +206,110 @@ it('does not replay later evidence or answers when changing the historical bound
     '5',
   ]);
   expect(history).toHaveLength(5);
+});
+
+it('validates exact passages, comparisons, facts, missing citations and current-turn scope', () => {
+  const id = randomUUID(),
+    other = randomUUID();
+  const history: import('../packages/llm/src/index.js').CanonicalItem[] = [
+    { id: randomUUID(), kind: 'text', role: 'user', text: 'Review revenue' },
+    {
+      id: randomUUID(),
+      kind: 'tool_call',
+      callId: 'r',
+      name: 'research_search_evidence_v2',
+      arguments: {},
+    },
+    {
+      id: randomUUID(),
+      kind: 'tool_result',
+      callId: 'r',
+      output: {
+        hits: [
+          {
+            document_id: id,
+            provider: 'sec',
+            chunk_index: 2,
+            text: 'Revenue declined.',
+          },
+        ],
+      },
+    },
+  ];
+  for (const target of [
+    `${id}#chunk-0`,
+    `${id}#chunk-999999`,
+    `${id}#chunk-2oops`,
+    `${other}#chunk-2`,
+  ])
+    expect(() =>
+      validateResearchCitations(
+        `[source](/research?document=${target})`,
+        history,
+      ),
+    ).toThrow('not retrieved');
+  expect(() =>
+    validateResearchCitations(
+      `[source](/research?document=${id}#chunk-2)`,
+      history,
+    ),
+  ).not.toThrow();
+  expect(() => validateResearchCitations('Revenue rose 25%.', history)).toThrow(
+    'did not cite',
+  );
+  expect(() =>
+    validateResearchCitations(
+      'NO_SIGNAL: evidence does not establish the requested claim.',
+      history,
+    ),
+  ).not.toThrow();
+  expect(() =>
+    validateResearchCitations('I will read the next passage.', history, false),
+  ).not.toThrow();
+  expect(() =>
+    validateResearchCitations('Hello!', [
+      ...history,
+      { id: randomUUID(), kind: 'text', role: 'user', text: 'hello' },
+    ]),
+  ).not.toThrow();
+  history[2] = {
+    id: randomUUID(),
+    kind: 'tool_result',
+    callId: 'r',
+    output: {
+      before: { id, hash: 'abc', available_at: '2026-01-01' },
+      after: { id: other, hash: 'def', available_at: '2026-01-02' },
+      removed: [{ index: 3, text: 'Old guidance' }],
+      added: [{ index: 5, text: 'New guidance' }],
+    },
+  };
+  expect(() =>
+    validateResearchCitations(
+      `[old](/research?document=${id}#chunk-3) [new](/research?document=${other}#chunk-5)`,
+      history,
+    ),
+  ).not.toThrow();
+  expect(() =>
+    validateResearchCitations(
+      `[wrong](/research?document=${id}#chunk-5)`,
+      history,
+    ),
+  ).toThrow();
+  history[2] = {
+    id: randomUUID(),
+    kind: 'tool_result',
+    callId: 'r',
+    output: {
+      facts: [{ document_id: id, provider: 'sec', value: '123', unit: 'USD' }],
+    },
+  };
+  expect(() =>
+    validateResearchCitations(`[facts](/research?document=${id})`, history),
+  ).not.toThrow();
+  expect(() =>
+    validateResearchCitations(
+      `[facts](/research?document=${id}#chunk-0)`,
+      history,
+    ),
+  ).toThrow();
 });
