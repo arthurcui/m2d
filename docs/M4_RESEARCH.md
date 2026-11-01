@@ -80,7 +80,7 @@ Integration tests require `TEST_DATABASE_URL` pointing to disposable PostgreSQL 
 
 The offline suite passed 163 unit tests, 38 database/API integration tests and 30 Playwright browser tests. Formatting, lint, strict typecheck, generated ERD checks, Compose validation and Docker builds/startup passed. A separate Docker PDF upload verified extracted page anchors, exact original SHA-256, desktop/mobile rendering and no browser errors. Historical-context tests also prevent later conversation evidence from being replayed into an earlier research boundary.
 
-Live SEC retrieval has not been exercised with a configured contact identity in this delivery. The initial delivery used fixture inference only. Subsequent live OpenAI embedding and Agent evaluation passed after fixing inferred search filters; see [the measured results and remaining limits](COMPANY_SEARCH.md#live-evaluation-and-agent-grounding). Live inference on synthetic reports does not establish live SEC ingestion or broad real-filing accuracy.
+The original M4 delivery had no configured SEC contact identity and used fixture inference only. A subsequent live SEC check passed; see below. Subsequent live OpenAI embedding and Agent evaluation passed after fixing inferred search filters; see [the measured results and remaining limits](COMPANY_SEARCH.md#live-evaluation-and-agent-grounding). Live inference on synthetic reports does not establish live SEC ingestion or broad real-filing accuracy.
 
 ## Public-source extension
 
@@ -91,3 +91,7 @@ See [Analyst Research](ANALYST_RESEARCH.md) for public bank sources, categorized
 ## Company charts
 
 See [company charts](COMPANY_CHARTS.md) for source-linked price/event and financial-trend visuals, historical cutoffs, period comparability, live verification and coverage limits.
+
+### Live SEC verification — November 1, 2026
+
+After configuring a real contact identity in the ignored backend environment, a bounded NVIDIA import in a disposable database completed five HTTP requests, all returning 200: ticker map, submissions metadata, two 10-Q filings, and XBRL company facts. Four documents were preserved and their original-byte SHA-256 hashes verified; the financial-history read returned its capped 500 rows. Portfolio revision stayed unchanged. No LLM was called, so inference usage/cost was zero. Production SEC readiness was enabled through environment configuration; the verification documents were not imported into the user's workspace. This verifies the NVDA path, not all issuers or filing formats.
