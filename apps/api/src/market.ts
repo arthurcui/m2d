@@ -369,17 +369,36 @@ export async function marketRoutes(
       provider.id,
     );
   });
+  app.get('/api/v1/market/resolutions/:ticker', async (req) => {
+    const { price: provider } = await current();
+    const { ticker } = z.object({ ticker: symbolSchema }).parse(req.params);
+    const { at } = z
+      .object({ at: z.iso.datetime().optional() })
+      .parse(req.query);
+    return envelope(
+      await repository.read(provider.id, 'resolution', ticker, at),
+      provider.id,
+    );
+  });
   app.get('/api/v1/market/bars/:ticker', async (req) => {
     const { price: provider } = await current();
     const { ticker } = z.object({ ticker: symbolSchema }).parse(req.params);
-    const { exchange, at } = z
+    const { exchange, at, listingId } = z
       .object({
-        exchange: z.enum(['NASDAQ', 'NYSE', 'AMEX', 'ARCA']).default('NASDAQ'),
+        exchange: z
+          .enum(['NASDAQ', 'NYSE', 'AMEX', 'ARCA', 'BATS'])
+          .default('NASDAQ'),
         at: z.iso.datetime().optional(),
+        listingId: z.string().min(1).max(100).optional(),
       })
       .parse(req.query);
     return envelope(
-      await repository.read(provider.id, 'bars', `${ticker}:${exchange}`, at),
+      await repository.read(
+        provider.id,
+        'bars',
+        `${ticker}:${exchange}${listingId ? ':' + listingId : ''}`,
+        at,
+      ),
       provider.id,
     );
   });

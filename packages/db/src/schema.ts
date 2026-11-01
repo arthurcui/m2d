@@ -54,7 +54,7 @@ export const marketObservations = pgTable(
     ),
     check(
       'market_kind',
-      sql`${t.kind} in ('quote','bars','fx','options','listing')`,
+      sql`${t.kind} in ('quote','bars','fx','options','listing','resolution')`,
     ),
     check(
       'market_observation_time',

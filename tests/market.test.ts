@@ -302,3 +302,35 @@ describe('Twelve Data adapter (mocked transport)', () => {
 });
 export { stock, state, fixture };
 export type { Quote };
+it('Twelve Data resolves exact supported USD listings and preserves genuine ambiguity', async () => {
+  const row = {
+    symbol: 'TEST',
+    instrument_name: 'Test company',
+    currency: 'USD',
+    country: 'United States',
+    instrument_type: 'Common Stock',
+    exchange: 'NYSE',
+  };
+  const transport = vi.fn<typeof fetch>().mockResolvedValue(
+    new Response(
+      JSON.stringify({
+        data: [
+          row,
+          row,
+          { ...row, exchange: 'NASDAQ' },
+          { ...row, symbol: 'TESTX' },
+          { ...row, currency: 'CAD' },
+        ],
+      }),
+    ),
+  );
+  const p = new TwelveDataProvider('mock', null, transport);
+  const r = await p.resolveListing('TEST');
+  expect(r.payload.kind).toBe('resolution');
+  if (r.payload.kind === 'resolution')
+    expect(r.payload.value.candidates.map((c) => c.exchange)).toEqual([
+      'NYSE',
+      'NASDAQ',
+    ]);
+  expect(transport).toHaveBeenCalledTimes(1);
+});

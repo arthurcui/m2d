@@ -14,7 +14,7 @@ async function proxy(
   const researchWrite =
     /^research\/(?:import|upload|compare|sources(?:\/(?:remove|discover|import))?|search(?:\/index)?)$/;
   const marketRead =
-    /^(portfolio\/(?:valuation|listings)|market\/(?:settings|status|quotes|fx|snapshots|listings\/[0-9a-f-]{36}\/logo|ibkr\/status|(?:bars|options)\/[A-Z0-9.^-]{1,24}))$/;
+    /^(portfolio\/(?:valuation|listings)|market\/(?:settings|status|quotes|fx|snapshots|listings\/[0-9a-f-]{36}\/logo|ibkr\/status|(?:bars|options|resolutions)\/[A-Z0-9.^-]{1,24}))$/;
   const marketWrite =
     /^market\/(?:settings|refresh|snapshots|ibkr\/disconnect)$/;
   const chatRead =

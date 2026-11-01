@@ -127,6 +127,13 @@
       "when": 1793555014455,
       "tag": "0017_analyst_research",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1793557823256,
+      "tag": "0018_listing_resolution",
+      "breakpoints": true
     }
   ]
 }

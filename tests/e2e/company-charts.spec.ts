@@ -118,3 +118,71 @@ test('company charts use stored evidence, cite sources, retain selections and en
     price.getByRole('button', { name: 'Refresh price history', exact: true }),
   ).toBeDisabled();
 });
+
+test('chart listing resolution skips the exchange form and asks only for genuine alternatives', async ({
+  page,
+}) => {
+  test.skip(
+    process.env.E2E_ALLOW_PORTFOLIO_WRITES !== '1',
+    'Isolated fixture stack only.',
+  );
+  const requests: { kind: string; exchange?: string; listingId?: string }[] =
+    [];
+  page.on('request', (r) => {
+    if (r.url().endsWith('/market/refresh') && r.method() === 'POST')
+      requests.push(r.postDataJSON().request);
+  });
+  await page.goto('/research');
+  await page.getByLabel('Research ticker').fill('SPY');
+  const chart = page.getByRole('article', { name: 'Price and events' });
+  await expect(chart.getByRole('combobox')).toHaveCount(0);
+  await chart
+    .getByRole('button', { name: 'Refresh price history', exact: true })
+    .click();
+  await expect(
+    chart.getByRole('group', { name: 'SPY historical hourly closes' }),
+  ).toBeVisible();
+  await expect(chart).toContainText('SPY synthetic listing · ARCA · USD');
+  expect(requests.at(-1)).toMatchObject({
+    kind: 'bars',
+    exchange: 'ARCA',
+    listingId: 'SPY:ARCA',
+  });
+  await page.getByLabel('Research ticker').fill('DUAL');
+  requests.length = 0;
+  await chart
+    .getByRole('button', { name: 'Refresh price history', exact: true })
+    .click();
+  await expect(
+    chart.getByText('Multiple supported listings match DUAL.'),
+  ).toBeVisible();
+  expect(requests.map((r) => r.kind)).toEqual(['resolution']);
+  await chart.getByRole('button', { name: /synthetic listing.*NYSE/ }).click();
+  await expect(
+    chart.getByRole('group', { name: 'DUAL historical hourly closes' }),
+  ).toBeVisible();
+  expect(requests.at(-1)).toMatchObject({
+    kind: 'bars',
+    exchange: 'NYSE',
+    listingId: 'DUAL:NYSE',
+  });
+  await page
+    .getByRole('link', { name: 'Portfolio', exact: true })
+    .first()
+    .click();
+  await page
+    .getByRole('link', { name: 'Research', exact: true })
+    .first()
+    .click();
+  await expect(
+    chart.getByRole('button', { name: /synthetic listing.*NYSE/ }),
+  ).toHaveAttribute('aria-pressed', 'true');
+  await page.getByLabel('Research ticker').fill('NORESULT');
+  await chart
+    .getByRole('button', { name: 'Refresh price history', exact: true })
+    .click();
+  await expect(chart).toContainText(
+    'No supported US stock or ETF listing was found',
+  );
+  await expect(chart.getByRole('combobox')).toHaveCount(0);
+});

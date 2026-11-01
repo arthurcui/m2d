@@ -160,3 +160,8 @@ Add analyst source/upload classification to M4. Preserve originals and derive ve
 ## ADR-046 — Source-linked company charts
 
 Research charts reuse cached M3 hourly bars and immutable M4 facts. An optional historical cutoff is added to the existing versioned bar-read contract; navigation stays read-only and provider refresh remains explicit. Financial series keep exact taxonomy/unit/provider and comparable durations separate, exclude cumulative periods, and withhold same-filing conflicts. No inferred cash flow, ratio, price causation or analyst consensus is introduced. See [Company charts](COMPANY_CHARTS.md).
+
+
+## ADR-047 — Resolve chart listings through saved provider evidence
+
+Research charts no longer default to NASDAQ or ask for an exchange. Versioned market refresh accepts listing-resolution evidence, stores originals and candidates, automatically selects a unique supported match and asks only for real alternatives. Bar requests bind to a verified candidate ID; IBKR contract IDs preserve same-exchange ambiguity. Cache, rate gates, idempotency and historical availability use the existing market repository. Migration 0018 is additive to the kind constraint. No LLM, financial mutation, account sync or provider fallback is introduced. See [Company charts](COMPANY_CHARTS.md#automatic-listing-resolution).

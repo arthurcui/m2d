@@ -26,12 +26,14 @@ import {
 } from './schema.js';
 
 export const marketRequestSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('resolution'), symbol: symbolSchema }),
   z.object({ kind: z.literal('listing'), lookup: listingLookupSchema }),
   z.object({ kind: z.literal('quote'), instrument: instrumentSchema }),
   z.object({
     kind: z.literal('bars'),
     symbol: symbolSchema,
-    exchange: z.enum(['NASDAQ', 'NYSE', 'AMEX', 'ARCA']).optional(),
+    listingId: z.string().min(1).max(100).optional(),
+    exchange: z.enum(['NASDAQ', 'NYSE', 'AMEX', 'ARCA', 'BATS']).optional(),
   }),
   z.object({ kind: z.literal('fx'), base: currency, quote: currency }),
   z.object({
@@ -42,15 +44,17 @@ export const marketRequestSchema = z.discriminatedUnion('kind', [
 ]);
 export type MarketRequest = z.infer<typeof marketRequestSchema>;
 export function marketSubject(r: MarketRequest) {
-  return r.kind === 'listing'
-    ? listingKey(r.lookup)
-    : r.kind === 'quote'
-      ? instrumentKey(r.instrument)
-      : r.kind === 'fx'
-        ? `${r.base}/${r.quote}`
-        : r.kind === 'options'
-          ? `${r.symbol}:${r.expiry}`
-          : `${r.symbol}:${r.exchange ?? 'NASDAQ'}`;
+  return r.kind === 'resolution'
+    ? r.symbol
+    : r.kind === 'listing'
+      ? listingKey(r.lookup)
+      : r.kind === 'quote'
+        ? instrumentKey(r.instrument)
+        : r.kind === 'fx'
+          ? `${r.base}/${r.quote}`
+          : r.kind === 'options'
+            ? `${r.symbol}:${r.expiry}`
+            : `${r.symbol}:${r.exchange ?? 'NASDAQ'}${r.listingId ? ':' + r.listingId : ''}`;
 }
 const hash = (v: unknown) =>
   createHash('sha256').update(JSON.stringify(v)).digest('hex');
@@ -260,7 +264,11 @@ export function createMarketRepository(pool: pg.Pool) {
           );
         // Completed-day evidence is reusable across refreshes and restarts.
         // Historical versions stay immutable; new dates create new evidence.
-        if (provider.id === 'massive' || request.kind === 'listing') {
+        if (
+          provider.id === 'massive' ||
+          request.kind === 'listing' ||
+          request.kind === 'resolution'
+        ) {
           const cached = (
             await rdb
               .select()
@@ -277,12 +285,14 @@ export function createMarketRepository(pool: pg.Pool) {
           )[0];
           if (
             cached &&
-            (request.kind === 'listing'
-              ? cached.payload.kind === 'listing' &&
-                Date.now() - Date.parse(cached.availableAt) <
-                  listingCacheMs(cached.payload.value)
-              : newYorkDate(Date.parse(cached.asOf)) ===
-                massiveCompletedDate(Date.now()))
+            (request.kind === 'resolution'
+              ? Date.now() - Date.parse(cached.availableAt) < 86400000
+              : request.kind === 'listing'
+                ? cached.payload.kind === 'listing' &&
+                  Date.now() - Date.parse(cached.availableAt) <
+                    listingCacheMs(cached.payload.value)
+                : newYorkDate(Date.parse(cached.asOf)) ===
+                  massiveCompletedDate(Date.now()))
           ) {
             const saved = (
               await rdb
@@ -337,23 +347,71 @@ export function createMarketRepository(pool: pg.Pool) {
             .returning()
         )[0]!;
         try {
+          if (request.kind === 'resolution' && !provider.resolveListing)
+            throw new MarketError(
+              'NO_COVERAGE',
+              'Listing resolution is unavailable for this provider.',
+            );
+          if (request.kind === 'bars' && request.listingId) {
+            const [resolved] = await rdb
+              .select()
+              .from(observations)
+              .where(
+                and(
+                  eq(observations.provider, provider.id),
+                  eq(observations.kind, 'resolution'),
+                  eq(observations.subject, request.symbol),
+                ),
+              )
+              .orderBy(desc(observations.availableAt))
+              .limit(1);
+            if (
+              !resolved ||
+              Date.now() - Date.parse(resolved.availableAt) > 86400000 ||
+              resolved.payload.kind !== 'resolution' ||
+              !resolved.payload.value.candidates.some(
+                (c) =>
+                  c.id === request.listingId &&
+                  c.symbol === request.symbol &&
+                  c.exchange === request.exchange,
+              )
+            )
+              throw new MarketError(
+                'LISTING_CHANGED',
+                'Resolve the listing again before requesting its history.',
+              );
+          }
           if (request.kind === 'listing' && !provider.fetchListing)
             throw new MarketError(
               'NO_COVERAGE',
               'Listing metadata is unavailable for this provider.',
             );
-          const response = await (request.kind === 'listing'
-            ? provider.fetchListing!(request.lookup)
-            : request.kind === 'quote'
-              ? provider.quote(request.instrument)
-              : request.kind === 'bars'
-                ? provider.bars(request.symbol, request.exchange)
-                : request.kind === 'fx'
-                  ? provider.fx(request.base, request.quote)
-                  : provider.options(request.symbol, request.expiry));
+          const response = await (request.kind === 'resolution'
+            ? provider.resolveListing!(request.symbol)
+            : request.kind === 'listing'
+              ? provider.fetchListing!(request.lookup)
+              : request.kind === 'quote'
+                ? provider.quote(request.instrument)
+                : request.kind === 'bars'
+                  ? provider.bars(
+                      request.symbol,
+                      request.exchange,
+                      request.listingId,
+                    )
+                  : request.kind === 'fx'
+                    ? provider.fx(request.base, request.quote)
+                    : provider.options(request.symbol, request.expiry));
           const payload = payloadSchema.parse(response.payload);
           if (
             payload.kind !== request.kind ||
+            (payload.kind === 'resolution' &&
+              request.kind === 'resolution' &&
+              (payload.value.symbol !== request.symbol ||
+                payload.value.candidates.some(
+                  (c) => c.symbol !== request.symbol,
+                ) ||
+                new Set(payload.value.candidates.map((c) => c.id)).size !==
+                  payload.value.candidates.length)) ||
             (payload.kind === 'listing' &&
               request.kind === 'listing' &&
               listingKey(payload.value.lookup) !==
@@ -417,6 +475,9 @@ export function createMarketRepository(pool: pg.Pool) {
             provider: provider.id,
             request,
             raw: response.raw,
+            // An unchanged identity verified again is new availability evidence.
+            // Otherwise content dedup would leave an expired resolution unusable forever.
+            ...(payload.kind === 'resolution' ? { verifiedAt: now } : {}),
             // Branding can change at a stable URL without a reference text change.
             ...(payload.kind === 'listing' ? { logo: payload.value.logo } : {}),
           });

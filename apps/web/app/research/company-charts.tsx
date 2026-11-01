@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import type { Bar } from '@m2d/market';
+import type { Bar, ListingCandidate, ListingResolution } from '@m2d/market';
 import { useMarketData } from '../market/market-context';
 import { marketApi, marketTime } from '../market/market-client';
 import {
@@ -114,25 +114,73 @@ function PriceEvents({
 }: Omit<Parameters<typeof CompanyCharts>[0], 'facts'>) {
   const { settings } = useMarketData();
   const provider = settings?.priceProvider;
-  const [exchange, setExchange] = useState('NASDAQ');
+  const [resolution, setResolution] = useState<{
+    value: ListingResolution;
+    for: string;
+  } | null>(null);
+  const [choice, setChoice] = useState('');
+  const scope = `${symbol}|${provider}|${at ?? ''}`;
+  const candidates =
+    resolution?.for === scope ? resolution.value.candidates : [];
+  const listing =
+    candidates.find((c) => c.id === choice) ??
+    (candidates.length === 1 ? candidates[0] : undefined);
+  const exchange = listing?.exchange;
+  const [phase, setPhase] = useState('Refreshing history…');
+  useEffect(() => {
+    setChoice('');
+  }, [scope]);
+  useEffect(() => {
+    if (!active || !provider) return;
+    let live = true;
+    void marketApi<{ payload: { value: ListingResolution } } | null>(
+      `market/resolutions/${encodeURIComponent(symbol)}${at ? `?at=${encodeURIComponent(at)}` : ''}`,
+    )
+      .then((r) => {
+        if (live)
+          setResolution(
+            r && r.payload.value.provider === provider
+              ? { value: r.payload.value, for: scope }
+              : null,
+          );
+      })
+      .catch(() => {
+        if (live)
+          setError(
+            'Stored listing identity could not be loaded. Refresh to retry.',
+          );
+      });
+    return () => {
+      live = false;
+    };
+  }, [scope, active]);
   const [record, setRecord] = useState<StoredBars>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
-  const identity = `${symbol}|${exchange}|${provider}|${at ?? ''}`;
-  const current = useRef(identity);
-  current.current = identity;
+  const identity = `${scope}|${listing?.id ?? ''}`;
+  const current = useRef(scope);
+  current.current = scope;
+  useEffect(
+    () => () => {
+      current.current = 'unmounted';
+    },
+    [],
+  );
   const [recordFor, setRecordFor] = useState('');
   const inFlight = useRef(false);
   useEffect(() => {
-    if (!active || !provider) return;
+    if (!active || !provider || !listing) {
+      setLoading(false);
+      return;
+    }
     let live = true;
     setLoading(true);
     setError('');
     void marketApi<StoredBars>(
-      `market/bars/${encodeURIComponent(symbol)}?exchange=${exchange}${at ? `&at=${encodeURIComponent(at)}` : ''}`,
+      `market/bars/${encodeURIComponent(symbol)}?exchange=${exchange}&listingId=${encodeURIComponent(listing!.id)}${at ? `&at=${encodeURIComponent(at)}` : ''}`,
     )
       .then((r) => {
         if (live) {
@@ -154,7 +202,7 @@ function PriceEvents({
     return () => {
       live = false;
     };
-  }, [symbol, exchange, provider, at, active, reload]);
+  }, [symbol, exchange, listing?.id, provider, at, active, reload]);
   const bars = (recordFor === identity ? (record?.payload.value ?? []) : [])
     .filter(
       (b) =>
@@ -190,20 +238,61 @@ function PriceEvents({
           )
           .slice(0, 20)
       : [];
-  async function refresh() {
+  async function refresh(preferred?: string) {
     if (inFlight.current || at || !provider) return;
-    const requested = identity;
+    const requested = scope;
     inFlight.current = true;
     setBusy(true);
     setError('');
     try {
+      setPhase('Resolving listing…');
+      const resolved = await marketApi<{
+        status: string;
+        errorCode: string | null;
+      }>('market/refresh', {
+        version: 1,
+        idempotencyKey: crypto.randomUUID(),
+        expectedProvider: provider,
+        request: { kind: 'resolution', symbol },
+      });
+      if (current.current !== requested) return;
+      if (resolved.status !== 'SUCCEEDED')
+        throw new Error(
+          `Listing resolution failed: ${resolved.errorCode ?? resolved.status}. Try again later.`,
+        );
+      const result = await marketApi<{
+        payload: { value: ListingResolution };
+      } | null>(`market/resolutions/${encodeURIComponent(symbol)}`);
+      if (
+        current.current !== requested ||
+        result?.payload.value.provider !== provider
+      )
+        return;
+      setResolution({ value: result.payload.value, for: scope });
+      const matches = result.payload.value.candidates;
+      const chosen: ListingCandidate | undefined =
+        matches.find((c) => c.id === (preferred ?? choice)) ??
+        (matches.length === 1 ? matches[0] : undefined);
+      if (!chosen) return;
+      setChoice(chosen.id);
+      if (provider === 'twelvedata') {
+        setPhase('Listing resolved; waiting for provider request window…');
+        await new Promise((resolve) => setTimeout(resolve, 8000));
+        if (current.current !== requested) return;
+      }
+      setPhase('Refreshing history…');
       const r = await marketApi<{ status: string; errorCode: string | null }>(
         'market/refresh',
         {
           version: 1,
           idempotencyKey: crypto.randomUUID(),
           expectedProvider: provider,
-          request: { kind: 'bars', symbol, exchange },
+          request: {
+            kind: 'bars',
+            symbol,
+            exchange: chosen.exchange,
+            listingId: chosen.id,
+          },
         },
       );
       if (current.current !== requested) return;
@@ -235,18 +324,11 @@ function PriceEvents({
         </span>
       </div>
       <div className="company-chart-controls">
-        <label>
-          Chart exchange
-          <select
-            value={exchange}
-            disabled={busy}
-            onChange={(e) => setExchange(e.target.value)}
-          >
-            {['NASDAQ', 'NYSE', 'AMEX', 'ARCA'].map((v) => (
-              <option key={v}>{v}</option>
-            ))}
-          </select>
-        </label>
+        {listing && (
+          <span className="quality-badge">
+            {listing.name} · {listing.exchange} · {listing.currency}
+          </span>
+        )}
         <button
           disabled={
             busy ||
@@ -256,7 +338,7 @@ function PriceEvents({
           }
           onClick={() => void refresh()}
         >
-          {busy ? 'Refreshing history…' : 'Refresh price history'}
+          {busy ? phase : 'Refresh price history'}
         </button>
         <button
           disabled={loading || busy}
@@ -265,6 +347,35 @@ function PriceEvents({
           Reload stored history
         </button>
       </div>
+      {candidates.length > 1 && (
+        <div aria-label="Choose a listing" className="notice">
+          <p>
+            Multiple supported listings match {symbol}. Which listing do you
+            mean?
+          </p>
+          <div className="research-actions">
+            {candidates.map((c) => (
+              <button
+                key={c.id}
+                disabled={busy}
+                aria-pressed={listing?.id === c.id}
+                onClick={() => {
+                  setChoice(c.id);
+                  if (!at) void refresh(c.id);
+                }}
+              >
+                {c.name} · {c.exchange} · {c.currency} · {c.id}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {resolution?.for === scope && !candidates.length && (
+        <p className="notice">
+          No supported US stock or ETF listing was found for {symbol}. Check the
+          symbol; no exchange was guessed.
+        </p>
+      )}
       {error && (
         <p role="alert" className="notice">
           {error}

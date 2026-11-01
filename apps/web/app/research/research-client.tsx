@@ -677,7 +677,7 @@ export function ResearchClient({
           </a>
           {document.analyst && (
             <section aria-label="Analyst report details">
-              <h3>Analyst Research � attributed opinions</h3>
+              <h3>Analyst Research · attributed opinions</h3>
               <p>
                 Exact labelled excerpts, not verified values. Missing fields
                 remain unknown; ask Agent to interpret other report formats.
@@ -691,14 +691,14 @@ export function ResearchClient({
                         ? f.excerpts.map((e, i) => (
                             <p key={i}>
                               <a href={`#chunk-${e.chunkIndex}`}>
-                                {e.text} �{' '}
+                                {e.text} …{' '}
                                 {e.page
                                   ? `page ${e.page}`
                                   : `passage ${e.chunkIndex + 1}`}
                               </a>
                             </p>
                           ))
-                        : 'Unknown � no explicit labelled excerpt found'}
+                        : 'Unknown · no explicit labelled excerpt found'}
                     </dd>
                   </div>
                 ))}

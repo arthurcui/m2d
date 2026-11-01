@@ -17,6 +17,7 @@ const prices: Record<string, string> = {
   IBIT: '60',
   TSLL: '20',
   OPEN: '5',
+  DUAL: '10',
 };
 export class FixtureMarketProvider implements MarketProvider {
   id = 'fixture' as const;
@@ -33,6 +34,33 @@ export class FixtureMarketProvider implements MarketProvider {
       delayedMinutes: 15,
       quality: 'FIXTURE',
       entitlement: 'Synthetic offline examples; not market prices',
+    };
+  }
+  async resolveListing(symbol: string): Promise<FeedResult> {
+    const exchanges =
+      symbol === 'DUAL'
+        ? (['NASDAQ', 'NYSE'] as const)
+        : ([
+            symbol === 'SPY' || symbol === 'TSLL' ? 'ARCA' : 'NASDAQ',
+          ] as const);
+    return {
+      raw: { fixture: 'listing-resolution-v1', symbol },
+      payload: {
+        kind: 'resolution',
+        value: {
+          ...this.evidence(`resolve:${symbol}`),
+          symbol,
+          candidates: prices[symbol]
+            ? exchanges.map((exchange) => ({
+                id: `${symbol}:${exchange}`,
+                symbol,
+                name: `${symbol} synthetic listing`,
+                exchange,
+                currency: 'USD' as const,
+              }))
+            : [],
+        },
+      },
     };
   }
   async fetchListing(lookup: ListingLookup): Promise<FeedResult> {
