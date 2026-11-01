@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { randomUUID } from 'node:crypto';
 test('research imports, compares, searches and keeps its state and cited Agent discussion across navigation', async ({
   page,
 }) => {
@@ -6,11 +7,12 @@ test('research imports, compares, searches and keeps its state and cited Agent d
     process.env.E2E_ALLOW_PORTFOLIO_WRITES !== '1',
     'Uses the isolated writable fixture stack only.',
   );
+  const symbol = `M4${randomUUID().replaceAll('-', '').slice(0, 8).toUpperCase()}`;
   await page.goto('/research');
   await page
     .getByRole('button', { name: 'New conversation', exact: true })
     .click();
-  await page.getByLabel('Research ticker').fill('M4DEMO');
+  await page.getByLabel('Research ticker').fill(symbol);
   await page.getByRole('button', { name: 'Load demo reports' }).click();
   const reports = page.locator('.research-documents .research-card');
   await expect(reports).toHaveCount(2, { timeout: 20000 });
@@ -33,7 +35,7 @@ test('research imports, compares, searches and keeps its state and cited Agent d
     .getByRole('link', { name: 'Research', exact: true })
     .first()
     .click();
-  await expect(page.getByLabel('Research ticker')).toHaveValue('M4DEMO');
+  await expect(page.getByLabel('Research ticker')).toHaveValue(symbol);
   await expect(
     page.getByRole('region', { name: 'Report comparison' }),
   ).toBeVisible();

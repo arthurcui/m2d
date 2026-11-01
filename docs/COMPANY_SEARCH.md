@@ -62,4 +62,24 @@ Offline tests cover rank fusion/diversity, preserved decimals, adapter response 
 
 No paid reranker, query-rewriting LLM, local embedding download, external vector database, automatic research crawler, M5 signal engine or M6 monitoring was added. English lexical search and text-extractable PDFs retain the M4 limitations. Search quality still depends on importing useful, sufficiently current sources; coverage reports the imported corpus, not completeness of public information.
 
-Verified on the delivered implementation: 170 offline unit tests, 44 database/API integration tests and 31 Playwright browser tests. Strict typecheck, lint, formatting, generated ERD checks, Compose validation and Docker builds/startup passed. No live OpenAI embedding request was made during verification.
+The live-verification follow-up passed 174 offline unit tests, 44 database/API integration tests and four targeted Playwright checks covering search, research, responsive views and navigation. Strict typecheck, lint, formatting, generated ERD checks, Compose validation and the API image build/startup passed. The earlier complete company-search delivery also passed its full 31-test browser suite; this follow-up reran the affected browser checks. Live results and fixes are described below.
+
+## Live evaluation and Agent grounding
+
+Near-readiness checks use the real configured OpenAI adapter with an isolated database and authored, explicitly fictional reports. Run the repeatable check from the repository root with a separate PostgreSQL 17/pgvector test server:
+
+```powershell
+# One-time test server setup; do not point this at the application database.
+docker run --name m2d-search-eval-db -e POSTGRES_USER=m2d -e POSTGRES_PASSWORD=test-only -e POSTGRES_DB=m2d_test -p 127.0.0.1:55434:5432 -d pgvector/pgvector:0.8.7-pg17-bookworm
+$env:TEST_DATABASE_URL = "postgresql://m2d:test-only@127.0.0.1:55434/m2d_test"
+pnpm eval:company-search        # offline harness/fixture check
+pnpm eval:company-search --live # real API usage; backend key from .env
+```
+
+The harness creates and drops only its own randomly named test database. The application portfolio, research documents and settings are never read or changed. It uses Standard mode with at most five model attempts, four tool calls, 1,024 output tokens per attempt, 45 seconds per Agent run and USD 0.25 total reservation, always respecting lower configured ceilings. It permits at most 20,000 embedding input bytes. No automatic retry or mode escalation is performed. Small actual charges can still require a larger conservative pre-dispatch reservation; a stopped check is a failure, not a pass. Latest and timestamped reports are saved under ignored `.tmp/company-search-{live|fixture}-*.json`. Secrets are not included. The temporary test database usage ledger is summarized in the report before cleanup; it is separate from the application's usage ledger.
+
+On **October 31, 2026 (Vancouver)**, real `text-embedding-3-small` retrieval placed the expected source first on **7/8** predeclared paraphrased questions and within the top three on **8/8**; keyword-only search placed it first on **5/8**. Measured query latency was 172–375 ms (median 200 ms) in this small local test. Cache reuse, company isolation, historical revisions, exact decimal values, shared HTTP results and an unrelated cooking question passed. Real Agent inference using `gpt-5.4-mini-2026-03-17` cited the correct funding passage and returned `NO_SIGNAL` for an unsupported biographical question. The successful run's estimated cost was **USD 0.0144554**; all six development live attempts together were estimated at **USD 0.09217425**. Estimates use reported tokens and configured/documented rates, not a billing statement.
+
+Live testing exposed inferred midnight, filing-type and SEC-only filters that hid freshly uploaded evidence. Agent now begins a selected-company question with a deterministic search using that company, the first 500 characters of the question and the selected historical cutoff, with no invented source/form/publication filters. The complete question remains in conversation history. This initial read is saved as a tool call and consumes the same tool, embedding-attempt, time and cost limits as later Agent searches. Failure remains visible; it cannot authorize a portfolio change. Agent can refine the search, read neighboring passages and query exact financial facts afterward. Explicit historical views retain their enforced availability boundary. For a strict point-in-time answer, select that cutoff in Research.
+
+This is a small synthetic relevance evaluation using **live inference**, not evidence of broad accuracy on real filings or large corpora. Fixture vectors establish mechanics only. Live SEC ingestion remains unverified until a real contact identity is configured. Real-company evaluation across longer filings, tables and ambiguous questions remains useful follow-up within M4; no M5 functionality is included.

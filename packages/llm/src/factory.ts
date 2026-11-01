@@ -94,6 +94,25 @@ export class ChatFixtureProvider implements LlmProvider {
       };
       if (output.error) return reply(output.error.message);
       const rows = output.hits ?? [];
+      // Simulate one refinement after the application's initial literal search.
+      // Generic fixture review still needs its documented example topics.
+      const reviewQuery = 'revenue OR risk OR outlook';
+      if (
+        !rows.length &&
+        /Review the stored research/i.test(user.text) &&
+        !tail.some(
+          (item) =>
+            item.kind === 'tool_call' &&
+            typeof item.arguments === 'object' &&
+            item.arguments !== null &&
+            'query' in item.arguments &&
+            item.arguments.query === reviewQuery,
+        )
+      )
+        return call('research_search_evidence_v2', {
+          symbol,
+          query: reviewQuery,
+        });
       const source = rows[0];
       return source
         ? reply(

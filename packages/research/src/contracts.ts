@@ -46,7 +46,12 @@ export class ResearchError extends Error {
 }
 export const lookupSchema = z.object({
   symbol: symbolSchema,
-  at: z.iso.datetime().optional(),
+  at: z.iso
+    .datetime()
+    .optional()
+    .describe(
+      'Omit/null for current/latest research. Use a timestamp only for an explicitly requested historical evidence cutoff; never substitute today at midnight.',
+    ),
 });
 export const searchSchema = lookupSchema.extend({
   query: z.string().trim().min(1).max(200),

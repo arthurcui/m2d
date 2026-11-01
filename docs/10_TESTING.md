@@ -53,7 +53,7 @@
 7. **Ownership and idempotency:** provider adapters return tool requests; M²D executes approved application tools and retains confirmation/transaction rules. A retried request or repeated tool result cannot duplicate a committed event. No model SDK or adapter can write portfolio SQL directly.
 8. **Dependency boundary:** an import-boundary check prevents native SDK imports/types outside `packages/llm` adapters. A deterministic fake/fixture adapter runs agent and portfolio workflows without changing their code. Gemini and Anthropic Claude remain reserved providers; do not add SDKs or live integrations merely to test reserved names.
 
-CI uses fixtures and mocked transports throughout. Optional live verification requires a configured key and must report whether it actually ran; it never replaces offline contract coverage or expands the current milestone.
+CI uses fixtures and mocked transports throughout. Near readiness, provider-backed changes require a bounded live check using the configured key and must report whether it actually ran; it never replaces offline contract coverage or expands the current milestone.
 
 ## 5. Analysis mode acceptance checks (M2 onward)
 - Resolve explicit request mode, saved default, then environment default; initial default is Standard. Invalid values fail validation. Saving a default persists across restart without changing active runs or existing scheduled jobs.
@@ -68,3 +68,6 @@ Codex must provide: scope delivered, exact commands, migration changes, tests ex
 ### Company search (M4 extension)
 
 Use PostgreSQL 17 with pgvector for integration tests. Cover shared UI/Agent contracts; exact keyword hits and decimal strings; rank fusion and repeated-source diversity; company/source/form/publication filters; latest revisions as of a cutoff; passage context; structured fact unit/period filters; idempotent indexing and cache reuse; unknown usage and restart recovery; daily-byte/cost and Agent-attempt ceilings; invalid provider output; mobile citation navigation and retained drafts. Synthetic vectors test retrieval mechanics only. An authorized live evaluation on representative questions is required to establish OpenAI semantic relevance.
+
+
+Run `pnpm eval:company-search` for the repeatable offline harness, or add `--live` for real embeddings and cited Agent answers using the existing backend key. Set `TEST_DATABASE_URL` to a separate pgvector server first. The harness uses isolated synthetic reports, fixed expected sources, predefined top-1/top-3 thresholds, exact facts, historical isolation, cache reuse, a no-match question and an unsupported-answer check. Reports include model, measured relevance, usage/cost, failures and tool traces; fixture success is not a live relevance result. See [the setup, recorded live results and limits](COMPANY_SEARCH.md#live-evaluation-and-agent-grounding). CI never invokes the live check.

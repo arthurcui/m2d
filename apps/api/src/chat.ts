@@ -290,6 +290,10 @@ export async function chatRoutes(
             ...(ctx === 'research'
               ? {
                   researchScope: {
+                    query: input.message,
+                    ...(input.researchContext?.symbol
+                      ? { symbol: input.researchContext.symbol }
+                      : {}),
                     ...(input.researchContext?.at
                       ? { at: input.researchContext.at }
                       : {}),

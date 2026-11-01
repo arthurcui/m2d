@@ -16,6 +16,7 @@
     "test": "pnpm -r --if-present build:types && vitest run",
     "test:integration": "pnpm -r --if-present build:types && vitest run --config vitest.integration.config.ts",
     "test:e2e": "playwright test",
+    "eval:company-search": "pnpm --filter @m2d/api... build && node --env-file-if-exists=.env scripts/evaluate-company-search.mjs",
     "fixture:portfolio": "pnpm --filter @m2d/ingestion... build && node scripts/generate-portfolio-fixture.mjs",
     "db:generate": "pnpm --filter @m2d/db generate",
     "db:migrate": "pnpm --filter @m2d/db migrate",

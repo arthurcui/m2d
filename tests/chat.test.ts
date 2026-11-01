@@ -131,6 +131,55 @@ function harness(
   };
 }
 describe('M2 chat orchestration', () => {
+  it.each([undefined, '2026-10-30T18:25:00Z'])(
+    'passes selected company and explicit temporal intent to the model (%s)',
+    async (at) => {
+      const provider = new ChatFixtureProvider();
+      const generate = provider.generate.bind(provider);
+      const requests: ModelRequest[] = [];
+      provider.generate = async (request) => {
+        requests.push(request);
+        return generate(request);
+      };
+      const h = harness(
+        provider,
+        'Research context: ACME\nCan it fund another year?',
+      );
+      const searches: unknown[] = [];
+      h.deps.research = async (_name, args) => {
+        searches.push(args);
+        return { hits: [] };
+      };
+      await h.start({
+        researchScope: {
+          symbol: 'ACME',
+          query: 'Can it fund another year?',
+          ...(at ? { at } : {}),
+        },
+      });
+      expect(searches[0]).toEqual({
+        symbol: 'ACME',
+        query: 'Can it fund another year?',
+        limit: 5,
+        ...(at ? { at } : {}),
+      });
+      expect(requests.length).toBeGreaterThan(0);
+      for (const request of requests) {
+        expect(
+          request.history.some((item) => item.kind === 'tool_result'),
+        ).toBe(true);
+        const scope = request.instructions.match(
+          /^Selected research scope: (\{.*?\})\./,
+        );
+        expect(JSON.parse(scope![1]!)).toEqual({
+          symbol: 'ACME',
+          temporalMode: at ? 'historical' : 'current',
+          at: at ?? null,
+        });
+      }
+      expect(h.changes).toHaveLength(0);
+    },
+  );
   it('counts uncached search embeddings inside the selected model-attempt allowance', async () => {
     const h = harness(
       undefined,
@@ -160,6 +209,59 @@ describe('M2 chat orchestration', () => {
       denied.start({ mode: 'quick', limits: { ...ceilings, modelCalls: 1 } }),
     ).rejects.toMatchObject({ code: 'LLM_BUDGET' });
     expect(embedded).toBe(1);
+  });
+  it('charges initial retrieval against the same attempt and tool allowances before inference', async () => {
+    const h = harness(
+      undefined,
+      'Research context: ACME\nCould it run out of money?',
+    );
+    let embedded = 0;
+    h.deps.research = async (_name, _args, beforeEmbedding) => {
+      beforeEmbedding();
+      embedded++;
+      return { hits: [] };
+    };
+    const researchScope = {
+      symbol: 'ACME',
+      query: 'Could it run out of money?',
+    };
+    await expect(
+      h.start({ researchScope, limits: { ...ceilings, modelCalls: 1 } }),
+    ).rejects.toMatchObject({ code: 'LLM_BUDGET' });
+    expect(embedded).toBe(1);
+    expect(h.changes).toHaveLength(0);
+    const denied = harness(
+      undefined,
+      'Research context: ACME\nCould it run out of money?',
+    );
+    denied.deps.research = h.deps.research;
+    await expect(
+      denied.start({ researchScope, limits: { ...ceilings, toolCalls: 0 } }),
+    ).rejects.toMatchObject({ code: 'LLM_BUDGET' });
+    expect(embedded).toBe(1);
+  });
+  it('allows one fixture refinement of an empty generic review without looping or mutating state', async () => {
+    const h = harness(
+      undefined,
+      'Research context: ACME\nReview the stored research and cite the evidence.',
+    );
+    let reads = 0;
+    h.deps.research = async () => {
+      reads++;
+      return { hits: [] };
+    };
+    await h.start({
+      researchScope: {
+        symbol: 'ACME',
+        query: 'Review the stored research and cite the evidence.',
+      },
+    });
+    expect(reads).toBe(2);
+    expect(h.history().at(-1)).toMatchObject({
+      kind: 'text',
+      text: expect.stringContaining('NO_SIGNAL'),
+    });
+    expect(h.changes).toHaveLength(0);
   });
   it('reads cached valuation without a financial preview or invented market values', async () => {
     const h = harness(undefined, 'What is my portfolio valuation?');

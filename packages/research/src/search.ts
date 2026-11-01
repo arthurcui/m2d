@@ -5,14 +5,37 @@ import { lookupSchema } from './contracts.js';
 export const evidenceSearchSchema = lookupSchema
   .extend({
     query: z.string().trim().min(1).max(500),
-    mode: z.enum(['hybrid', 'keyword', 'semantic']).optional(),
+    mode: z
+      .enum(['hybrid', 'keyword', 'semantic'])
+      .optional()
+      .describe(
+        'Omit/null uses the available search method. Set only when the user explicitly requests a method.',
+      ),
     forms: z
       .array(z.string().trim().toUpperCase().min(1).max(30))
       .max(8)
-      .optional(),
-    source: z.enum(['sec', 'upload', 'fixture']).optional(),
-    publishedFrom: z.iso.date().optional(),
-    publishedTo: z.iso.date().optional(),
+      .optional()
+      .describe(
+        'Omit/null includes all forms, including uploaded REPORT documents. Filter only on explicitly requested forms.',
+      ),
+    source: z
+      .enum(['sec', 'upload', 'fixture'])
+      .optional()
+      .describe(
+        'Omit/null includes all sources. A financial question does not imply SEC-only; uploaded reports are also evidence.',
+      ),
+    publishedFrom: z.iso
+      .date()
+      .optional()
+      .describe(
+        'Omit/null unless the user requests a publication-date range. A forecast horizon is not a publication-date filter.',
+      ),
+    publishedTo: z.iso
+      .date()
+      .optional()
+      .describe(
+        'Omit/null unless the user requests a publication-date range. Do not invent a current-year range.',
+      ),
     revisions: z.enum(['latest', 'all']).optional(),
     limit: z.number().int().min(1).max(20).optional(),
   })
