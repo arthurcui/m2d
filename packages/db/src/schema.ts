@@ -47,7 +47,7 @@ export const marketObservations = pgTable(
   (t) => [
     check(
       'market_provider',
-      sql`${t.provider} in ('fixture','twelvedata','massive')`,
+      sql`${t.provider} in ('fixture','twelvedata','massive','ibkr')`,
     ),
     check('market_kind', sql`${t.kind} in ('quote','bars','fx','options')`),
     check(
@@ -467,12 +467,14 @@ export const agentToolCalls = pgTable(
   (t) => [primaryKey({ columns: [t.runId, t.callId] })],
 );
 
-// One durable HTTP rate gate for the Basic adapter, including metadata calls.
+// Durable market HTTP rate gates, including metadata calls.
 export const marketProviderLimits = pgTable(
   'market_provider_limits',
   {
     provider: text('provider').primaryKey(),
     nextAllowedAt: utc('next_allowed_at').notNull(),
   },
-  (t) => [check('market_limit_provider', sql`${t.provider} = 'massive'`)],
+  (t) => [
+    check('market_limit_provider', sql`${t.provider} in ('massive','ibkr')`),
+  ],
 );

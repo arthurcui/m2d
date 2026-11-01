@@ -1,6 +1,7 @@
 import { chatRoutes } from './chat.js';
 import { marketRoutes, type MarketService } from './market.js';
 import { MarketError, type MarketProvider } from '@m2d/market';
+import type { IbkrConnection } from '@m2d/market/ibkr-connection';
 import type { MarketRepository } from '@m2d/db';
 import type { ChatRepository } from '@m2d/db';
 import { LlmError } from '@m2d/llm';
@@ -29,6 +30,7 @@ export function buildApp(
     repository: MarketRepository;
     provider: MarketProvider;
     service: MarketService;
+    ibkr?: IbkrConnection;
   },
 ) {
   const workbookAi = portfolio

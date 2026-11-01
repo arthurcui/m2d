@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { IbkrConnection } from '@m2d/market/ibkr-connection';
 import type { FastifyInstance } from 'fastify';
 import { instrumentKey, currency } from '@m2d/portfolio';
 import {
@@ -32,7 +33,8 @@ export function createMarketService(
         (p) => p.quantity !== '0',
       ))
         requests.push(
-          p.instrument.assetType === 'OPTION' && provider.id !== 'massive'
+          p.instrument.assetType === 'OPTION' &&
+            !['massive', 'ibkr'].includes(provider.id)
             ? {
                 kind: 'options',
                 symbol: p.instrument.underlying!,
@@ -98,17 +100,21 @@ export function createMarketService(
             ? 'Limited synthetic examples; Greeks unavailable'
             : provider.id === 'massive'
               ? 'Basic: individual option end-of-day closes via portfolio refresh; no chain snapshots, bid/ask or Greeks.'
-              : 'Unavailable in this adapter',
+              : provider.id === 'ibkr'
+                ? 'Standard equity option snapshots; bounded near-spot sample of up to six contracts. Greeks unavailable.'
+                : 'Unavailable in this adapter',
         description:
-          provider.id === 'massive'
-            ? provider.configured
-              ? 'Massive Basic · end-of-day data, not live quotes. Cached completed-day prices; requests are paced to the free allowance. Each new holding may take about 30 seconds.'
-              : 'Set MASSIVE_API_KEY in the backend .env and MARKET_PROVIDER=massive. Basic supplies end-of-day data, not live quotes.'
-            : provider.id === 'fixture'
-              ? 'Offline synthetic examples. These are not real market prices.'
-              : provider.configured
-                ? 'Configured provider. Refreshes use your data plan; allow 8 seconds between requests.'
-                : 'Set TWELVE_DATA_API_KEY in the backend environment to enable market requests.',
+          provider.id === 'ibkr'
+            ? 'IBKR hosted MCP · read-only market tools. Prices depend on market data subscriptions. Frozen/unknown data stays indicative; exact delay may be unavailable.'
+            : provider.id === 'massive'
+              ? provider.configured
+                ? 'Massive Basic · end-of-day data, not live quotes. Cached completed-day prices; requests are paced to the free allowance. Each new holding may take about 30 seconds.'
+                : 'Set MASSIVE_API_KEY in the backend .env and MARKET_PROVIDER=massive. Basic supplies end-of-day data, not live quotes.'
+              : provider.id === 'fixture'
+                ? 'Offline synthetic examples. These are not real market prices.'
+                : provider.configured
+                  ? 'Configured provider. Refreshes use your data plan; allow 8 seconds between requests.'
+                  : 'Set TWELVE_DATA_API_KEY in the backend environment to enable market requests.',
         refreshes: await repository.status(provider.id),
       };
     },
@@ -121,6 +127,7 @@ export async function marketRoutes(
     repository: MarketRepository;
     provider: MarketProvider;
     service: MarketService;
+    ibkr?: IbkrConnection;
   },
 ) {
   const { repository, provider, service } = opts;
@@ -142,6 +149,40 @@ export async function marketRoutes(
   app.get('/api/v1/market/status', async () =>
     envelope(await service.status()),
   );
+  app.get('/api/v1/market/ibkr/status', async () =>
+    envelope({
+      ...(opts.ibkr?.status() ?? {
+        connected: false,
+        pending: false,
+        scope: 'mcp.read',
+        expiresAt: null,
+      }),
+      active: provider.id === 'ibkr',
+      available: !!opts.ibkr,
+    }),
+  );
+  app.post('/api/v1/market/ibkr/connect', async () => {
+    if (!opts.ibkr) throw new Error('IBKR connection unavailable');
+    return envelope(await opts.ibkr.start());
+  });
+  app.post('/api/v1/market/ibkr/callback', async (req) => {
+    const input = z
+      .object({
+        state: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+        code: z.string().min(1).max(4096),
+        issuer: z.literal('https://api.ibkr.com'),
+      })
+      .strict()
+      .parse(req.body);
+    if (!opts.ibkr) throw new Error('IBKR connection unavailable');
+    return envelope(
+      await opts.ibkr.complete(input.state, input.code, input.issuer),
+    );
+  });
+  app.post('/api/v1/market/ibkr/disconnect', async () => {
+    if (!opts.ibkr) throw new Error('IBKR connection unavailable');
+    return envelope(await opts.ibkr.disconnect());
+  });
   app.get('/api/v1/portfolio/valuation', async () =>
     envelope(await service.valuation()),
   );

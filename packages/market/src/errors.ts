@@ -33,6 +33,13 @@ export function marketFailureMessage(code: string | null | undefined) {
     MARKET_ENTITLEMENT_REQUIRED:
       'The provider rejected access. Check the key and data plan.',
     MARKET_UNAVAILABLE: 'The market provider is temporarily unavailable.',
+    IBKR_AUTH_REQUIRED: 'Connect or reconnect IBKR on the Market page.',
+    IBKR_CONNECTION_FAILED:
+      'IBKR is unavailable. Check connectivity and reconnect if authorization expired.',
+    IBKR_TOOL_UNAVAILABLE:
+      'This IBKR connection does not expose the requested market data tool.',
+    IBKR_TOOL_FAILED:
+      'IBKR could not complete the market request. Check subscriptions and connection status.',
   };
   return messages[code ?? ''] ?? `Refresh failed (${code ?? 'unknown error'}).`;
 }

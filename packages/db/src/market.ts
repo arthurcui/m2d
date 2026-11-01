@@ -48,22 +48,39 @@ const hash = (v: unknown) =>
   createHash('sha256').update(JSON.stringify(v)).digest('hex');
 export function createMarketRepository(pool: pg.Pool) {
   const db = drizzle(pool);
-  async function reserveMassiveRequest() {
+  async function reserveProviderRequest(
+    provider: 'massive' | 'ibkr',
+    intervalMs: number,
+  ) {
     const reserved = await pool.query(
       `insert into market_provider_limits(provider,next_allowed_at)
-       values('massive',clock_timestamp()+interval '13 seconds')
-       on conflict(provider) do update set next_allowed_at=clock_timestamp()+interval '13 seconds'
+       values($1,clock_timestamp()+($2*interval '1 millisecond'))
+       on conflict(provider) do update set next_allowed_at=clock_timestamp()+($2*interval '1 millisecond')
        where market_provider_limits.next_allowed_at <= clock_timestamp()
        returning provider`,
+      [provider, intervalMs],
     );
     if (reserved.rowCount) return 0;
     const result = await pool.query<{ wait: number }>(
-      "select greatest(1,ceil(extract(epoch from (next_allowed_at-clock_timestamp()))*1000))::integer as wait from market_provider_limits where provider='massive'",
+      'select greatest(1,ceil(extract(epoch from (next_allowed_at-clock_timestamp()))*1000))::integer as wait from market_provider_limits where provider=$1',
+      [provider],
     );
-    return result.rows[0]?.wait ?? 13000;
+    return result.rows[0]?.wait ?? intervalMs;
+  }
+  const reserveMassiveRequest = () => reserveProviderRequest('massive', 13000);
+  async function waitForProvider(
+    provider: 'massive' | 'ibkr',
+    intervalMs: number,
+  ) {
+    for (;;) {
+      const wait = await reserveProviderRequest(provider, intervalMs);
+      if (!wait) return;
+      await new Promise((resolve) => setTimeout(resolve, wait));
+    }
   }
   return {
     reserveMassiveRequest,
+    waitForIbkrRequest: () => waitForProvider('ibkr', 1000),
     async waitForMassiveRequest() {
       // Recheck after sleeping: a reservation belongs to the actual dispatch,
       // never to a queued future slot that could burst after a delayed wakeup.
@@ -192,10 +209,10 @@ export function createMarketRepository(pool: pg.Pool) {
             'OPTIONS_UNAVAILABLE',
             'Licensed options data is unavailable in this adapter. Other feeds can still be refreshed.',
           );
-        if (provider.id === 'massive' && request.kind === 'fx')
+        if (['massive', 'ibkr'].includes(provider.id) && request.kind === 'fx')
           throw new MarketError(
             'FX_UNAVAILABLE',
-            'FX is not enabled for Massive Basic. Non-USD balances remain unconverted.',
+            'FX is not enabled for this provider. Non-USD balances remain unconverted.',
           );
         // Completed-day evidence is reusable across refreshes and restarts.
         // Historical versions stay immutable; new dates create new evidence.
@@ -250,7 +267,7 @@ export function createMarketRepository(pool: pg.Pool) {
             (recent.status === 'FAILED' &&
             !isMarketSourceFailure(recent.errorCode)
               ? 60000
-              : provider.id === 'massive'
+              : ['massive', 'ibkr'].includes(provider.id)
                 ? 0
                 : 8000)
         )
@@ -382,9 +399,13 @@ export function createMarketRepository(pool: pg.Pool) {
         } catch (e) {
           const code =
             e instanceof MarketError ? e.code : 'INVALID_MARKET_DATA';
-          if (provider.id === 'massive' && !isMarketSourceFailure(code))
+          if (
+            ['massive', 'ibkr'].includes(provider.id) &&
+            !isMarketSourceFailure(code)
+          )
             await client.query(
-              "insert into market_provider_limits(provider,next_allowed_at) values('massive',clock_timestamp()+interval '60 seconds') on conflict(provider) do update set next_allowed_at=greatest(market_provider_limits.next_allowed_at,excluded.next_allowed_at)",
+              "insert into market_provider_limits(provider,next_allowed_at) values($1,clock_timestamp()+interval '60 seconds') on conflict(provider) do update set next_allowed_at=greatest(market_provider_limits.next_allowed_at,excluded.next_allowed_at)",
+              [provider.id],
             );
           await rdb
             .update(refreshes)

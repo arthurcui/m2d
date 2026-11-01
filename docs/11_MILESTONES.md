@@ -20,6 +20,8 @@ Include Quick/Standard/Extensive selection with Standard default, saved workspac
 **Deliver:** provider interfaces + fixture adapter, one real market provider integration if configured, stock OHLCV/quotes, FX, options chain/snapshot where licensed; timestamp/session/freshness tracking; NAV, P&L with quality labels, charting.
 **Accept:** delayed/closed prices labelled; unavailable options Greeks degrade cleanly; no provider required to run fixture E2E.
 
+User-authorized M3 extension: optional IBKR hosted MCP for allowlisted market data and separate read-only authorization. No broker-account synchronization or trading tools. See [IBKR setup and limits](IBKR_MCP.md); M4 remains unimplemented.
+
 ## M4 — Research and motive intelligence
 **Deliver:** SEC company filings/XBRL importer, upload PDF and plain text, document version/hash, extract claims and citations, company timeline, compare filings, full-text search first; optional pgvector later.
 **Accept:** new filing changes appear with before/after and source links; older historical view preserves old data.

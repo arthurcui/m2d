@@ -1,4 +1,5 @@
 import { MarketPanel } from './market-panel';
+import { IbkrConnectionPanel } from './ibkr-connection';
 export default function MarketPage() {
   return (
     <>
@@ -9,6 +10,7 @@ export default function MarketPage() {
         </p>
       </div>
       <MarketPanel />
+      <IbkrConnectionPanel />
     </>
   );
 }

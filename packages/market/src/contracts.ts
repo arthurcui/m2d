@@ -18,7 +18,7 @@ export const sessionSchema = z.enum([
   'UNKNOWN',
 ]);
 export const evidenceSchema = z.object({
-  provider: z.enum(['fixture', 'twelvedata', 'massive']),
+  provider: z.enum(['fixture', 'twelvedata', 'massive', 'ibkr']),
   sourceRecordId: z.string().min(1).max(200),
   asOf: z.iso.datetime(),
   receivedAt: z.iso.datetime(),
@@ -69,7 +69,7 @@ export const barSchema = evidenceSchema
     low: positive,
     close: positive,
     volume: nonnegative.nullable(),
-    adjustment: z.literal('NONE'),
+    adjustment: z.enum(['NONE', 'UNKNOWN']),
   })
   .superRefine((b, c) => {
     if (
@@ -124,7 +124,7 @@ export interface OptionsProvider {
 }
 export interface MarketProvider
   extends QuoteProvider, BarsProvider, FxProvider, OptionsProvider {
-  id: 'fixture' | 'twelvedata' | 'massive';
+  id: 'fixture' | 'twelvedata' | 'massive' | 'ibkr';
   configured: boolean;
 }
 export class MarketError extends Error {

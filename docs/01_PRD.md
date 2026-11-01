@@ -53,4 +53,4 @@
 - A no-trade conclusion is legitimate; never manufacture signals to fill a quota.
 - Prioritize holdings and highly liquid watchlist instruments before broad market opportunity discovery.
 - Distinguish observation, hypothesis, trade plan, triggered order candidate, and actual trade.
-- Portfolio actions require human confirmation; no broker connection exists.
+- Portfolio actions require human confirmation. The authorized M3 IBKR hosted MCP connection supplies market data only; it cannot read broker accounts or execute trades through M²D.

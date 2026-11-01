@@ -45,6 +45,10 @@ Additive migration **0009** creates `market_provider_limits`; **0010** extends t
 
 Provider references: [stock daily summaries](https://massive.com/docs/rest/stocks/aggregates/daily-ticker-summary), [historical bars](https://massive.com/docs/rest/stocks/aggregates/custom-bars), [option daily summaries](https://massive.com/docs/rest/options/aggregates/daily-ticker-summary), [contract reference](https://massive.com/docs/rest/options/contracts/contract-overview), and [Basic pricing/access](https://massive.com/pricing?product=options). Key/account entitlements still require a real request to verify; offline tests do not establish account access.
 
+## Optional IBKR hosted MCP connection
+
+The optional [IBKR hosted MCP adapter](IBKR_MCP.md) provides a separate read-only market-data connection. Its OAuth setup, supported fields, timestamp limits and operating boundary are documented separately. It does not reuse desktop-plugin authorization or replace your selected provider automatically.
+
 ## Optional Twelve Data configuration
 
 Set these values in the backend `.env`, then recreate the containers:

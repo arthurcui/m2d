@@ -43,6 +43,8 @@ services:
       LLM_REQUEST_TIMEOUT_MS: ${LLM_REQUEST_TIMEOUT_MS:-60000}
       LLM_RUN_TIMEOUT_MS: ${LLM_RUN_TIMEOUT_MS:-300000}
       MARKET_PROVIDER: ${MARKET_PROVIDER:-fixture}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-http://127.0.0.1:3000}
+      IBKR_CREDENTIAL_PATH: /app/data/credentials/ibkr.json
       TWELVE_DATA_API_KEY: ${TWELVE_DATA_API_KEY:-}
       MASSIVE_API_KEY: ${MASSIVE_API_KEY:-}
       MARKET_DELAY_MINUTES: ${MARKET_DELAY_MINUTES:-}
@@ -53,6 +55,7 @@ services:
       - ./data/research:/app/data/research
       - ./data/exports:/app/data/exports
       - ./data/backups:/app/data/backups
+      - ibkr_credentials:/app/data/credentials
     depends_on:
       postgres:
         condition: service_healthy
@@ -114,3 +117,4 @@ services:
     restart: unless-stopped
 volumes:
   postgres_data:
+  ibkr_credentials:

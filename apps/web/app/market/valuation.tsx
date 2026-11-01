@@ -82,12 +82,13 @@ export function ValuationPanel() {
       // Explicit user-triggered bounded refresh; navigation never starts paid calls.
       const eligible = value.requests.filter(
         (r) =>
-          (value.provider === 'fixture' || r.kind !== 'options') &&
-          (value.provider !== 'massive' || r.kind !== 'fx'),
+          (['fixture', 'ibkr'].includes(value.provider) ||
+            r.kind !== 'options') &&
+          (!['massive', 'ibkr'].includes(value.provider) || r.kind !== 'fx'),
       );
       if (eligible.length !== value.requests.length)
         failures.push(
-          value.provider === 'massive'
+          ['massive', 'ibkr'].includes(value.provider)
             ? 'FX unavailable on this configuration; non-USD balances remain unconverted.'
             : 'Licensed option prices unavailable; stock and FX feeds refreshed separately.',
         );

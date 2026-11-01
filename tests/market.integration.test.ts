@@ -45,6 +45,7 @@ const instrument: Instrument = {
   underlying: null,
   deliverable: null,
 };
+
 beforeAll(async () => {
   await admin.pool.query(`CREATE DATABASE "${name}"`);
   await migrateDatabase(target.toString());
@@ -314,4 +315,58 @@ it('caches completed-day Massive evidence, retains idempotency and does not let 
     'USD',
   );
   expect((await basicService.status()).description).toContain('end-of-day');
+});
+
+it('persists IBKR evidence and pacing without changing portfolio state', async () => {
+  let calls = 0;
+  const unexpected = async () => {
+    throw new Error('Unexpected feed');
+  };
+  const ibkr: MarketProvider = {
+    id: 'ibkr',
+    configured: true,
+    quote: async (i) => {
+      calls++;
+      const fixture = await provider.quote(i);
+      if (fixture.payload.kind !== 'quote') throw new Error('Expected quote');
+      return {
+        raw: { test: 'ibkr-mcp' },
+        payload: {
+          kind: 'quote',
+          value: {
+            ...fixture.payload.value,
+            provider: 'ibkr',
+            quality: 'UNKNOWN',
+          },
+        },
+      };
+    },
+    bars: unexpected,
+    options: unexpected,
+    fx: unexpected,
+  };
+  const key = randomUUID();
+  const first = await db.market.refresh(
+    key,
+    { kind: 'quote', instrument },
+    ibkr,
+  );
+  const repeated = await db.market.refresh(
+    key,
+    { kind: 'quote', instrument },
+    ibkr,
+  );
+  expect(first.status).toBe('SUCCEEDED');
+  expect(repeated.duplicate).toBe(true);
+  expect(calls).toBe(1);
+  expect(
+    (await db.market.read('ibkr', 'quote', 'STOCK|TSLA|NASDAQ|USD||||1||'))
+      ?.payload,
+  ).toMatchObject({ kind: 'quote', value: { provider: 'ibkr' } });
+  await db.market.waitForIbkrRequest();
+  const gate = await db.pool.query(
+    "select next_allowed_at > clock_timestamp() as reserved from market_provider_limits where provider='ibkr'",
+  );
+  expect(gate.rows[0].reserved).toBe(true);
+  expect((await db.portfolio.overview()).revision).toBe(0);
 });

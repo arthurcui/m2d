@@ -2,7 +2,7 @@
 
 **See the Move. Understand the Motive. Make the Decision.**
 
-**Status:** M3 — Market evidence, optional Massive Basic (free end-of-day) and Twelve Data integration, indicative NAV/P&L, OHLCV charts and saved valuations implemented on the M1/M2 portfolio Agent. See [M3 market setup and limits](docs/M3_MARKET.md). See [M2 implementation notes](docs/M2_CHAT.md) for usage, limits and verification. The design specification (revision 1.2) below also describes future milestones. See [M1 implementation notes](docs/M1_PORTFOLIO.md) for accounting rules, Excel templates, confirmation contracts, verification, and limitations; [M0 notes](docs/M0_FOUNDATION.md) retain foundation details.
+**Status:** M3 — Market evidence, optional Massive Basic (free end-of-day), Twelve Data and [IBKR hosted MCP](docs/IBKR_MCP.md) integration, indicative NAV/P&L, OHLCV charts and saved valuations implemented on the M1/M2 portfolio Agent. See [M3 market setup and limits](docs/M3_MARKET.md). See [M2 implementation notes](docs/M2_CHAT.md) for usage, limits and verification. The design specification (revision 1.2) below also describes future milestones. See [M1 implementation notes](docs/M1_PORTFOLIO.md) for accounting rules, Excel templates, confirmation contracts, verification, and limitations; [M0 notes](docs/M0_FOUNDATION.md) retain foundation details.
 
 ## Run locally
 
@@ -61,7 +61,7 @@ Build a single-user, standalone, Docker-first AI investment intelligence and dec
 ## Invariants / non-goals
 
 - **No OpenClaw or other ready-made agent orchestrator.** Implement a small, testable agent runtime within M²D using an LLM provider API.
-- **No broker connectivity, no broker credentials, no order placement.** IBKR and Questrade are labels for manually created accounts only.
+- **No broker account synchronization, brokerage passwords, or order placement.** Accounts remain manually defined. The user-authorized M3 exception is optional IBKR hosted MCP for allowlisted market data, using separate read-only OAuth authorization; see [IBKR setup](docs/IBKR_MCP.md).
 - **No tenancy, multi-user management, signup, RBAC, subscriptions, billing, or SaaS infrastructure.** One personal workspace.
 - Portfolio updates: (1) natural-language instructions -> validated preview -> confirm; (2) uploaded Excel workbook -> validated full-state replacement preview -> confirm. Excel is authoritative **current state**, not a replacement for history.
 - Market, financial, news, filings, and options data may be imported from external third-party/public data services.
@@ -124,7 +124,7 @@ m2d/
 
 ## Quality bar
 
-Each milestone must end with runnable code, tests, sample data, reproducible commands, known limitations and screenshots or route/UI verification. No real brokerage integrations, order execution, financial claims without evidence, or invented history.
+Each milestone must end with runnable code, tests, sample data, reproducible commands, known limitations and screenshots or route/UI verification. Brokerage connections are limited to the explicitly authorized IBKR market-data MCP adapter. No account synchronization, order execution, financial claims without evidence, or invented history.
 
 ### Current M1 account and Agent behavior
 

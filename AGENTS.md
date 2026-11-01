@@ -3,7 +3,7 @@
 You are implementing **M²D (Move · Motive · Decision)**, a local-first, **single-user**, independent AI investment decision-support system. The product spec is in `README.md` and `docs/`.
 
 ## Product invariants — NEVER violate
-1. **Never add OpenClaw, broker API connections, brokerage credentials, order execution, automatic trading, multi-tenancy, signup, RBAC, subscriptions, or SaaS billing.** This project records **self-reported portfolio state**.
+1. **Never add OpenClaw, broker account synchronization, brokerage passwords, order execution, automatic trading, multi-tenancy, signup, RBAC, subscriptions, or SaaS billing.** This project records **self-reported portfolio state**. The user-authorized M3 exception is IBKR's hosted MCP for market data only: request `mcp.read`, allowlist market tools, and keep OAuth tokens backend-only. No account, position, trade, instruction, alert, or watchlist tools may be exposed through that connection. Other broker connections remain out of scope.
 2. Portfolio changes are ONLY (a) confirmed, previewed incremental user changes or (b) confirmed, previewed Excel **full-state replacements**. Persist historical baselines/events. Excel never silently merges with existing state, and unlisted positions become zero only after explicit confirmation.
 3. The LLM cannot directly mutate financial state or write SQL. Typed parsing -> deterministic validation -> human confirmation -> transactional commit. Model instructions never override domain constraints.
 4. Market data must carry **provider, market session, as-of timestamp, delay/freshness and quality**. Never present a prior close as a current after-hours price or produce executable signals on invalid data.

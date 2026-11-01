@@ -371,7 +371,8 @@ function PriceChart({ bars }: { bars: Bar[] }) {
       </svg>
       <figcaption>
         {bars[0]!.symbol} · {bars[0]!.exchange} · {bars[0]!.provider} ·{' '}
-        {bars[0]!.quality} · unadjusted hourly bars ·{' '}
+        {bars[0]!.quality} · hourly bars · adjustment{' '}
+        {bars[0]!.adjustment === 'NONE' ? 'none' : 'unknown'} ·{' '}
         {marketTime(bars[0]!.start)} – {marketTime(bars.at(-1)!.asOf)}. Hover
         for OHLCV and session.
       </figcaption>

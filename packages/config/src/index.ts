@@ -82,8 +82,24 @@ const configSchema = z.object({
     z.string().min(1).optional(),
   ),
   MARKET_PROVIDER: z
-    .enum(['fixture', 'twelvedata', 'massive'])
+    .enum(['fixture', 'twelvedata', 'massive', 'ibkr'])
     .default('fixture'),
+  PUBLIC_APP_URL: z
+    .url()
+    .default('http://127.0.0.1:3000')
+    .refine((v) => {
+      const u = new URL(v);
+      return (
+        !u.username &&
+        !u.password &&
+        !u.search &&
+        !u.hash &&
+        u.pathname === '/' &&
+        (u.protocol === 'https:' ||
+          (u.protocol === 'http:' &&
+            ['127.0.0.1', 'localhost', '[::1]'].includes(u.hostname)))
+      );
+    }),
   BASE_CURRENCY: z
     .string()
     .regex(/^[A-Z]{3}$/)
