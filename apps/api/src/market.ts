@@ -181,6 +181,7 @@ export async function marketRoutes(
     const input = z
       .object({
         symbol: symbolSchema,
+        assetType: z.enum(['STOCK', 'ETF']).default('STOCK'),
         exchange: z
           .string()
           .regex(/^[A-Z0-9.-]{1,20}$/)
@@ -189,7 +190,6 @@ export async function marketRoutes(
       })
       .parse(req.query);
     const instrument = {
-      assetType: 'STOCK' as const,
       ...input,
       optionRight: null,
       expiry: null,

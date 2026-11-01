@@ -7,6 +7,7 @@ export function MarketPanel() {
   const [symbol, setSymbol] = useState('TSLA'),
     [exchange, setExchange] = useState('NASDAQ');
   const [expiry, setExpiry] = useState('2026-12-18');
+  const [assetType, setAssetType] = useState<'STOCK' | 'ETF'>('STOCK');
   const [status, setStatus] = useState<{
     provider: string;
     configured: boolean;
@@ -45,10 +46,15 @@ export function MarketPanel() {
           symbol: saved.symbol,
           exchange: saved.exchange,
           expiry: saved.expiry,
+          assetType:
+            'assetType' in saved && saved.assetType === 'ETF'
+              ? ('ETF' as const)
+              : ('STOCK' as const),
         };
         setSymbol(selection.symbol);
         setExchange(selection.exchange);
         setExpiry(selection.expiry);
+        setAssetType(selection.assetType);
         void load(selection).catch(() =>
           setError('Stored market data unavailable.'),
         );
@@ -63,17 +69,17 @@ export function MarketPanel() {
       try {
         sessionStorage.setItem(
           'm2d.market.selection.v1',
-          JSON.stringify({ symbol, exchange, expiry }),
+          JSON.stringify({ symbol, exchange, expiry, assetType }),
         );
       } catch {
         /* Optional browser preference. */
       }
-  }, [restored, symbol, exchange, expiry]);
-  async function load(selection = { symbol, exchange, expiry }) {
-    const { symbol, exchange, expiry } = selection;
+  }, [restored, symbol, exchange, expiry, assetType]);
+  async function load(selection = { symbol, exchange, expiry, assetType }) {
+    const { symbol, exchange, expiry, assetType } = selection;
     const [q, b, o] = await Promise.all([
       marketApi<RecordValue<Quote>>(
-        `market/quotes?symbol=${encodeURIComponent(symbol)}&exchange=${exchange}`,
+        `market/quotes?symbol=${encodeURIComponent(symbol)}&exchange=${exchange}&assetType=${assetType}`,
       ),
       marketApi<RecordValue<Bar[]>>(
         `market/bars/${encodeURIComponent(symbol)}?exchange=${exchange}`,
@@ -95,7 +101,7 @@ export function MarketPanel() {
           ? {
               kind,
               instrument: {
-                assetType: 'STOCK',
+                assetType,
                 symbol,
                 exchange,
                 currency: 'USD',
@@ -143,6 +149,20 @@ export function MarketPanel() {
         </div>
         <p>{status?.description ?? 'Checking market configuration…'}</p>
         <div className="market-controls">
+          <label>
+            Asset class
+            <select
+              disabled={busy}
+              value={assetType}
+              onChange={(e) => {
+                setAssetType(e.target.value === 'ETF' ? 'ETF' : 'STOCK');
+                setQuote(null);
+              }}
+            >
+              <option value="STOCK">Stock</option>
+              <option value="ETF">ETF</option>
+            </select>
+          </label>
           <label>
             Symbol
             <input

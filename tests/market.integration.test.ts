@@ -11,6 +11,7 @@ import {
 import { createMarketService } from '../apps/api/src/market.js';
 import { buildApp } from '../apps/api/src/app.js';
 import { readConfig } from '../packages/config/src/index.js';
+import { MarketError as ProviderMarketError } from '../packages/market/dist/index.js';
 import type { Instrument } from '../packages/portfolio/src/index.js';
 const url = process.env.TEST_DATABASE_URL;
 if (!url)
@@ -187,11 +188,14 @@ it('persists the Basic HTTP allowance across repository instances without consum
 
 it('caches completed-day Massive evidence, retains idempotency and does not let unavailable feeds block holdings', async () => {
   let calls = 0;
+  let failureCode: string | undefined;
   const basic: MarketProvider = {
     id: 'massive',
     configured: true,
     quote: async (i) => {
       calls++;
+      if (failureCode)
+        throw new ProviderMarketError(failureCode, 'Test failure');
       return {
         raw: { example: 'massive-basic' },
         payload: {
@@ -255,6 +259,53 @@ it('caches completed-day Massive evidence, retains idempotency and does not let 
       .duplicate,
   ).toBe(true);
   expect(calls).toBe(1);
+  const allowance = await db.pool.query(
+    "select next_allowed_at from market_provider_limits where provider='massive'",
+  );
+  failureCode = 'NO_COVERAGE';
+  expect(
+    (
+      await db.market.refresh(
+        randomUUID(),
+        { kind: 'quote', instrument: { ...instrument, symbol: 'MISSING' } },
+        basic,
+      )
+    ).status,
+  ).toBe('FAILED');
+  expect(
+    (
+      await db.pool.query(
+        "select next_allowed_at from market_provider_limits where provider='massive'",
+      )
+    ).rows,
+  ).toEqual(allowance.rows);
+  failureCode = undefined;
+  expect(
+    (
+      await db.market.refresh(
+        randomUUID(),
+        { kind: 'quote', instrument: { ...instrument, symbol: 'NVDA' } },
+        basic,
+      )
+    ).status,
+  ).toBe('SUCCEEDED');
+  failureCode = 'MARKET_RATE_LIMIT';
+  expect(
+    (
+      await db.market.refresh(
+        randomUUID(),
+        { kind: 'quote', instrument: { ...instrument, symbol: 'LIMITED' } },
+        basic,
+      )
+    ).status,
+  ).toBe('FAILED');
+  await expect(
+    db.market.refresh(
+      randomUUID(),
+      { kind: 'quote', instrument: { ...instrument, symbol: 'BLOCKED' } },
+      basic,
+    ),
+  ).rejects.toMatchObject({ code: 'MARKET_RATE_LIMIT' });
   expect((await db.portfolio.overview()).revision).toBe(0);
   const basicService = createMarketService(
     db.market,

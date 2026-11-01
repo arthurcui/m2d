@@ -39,6 +39,7 @@ const reference = {
     locale: 'us',
     primary_exchange: 'XNAS',
     currency_name: 'usd',
+    type: 'CS',
   },
 };
 const optionRef = {
@@ -148,6 +149,7 @@ describe('Massive Basic end-of-day adapter', () => {
           ...reference.results,
           ticker: 'SPY',
           primary_exchange: 'ARCX',
+          type: 'ETF',
         },
       },
       { ...close, symbol: 'SPY' },
@@ -171,6 +173,54 @@ describe('Massive Basic end-of-day adapter', () => {
       });
       expect(transport).toHaveBeenCalledTimes(1);
     }
+  });
+  it('resolves an omitted workbook exchange from verified listing evidence without changing ledger identity', async () => {
+    const imported = { ...stock, exchange: 'UNKNOWN' };
+    const { p } = setup([reference, close]);
+    const result = await p.quote(imported);
+    expect(result.payload).toMatchObject({
+      kind: 'quote',
+      value: { instrument: imported, resolvedExchange: 'XNAS', last: '400' },
+    });
+    expect(imported.exchange).toBe('UNKNOWN');
+    for (const patch of [
+      { locale: 'ca' },
+      { currency_name: 'cad' },
+      { primary_exchange: 'XTSE' },
+      { ticker: 'NVDA' },
+    ]) {
+      await expect(
+        setup([
+          { status: 'OK', results: { ...reference.results, ...patch } },
+        ]).p.quote(imported),
+      ).rejects.toMatchObject({ code: 'INSTRUMENT_MISMATCH' });
+    }
+  });
+  it('does not price a recorded stock using an ETF with the same symbol', async () => {
+    const { p, transport } = setup([
+      { status: 'OK', results: { ...reference.results, type: 'ETF' } },
+      close,
+    ]);
+    await expect(
+      p.quote({ ...stock, exchange: 'UNKNOWN' }),
+    ).rejects.toMatchObject({ code: 'ASSET_CLASS_MISMATCH' });
+    expect(transport).toHaveBeenCalledTimes(1);
+  });
+  it('resolves an option with omitted exchange only after verifying its exact contract terms', async () => {
+    const imported = { ...option, exchange: 'UNKNOWN' };
+    expect(
+      (
+        await setup([
+          optionRef,
+          { ...close, symbol: optionRef.results.ticker },
+        ]).p.quote(imported)
+      ).payload,
+    ).toMatchObject({ kind: 'quote', value: { instrument: imported } });
+    await expect(
+      setup([
+        { status: 'OK', results: { ...optionRef.results, strike_price: 451 } },
+      ]).p.quote(imported),
+    ).rejects.toMatchObject({ code: 'INSTRUMENT_MISMATCH' });
   });
   it('verifies exact standard option contract and values shorts as liabilities', async () => {
     const { p } = setup([

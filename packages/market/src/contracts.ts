@@ -31,6 +31,11 @@ export const evidenceSchema = z.object({
 export const quoteSchema = evidenceSchema
   .extend({
     instrument: instrumentSchema,
+    // Provider-verified listing metadata; never rewrites the ledger identity.
+    resolvedExchange: z
+      .string()
+      .regex(/^[A-Z0-9.-]{1,20}$/)
+      .optional(),
     bid: nonnegative.nullable(),
     ask: nonnegative.nullable(),
     last: nonnegative.nullable(),

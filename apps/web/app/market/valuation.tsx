@@ -1,6 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState, useRef } from 'react';
 import type { Valuation } from '@m2d/market';
+import { isMarketSourceFailure, marketFailureMessage } from '@m2d/market';
 type FeedRequest =
   | { kind: 'quote'; instrument: import('@m2d/portfolio').Instrument }
   | { kind: 'options'; symbol: string; expiry: string }
@@ -57,7 +58,6 @@ export function ValuationPanel() {
     try {
       const v = await marketApi<ValuationView>('portfolio/valuation');
       setValue(v);
-      setError('');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Valuation unavailable.');
     }
@@ -76,6 +76,8 @@ export function ValuationPanel() {
     setBusy(true);
     setError('');
     const failures: string[] = [];
+    let completed = 0;
+    let halted = false;
     try {
       // Explicit user-triggered bounded refresh; navigation never starts paid calls.
       const eligible = value.requests.filter(
@@ -109,10 +111,15 @@ export function ValuationPanel() {
           idempotencyKey: crypto.randomUUID(),
           request,
         });
-        if (result.status !== 'SUCCEEDED')
-          failures.push(`${label}: ${result.errorCode ?? result.status}`);
+        if (result.status !== 'SUCCEEDED') {
+          failures.push(`${label}: ${marketFailureMessage(result.errorCode)}`);
+          halted = !isMarketSourceFailure(result.errorCode);
+        } else completed++;
+        // Basic batches can take minutes: show each completed source immediately.
+        await load();
+        setError(failures.join(' · '));
+        if (halted) break;
         if (value.provider !== 'fixture' && i < requests.length - 1) {
-          if (result.status === 'FAILED') break;
           if (value.refreshIntervalMs)
             await new Promise((r) => setTimeout(r, value.refreshIntervalMs));
         }
@@ -124,10 +131,16 @@ export function ValuationPanel() {
       setProgress(
         stop.current
           ? 'Refresh stopped. Completed sources are kept.'
-          : 'Refresh finished. Missing sources remain unpriced.',
+          : halted
+            ? `Refresh stopped after ${completed} successful sources. Completed values are kept; see the provider error below.`
+            : `Refresh finished. ${completed} of ${requests.length} sources updated or loaded from cache. Missing sources remain unpriced.`,
       );
     } catch (e) {
+      await load();
       setError(e instanceof Error ? e.message : 'Refresh failed.');
+      setProgress(
+        `Refresh stopped after ${completed} successful sources. Completed values are kept.`,
+      );
     } finally {
       setBusy(false);
     }
@@ -238,6 +251,11 @@ export function ValuationPanel() {
                         {p.quote
                           ? `${p.quote.provider} · ${p.quote.session} · ${p.quality?.freshness} · ${p.quote.quality}`
                           : 'No matching quote'}
+                        {p.quote?.resolvedExchange && (
+                          <small>
+                            Provider listing: {p.quote.resolvedExchange}
+                          </small>
+                        )}
                         <small>
                           {p.quote?.kind === 'EOD_CLOSE'
                             ? 'Daily period ending '

@@ -57,6 +57,7 @@ const equityReference = z.object({
     locale: z.literal('us'),
     primary_exchange: z.string(),
     currency_name: z.string(),
+    type: z.string(),
   }),
 });
 const optionReference = z.object({
@@ -69,6 +70,10 @@ const optionReference = z.object({
     strike_price: positive,
     shares_per_contract: positive,
     additional_underlyings: z.array(z.unknown()).optional(),
+    primary_exchange: z
+      .string()
+      .regex(/^[A-Z0-9.-]{1,20}$/)
+      .optional(),
   }),
 });
 const closeResponse = z.object({
@@ -124,9 +129,16 @@ export function massiveOptionTicker(input: Instrument) {
   if (
     i.assetType !== 'OPTION' ||
     i.currency !== 'USD' ||
-    !['US', 'OPRA', 'CBOE', 'NASDAQ', 'NYSE', 'AMEX', 'ARCA'].includes(
-      i.exchange,
-    ) ||
+    ![
+      'UNKNOWN',
+      'US',
+      'OPRA',
+      'CBOE',
+      'NASDAQ',
+      'NYSE',
+      'AMEX',
+      'ARCA',
+    ].includes(i.exchange) ||
     !/^[A-Z]{1,6}$/.test(i.underlying!)
   )
     throw new MarketError(
@@ -232,8 +244,13 @@ export class MassiveBasicProvider implements MarketProvider {
       );
     }
   }
-  private async equity(symbol: string, exchange: string, date: string) {
-    if (!exchanges[exchange] && exchange !== 'US')
+  private async equity(
+    symbol: string,
+    exchange: string,
+    date: string,
+    assetType?: 'STOCK' | 'ETF',
+  ) {
+    if (!exchanges[exchange] && !['US', 'UNKNOWN'].includes(exchange))
       throw new MarketError(
         'UNSUPPORTED_EXCHANGE',
         'Massive Basic supports US-listed stocks and ETFs.',
@@ -247,7 +264,7 @@ export class MassiveBasicProvider implements MarketProvider {
       !parsed.success ||
       parsed.data.results.ticker !== symbol ||
       parsed.data.results.currency_name.toUpperCase() !== 'USD' ||
-      !(exchange === 'US'
+      !(['US', 'UNKNOWN'].includes(exchange)
         ? Object.values(exchanges).includes(
             parsed.data.results.primary_exchange,
           )
@@ -258,7 +275,20 @@ export class MassiveBasicProvider implements MarketProvider {
         'Massive reference data does not match the US instrument.',
         502,
       );
-    return response.raw;
+    if (
+      (assetType === 'ETF' && parsed.data.results.type !== 'ETF') ||
+      (assetType === 'STOCK' &&
+        !['CS', 'ADRC'].includes(parsed.data.results.type))
+    )
+      throw new MarketError(
+        'ASSET_CLASS_MISMATCH',
+        'The provider security type conflicts with the recorded stock/ETF class.',
+        502,
+      );
+    return {
+      raw: response.raw,
+      exchange: parsed.data.results.primary_exchange,
+    };
   }
   async quote(input: Instrument): Promise<FeedResult> {
     const i = instrumentSchema.parse(input);
@@ -270,6 +300,7 @@ export class MassiveBasicProvider implements MarketProvider {
     const date = massiveCompletedDate(this.clock());
     let symbol = i.symbol,
       reference: string;
+    let resolvedExchange: string | undefined;
     if (i.assetType === 'OPTION') {
       symbol = massiveOptionTicker(i);
       const response = await this.request(
@@ -294,7 +325,12 @@ export class MassiveBasicProvider implements MarketProvider {
           502,
         );
       reference = response.raw;
-    } else reference = await this.equity(symbol, i.exchange, date);
+      resolvedExchange = r.primary_exchange;
+    } else {
+      const listing = await this.equity(symbol, i.exchange, date, i.assetType);
+      reference = listing.raw;
+      resolvedExchange = listing.exchange;
+    }
     const response = await this.request(
       `/v1/open-close/${encodeURIComponent(symbol)}/${date}`,
       { adjusted: 'false' },
@@ -318,6 +354,7 @@ export class MassiveBasicProvider implements MarketProvider {
         value: {
           ...this.evidence(`${symbol}:${date}`, dayEnd(date), 'CLOSED'),
           instrument: i,
+          ...(resolvedExchange ? { resolvedExchange } : {}),
           bid: null,
           ask: null,
           last: parsed.data.close,
@@ -387,7 +424,7 @@ export class MassiveBasicProvider implements MarketProvider {
         'No completed hourly bars returned.',
       );
     return {
-      raw: { reference, bars: response.raw },
+      raw: { reference: reference.raw, bars: response.raw },
       payload: payloadSchema.parse({ kind: 'bars', value }),
     };
   }

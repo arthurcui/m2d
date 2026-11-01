@@ -10,6 +10,7 @@ import {
   symbolSchema,
   massiveCompletedDate,
   newYorkDate,
+  isMarketSourceFailure,
   type MarketProvider,
   type Valuation,
 } from '@m2d/market';
@@ -246,7 +247,8 @@ export function createMarketRepository(pool: pg.Pool) {
           provider.id !== 'fixture' &&
           recent &&
           Date.now() - Date.parse(recent.startedAt) <
-            (recent.status === 'FAILED'
+            (recent.status === 'FAILED' &&
+            !isMarketSourceFailure(recent.errorCode)
               ? 60000
               : provider.id === 'massive'
                 ? 0
@@ -380,7 +382,7 @@ export function createMarketRepository(pool: pg.Pool) {
         } catch (e) {
           const code =
             e instanceof MarketError ? e.code : 'INVALID_MARKET_DATA';
-          if (provider.id === 'massive')
+          if (provider.id === 'massive' && !isMarketSourceFailure(code))
             await client.query(
               "insert into market_provider_limits(provider,next_allowed_at) values('massive',clock_timestamp()+interval '60 seconds') on conflict(provider) do update set next_allowed_at=greatest(market_provider_limits.next_allowed_at,excluded.next_allowed_at)",
             );
