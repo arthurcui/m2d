@@ -103,7 +103,7 @@ test('account context scopes messages and new messages scroll into view', async 
     (sent?.holdingContext as Record<string, unknown>).instrumentKey,
   ).toBeUndefined();
   await page
-    .getByRole('button', { name: 'New conversation', exact: true })
+    .getByRole('button', { name: 'Reset conversation', exact: true })
     .click();
   await expect(
     page.getByText('Newest reply: 5 TSLA shares in Questrade TFSA.'),

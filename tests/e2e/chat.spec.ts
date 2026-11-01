@@ -8,7 +8,7 @@ test('Agent persists a streamed conversation, mode preference and draft across r
   const chat = page.getByRole('region', { name: 'General chat', exact: true });
   await expect(chat.getByLabel('General message')).toBeEnabled();
   await chat
-    .getByRole('button', { name: 'New conversation', exact: true })
+    .getByRole('button', { name: 'Reset conversation', exact: true })
     .click();
   await chat.getByLabel('General analysis mode').selectOption('quick');
   await expect(chat.getByRole('status')).toHaveText('Default saved: quick.');

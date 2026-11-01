@@ -1,5 +1,5 @@
 'use client';
-import Link from 'next/link';
+import { ChatMarkdown } from './chat-markdown';
 import type { ResearchContext } from './research/research-client';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Change } from '@m2d/portfolio';
@@ -386,11 +386,8 @@ export function AgentChat({
           <div className="agent-message">
             <strong>Agent</strong>
             <p>
-              Ask about your recorded portfolio or describe a change. I will ask
-              for missing details and show a preview before you confirm.
-              Research documents can be imported on Research and discussed with
-              citations. Stored market valuation is available with source and
-              freshness labels; it is not an execution quote.
+              Ask a question or describe a portfolio change. I’ll show any
+              changes for your confirmation.
             </p>
           </div>
           {session?.history
@@ -411,13 +408,13 @@ export function AgentChat({
                     · {item.holdingContext.accountKey}
                   </small>
                 )}
-                <p>{researchLinks(item.text ?? '')}</p>
+                <ChatMarkdown text={item.text ?? ''} />
               </div>
             ))}
           {live && (
             <div className="agent-message">
               <strong>Agent · in progress</strong>
-              <p>{live}</p>
+              <ChatMarkdown text={live} />
             </div>
           )}
         </div>
@@ -573,6 +570,7 @@ export function AgentChat({
         <button
           type="button"
           disabled={busy || running || savingMode || !session}
+          title="Reset this conversation and its unsent draft"
           onClick={() => {
             if (inFlight.current || running || !session) return;
             inFlight.current = true;
@@ -601,8 +599,23 @@ export function AgentChat({
               });
           }}
         >
-          New conversation
+          Reset conversation
         </button>
+        <div className="agent-mode-settings">
+          <label className="agent-mode-field">
+            Analysis mode
+            <select
+              aria-label={`${label} analysis mode`}
+              value={mode}
+              disabled={busy || running || savingMode}
+              onChange={(e) => void saveDefault(e.target.value as Mode)}
+            >
+              <option value="quick">Quick</option>
+              <option value="standard">Standard</option>
+              <option value="extensive">Extensive</option>
+            </select>
+          </label>
+        </div>
       </div>
       <form
         className="agent-composer"
@@ -634,21 +647,6 @@ export function AgentChat({
             </button>
           </div>
         )}
-        <div className="agent-mode-settings">
-          <label className="agent-mode-field">
-            Analysis mode
-            <select
-              aria-label={`${label} analysis mode`}
-              value={mode}
-              disabled={busy || running || savingMode}
-              onChange={(e) => void saveDefault(e.target.value as Mode)}
-            >
-              <option value="quick">Quick</option>
-              <option value="standard">Standard</option>
-              <option value="extensive">Extensive</option>
-            </select>
-          </label>
-        </div>
         <label>
           {label} message
           <textarea
@@ -669,8 +667,7 @@ export function AgentChat({
           />
         </label>
         <p className="muted-label">
-          Enter to send · Shift+Enter for a new line. Modes change work limits;
-          all changes require confirmation.
+          Enter to send · Shift+Enter for a new line
         </p>
         <div className="agent-send-actions">
           {running ? (
@@ -711,24 +708,4 @@ export function AgentChat({
       </form>
     </section>
   );
-}
-
-function researchLinks(text: string) {
-  return text
-    .split(
-      /(\[[^\]\n]{1,200}\]\(\/research\?document=[0-9a-f-]{36}(?:#chunk-\d+)?\))/g,
-    )
-    .map((part, i) => {
-      const m =
-        /^\[([^\]]+)\]\((\/research\?document=[0-9a-f-]{36}(?:#chunk-\d+)?)\)$/.exec(
-          part,
-        );
-      return m ? (
-        <Link key={i} href={m[2]!}>
-          {m[1]}
-        </Link>
-      ) : (
-        part
-      );
-    });
 }

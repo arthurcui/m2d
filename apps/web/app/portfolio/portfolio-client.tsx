@@ -1,4 +1,5 @@
 'use client';
+import { ChatMarkdown } from '../chat-markdown';
 import {
   ResearchClient,
   type ResearchContext,
@@ -759,7 +760,7 @@ export function PortfolioClient({ children }: { children?: ReactNode }) {
                   key={i}
                 >
                   <strong>{m.role}</strong>
-                  <p>{m.text}</p>
+                  <ChatMarkdown text={m.text} />
                 </div>
               ))}
             </div>

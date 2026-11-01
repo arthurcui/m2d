@@ -10,7 +10,7 @@ test('research imports, compares, searches and keeps its state and cited Agent d
   const symbol = `M4${randomUUID().replaceAll('-', '').slice(0, 8).toUpperCase()}`;
   await page.goto('/research');
   await page
-    .getByRole('button', { name: 'New conversation', exact: true })
+    .getByRole('button', { name: 'Reset conversation', exact: true })
     .click();
   await page.getByLabel('Research ticker').fill(symbol);
   await page.getByRole('button', { name: 'Load demo reports' }).click();

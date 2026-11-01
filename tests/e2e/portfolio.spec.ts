@@ -460,7 +460,7 @@ test('Agent restores independent function conversations and drafts', async ({
     agent.getByRole('heading', { name: 'Agent · Research', exact: true }),
   ).toBeVisible();
   await agent
-    .getByRole('button', { name: 'New conversation', exact: true })
+    .getByRole('button', { name: 'Reset conversation', exact: true })
     .click();
   await expect(agent.getByRole('log')).not.toContainText(
     'Review company filings',

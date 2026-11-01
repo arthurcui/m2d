@@ -19,7 +19,7 @@ test('a pending conversation reset cannot erase the next message', async ({
   await page.goto('/research');
   const agent = page.getByRole('complementary', { name: 'Agent' });
   await agent
-    .getByRole('button', { name: 'New conversation', exact: true })
+    .getByRole('button', { name: 'Reset conversation', exact: true })
     .click();
   await expect(agent.getByLabel('Research message')).toBeDisabled();
   release();

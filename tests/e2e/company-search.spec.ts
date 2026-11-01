@@ -42,7 +42,7 @@ test('hybrid company search finds paraphrases, keeps filters and opens cited evi
   }
   await page.goto('/research');
   await page
-    .getByRole('button', { name: 'New conversation', exact: true })
+    .getByRole('button', { name: 'Reset conversation', exact: true })
     .click();
   await page.getByLabel('Research ticker').fill(symbol);
   const search = page.getByRole('region', { name: 'Company evidence search' });

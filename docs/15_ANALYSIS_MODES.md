@@ -73,3 +73,12 @@ M2 implementation notes and the separate M1 workbook accounting limitation: [M2_
 ### Search retrieval accounting
 
 An uncached semantic search query made by Agent consumes one model attempt and records embedding usage/cost in that run; cached query vectors do not. Query embeddings respect the existing run deadline/cancellation, request timeout and run/daily cost ceilings. Explicit indexing from Research is separately bounded by durable daily input-byte reservations and the same configured daily inference cost gate. Indexing is never an automatic analysis-mode escalation. The search UI exposes partial coverage and unavailable/error states rather than silently changing retrieval/provider behavior.
+
+
+## Chat presentation
+
+The conversation toolbar groups **Reset conversation** with the automatically saved analysis-mode selector. Reset starts a fresh conversation for the current function and clears its unsent draft, using the existing reset API. The composer retains Enter to send, Shift+Enter for a newline, busy-state guards and confirmation previews.
+
+Chat, streaming text and workbook conversations share a Markdown renderer (`react-markdown` with `remark-gfm`) for headings, emphasis, lists, code, quotes, tables and links. These libraries replace the narrow citation-only formatter with a standard parser. Raw HTML is disabled, default unsafe-URL filtering remains enabled, and Markdown images display their alt text without fetching remote content. Internal research links retain client-side navigation and citation fragments. Long tables and code blocks scroll within the message rather than widening the panel. This is a display change; canonical messages, inference policies, financial gates and API contracts are unchanged.
+
+Presentation verification: 198 unit tests and 38 browser tests passed, with three targeted desktop/mobile and panel tests repeated after the final visual refinements. Typecheck, lint, formatting and the web Docker build passed. The web service was redeployed; read-only health/navigation checks confirmed portfolio and saved preferences were unchanged. No new inference call was needed for this rendering-only change.

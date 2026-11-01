@@ -1,4 +1,5 @@
 'use client';
+import { ChatMarkdown } from './chat-markdown';
 import { useState, type KeyboardEvent } from 'react';
 
 export function submitAgentOnEnter(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -55,7 +56,7 @@ export function PlannedAgentConversation({
         {messages.map((message, index) => (
           <div key={index} className="agent-message from-user">
             <strong>You</strong>
-            <p>{message.text}</p>
+            <ChatMarkdown text={message.text} />
             <time className="muted-label" dateTime={message.at}>
               {new Intl.DateTimeFormat('en-CA', {
                 timeZone: 'America/Vancouver',
