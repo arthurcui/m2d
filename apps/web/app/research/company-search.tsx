@@ -292,59 +292,64 @@ export function CompanySearch({
           {error}
         </p>
       )}
-      <div className="company-search-index">
-        <div>
-          <strong>Meaning-based search</strong>
-          <p className="muted-label">
-            {status
-              ? `${status.coverage.indexed} / ${status.coverage.total} eligible passages indexed`
-              : 'Checking index…'}
-            {running
-              ? ` · Processing ${status?.job?.processed ?? 0} passages…`
-              : ''}
-          </p>
-        </div>
-        <button
-          disabled={!status?.configured || !status.coverage.pending || running}
-          onClick={() => {
-            const key = companyKey;
-            setIndexing(true);
-            setIndexError('');
-            void request('/search/index', {
-              version: 1,
-              symbol,
-              idempotencyKey: crypto.randomUUID(),
-            })
-              .then(() => refresh())
-              .catch((e) => {
-                if (company.current === key) setIndexError(String(e));
+      <details className="search-coverage">
+        <summary>Search coverage</summary>
+        <div className="company-search-index">
+          <div>
+            <strong>Meaning-based search</strong>
+            <p className="muted-label">
+              {status
+                ? `${status.coverage.indexed} / ${status.coverage.total} eligible passages indexed`
+                : 'Checking index…'}
+              {running
+                ? ` · Processing ${status?.job?.processed ?? 0} passages…`
+                : ''}
+            </p>
+          </div>
+          <button
+            disabled={
+              !status?.configured || !status.coverage.pending || running
+            }
+            onClick={() => {
+              const key = companyKey;
+              setIndexing(true);
+              setIndexError('');
+              void request('/search/index', {
+                version: 1,
+                symbol,
+                idempotencyKey: crypto.randomUUID(),
               })
-              .finally(() => setIndexing(false));
-          }}
-        >
-          {running
-            ? 'Indexing…'
-            : status?.coverage.indexed
-              ? 'Update search index'
-              : 'Build search index'}
-        </button>
-      </div>
-      <p className="muted-label">
-        {status?.provider === 'openai'
-          ? 'Indexing sends document passages to OpenAI; semantic queries send the question. Cached text is reused. Small API usage charges apply.'
-          : status?.provider === 'fixture'
-            ? 'Offline demo: synthetic embeddings exercise search mechanics; they do not measure real semantic accuracy.'
-            : 'Configure the backend inference provider to enable semantic indexing.'}{' '}
-        {status && (
-          <>
-            Today: estimated USD{' '}
-            {status.usage.estimatedCost
-              .replace(/(\.\d*?)0+$/, '$1')
-              .replace(/\.$/, '')}
-            {status.usage.uncertain ? ' (includes uncertain requests)' : ''}.
-          </>
-        )}
-      </p>
+                .then(() => refresh())
+                .catch((e) => {
+                  if (company.current === key) setIndexError(String(e));
+                })
+                .finally(() => setIndexing(false));
+            }}
+          >
+            {running
+              ? 'Indexing…'
+              : status?.coverage.indexed
+                ? 'Update search index'
+                : 'Build search index'}
+          </button>
+        </div>
+        <p className="muted-label">
+          {status?.provider === 'openai'
+            ? 'Indexing sends document passages to OpenAI; semantic queries send the question. Cached text is reused. Small API usage charges apply.'
+            : status?.provider === 'fixture'
+              ? 'Offline demo: synthetic embeddings exercise search mechanics; they do not measure real semantic accuracy.'
+              : 'Configure the backend inference provider to enable semantic indexing.'}{' '}
+          {status && (
+            <>
+              Today: estimated USD{' '}
+              {status.usage.estimatedCost
+                .replace(/(\.\d*?)0+$/, '$1')
+                .replace(/\.$/, '')}
+              {status.usage.uncertain ? ' (includes uncertain requests)' : ''}.
+            </>
+          )}
+        </p>
+      </details>
       {(indexError || status?.job?.error) && (
         <p role="alert" className="notice">
           {indexError || status?.job?.error} Completed passages are retained.

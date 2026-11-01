@@ -43,11 +43,10 @@ test('saved research sources survive navigation, import with citations and show 
   await page.goto('/research');
   await page.getByLabel('Research ticker').fill(symbol);
   const library = page.locator('.research-sources');
-  await library.locator('> summary').click();
+  await page.getByRole('button', { name: 'Add research', exact: true }).click();
+  await page.getByRole('button', { name: 'From URL', exact: true }).click();
   await expect(library).toContainText('Offline source mode');
-  await library
-    .getByText('Add a company, fund, notice or feed link', { exact: true })
-    .click();
+
   await library
     .getByLabel('Source name', { exact: true })
     .fill('My company reports');
@@ -56,6 +55,9 @@ test('saved research sources survive navigation, import with citations and show 
     .fill('https://example.com/reports');
   await library
     .getByRole('button', { name: 'Save source', exact: true })
+    .click();
+  await page
+    .getByRole('button', { name: 'Suggested sources', exact: true })
     .click();
   const card = library
     .locator('.research-source-card')
@@ -72,7 +74,7 @@ test('saved research sources survive navigation, import with citations and show 
   await expect(card).toBeVisible();
   await card.getByRole('button', { name: 'Browse documents' }).click();
   const found = page.getByRole('region', {
-    name: 'Discovered source documents',
+    name: 'Documents from My company reports',
   });
   await expect(found).toContainText('synthetic report PDF');
   await found.getByRole('button', { name: 'Import document' }).click();
@@ -80,6 +82,7 @@ test('saved research sources survive navigation, import with citations and show 
     1,
     { timeout: 20000 },
   );
+  await page.getByRole('button', { name: 'From URL', exact: true }).click();
   await library.getByLabel('Source name', { exact: true }).fill('Invalid URL');
   await library
     .getByLabel('Public document or feed URL')
@@ -88,6 +91,10 @@ test('saved research sources survive navigation, import with citations and show 
     .getByRole('button', { name: 'Save source', exact: true })
     .click();
   await expect(library.getByRole('alert')).toContainText('public HTTPS');
+  await page
+    .getByRole('button', { name: 'Suggested sources', exact: true })
+    .click();
+  await page.getByText('Historical view', { exact: true }).click();
   await page.getByLabel('Evidence available by (UTC)').fill('2020-01-01T00:00');
   await expect(
     card.getByRole('button', { name: 'Import page / feed' }),
@@ -118,6 +125,7 @@ test('analyst upload preserves labelled opinions and prepares a cited comparison
   await page
     .getByLabel('Research ticker')
     .fill('AR' + randomUUID().slice(0, 8).toUpperCase());
+  await page.getByRole('button', { name: 'Add research', exact: true }).click();
   await page.getByLabel('Document category').selectOption('analyst');
   await page.getByLabel('Upload a company or fund document').setInputFiles({
     name: 'analyst.txt',
@@ -131,6 +139,8 @@ test('analyst upload preserves labelled opinions and prepares a cited comparison
     .click();
   const card = page.locator('.research-documents .research-card');
   await expect(card).toHaveCount(1, { timeout: 20000 });
+  await page.getByRole('button', { name: 'Close add research' }).click();
+  await page.getByRole('tab', { name: 'Documents', exact: true }).click();
   await card.getByRole('button', { name: 'analyst.txt' }).click();
   const details = page.getByRole('region', { name: 'Analyst report details' });
   await expect(details).toContainText('Price target: $200');

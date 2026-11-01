@@ -4,12 +4,17 @@ Research retrieves issuer reports, accepts PDF/plain-text documents, preserves o
 
 ## Use
 
-1. Open Research and choose a company ticker (portfolio underlyings and saved companies appear as suggestions).
-2. Retrieve reports, or upload a PDF/UTF-8 `.txt` document. A document import is separate from an Excel portfolio replacement and needs no financial confirmation.
-3. Choose a before and after report, compare changed passages, inspect quoted issuer statements, search, or inspect financial history.
-4. Choose **Discuss with Agent**. Review/send the prepared question using Enter. Research has its own persistent conversation and existing Quick/Standard/Extensive allowances. Company and historical cutoff accompany each question; the backend enforces that cutoff on research tool reads.
+Choose a company once, then use three tabs:
 
-Selections, comparisons, file selections and unfinished imports survive navigation while the app remains open. Imports and conversations survive reloads; a running import is recovered by polling. Browser-only selections reset on a full reload.
+- **Overview**: stored price/event and financial charts, document count, last completed import and search coverage. New evidence is fetched only through an explicit action.
+- **Documents**: filter by title/source/type, inspect preserved documents and their citations, and use **Compare reports** to select an earlier and newer report. Recent imports retain their outcomes.
+- **Search**: query imported evidence, expand search options or search coverage, explicitly build/update semantic embeddings, and send a prepared question to Agent.
+
+**Add research** opens the same panel from any tab. Choose **Upload file**, **Paste text**, **From URL** or **Suggested sources**. Paste accepts a title, optional public source URL and optional declared publication time (UTC); absent publication time remains unknown. Pasted text uses the existing versioned UTF-8 upload pipeline, not an LLM. A supplied URL on pasted text is attribution metadata and is not fetched. From URL can import a page/document, find document links on the page, or save it for later. Saved/company-specific sources are separated from general market sources. SEC retrieval lives under Suggested sources. Historical view is a secondary control; switch back to Current view before importing new evidence.
+
+Each import/browse action displays local progress, completion, errors and links to resulting documents. Controls remain blocked through the durable import job, not merely until its initial HTTP response. Exact-content repeats report **Already saved**; changed source bytes create a revision. Imports report new/reused document counts and searchable passages. An uncertain HTTP response can be retried using the same request ID. Terminal failures allow an explicit new attempt. Navigation and closing the panel do not clear its unsent text, file, URL or operation state while the app stays open. Imported evidence, outcomes and conversations survive reload; pending imports are recovered through status polling. Unsent drafts remain browser-memory state and do not survive a full reload.
+
+Opening a source or Agent citation selects Documents automatically. Tab switches preserve chart selections, search results, filters and comparison state. Agent remains in the shared Research context. Discuss actions prepare editable questions; only sending them invokes inference. Imports do not start paid indexing or automatic monitoring and never alter the portfolio.
 
 ## Sources and setup
 
@@ -29,7 +34,7 @@ The importer resolves the ticker against SEC's issuer map and retrieves the two 
 ## Evidence and historical correctness
 
 - Original bytes, SHA-256, source URL, provider, publication time (when supplied), observation time, availability time and revision are immutable PostgreSQL records. Base64 originals are stored alongside the database evidence for atomic import and one consistent backup; they are not placed in `data/research` in M4.
-- Duplicate `(company, provider, upstream key, content hash)` records reuse the original document. Different content for the same upstream key creates a new revision. Upload filename is its upstream key: keep the filename to revise a document; distinct filenames remain separate sources.
+- Duplicate `(company, provider, upstream key, content hash)` records reuse the original document. Different content for the same upstream key creates a new revision. Upload filename remains its revision key, but byte-identical uploads in the same company/category and with the same attributed URL reuse the existing evidence even if renamed. Distinct public-source URLs retain their provenance. Different bytes under the same filename/source create a revision.
 - `available_at` is the later of first ingestion and known publication time. Historical queries conservatively use what M²D had received, not what an external party might have known earlier. SEC's current XBRL response is never backdated to old reporting periods.
 - Financial values preserve decimal source tokens, taxonomy/tag, native unit, start/end period, accession and filing date. Historical fact queries select the latest source revision **available at the requested time**, retaining distinct reported accessions/restatements. Financial history shows up to 500 rows; Agent fact retrieval is bounded to 40 rows. No ratios, restatement reconciliation, FX conversion or derived returns are inferred.
 - Source passages preserve PDF page numbers and stable document-local indexes. Company search combines indexed English full-text retrieval with optional pgvector semantic retrieval, applies company/date/source filters before ranking, and preserves passage citations. Indexing is explicit and cached; the UI and Agent share the same service. See [company search](COMPANY_SEARCH.md) for contracts, budgets and limits.
@@ -47,17 +52,17 @@ PDF extraction runs in a separate process with a 128-MiB JavaScript heap cap and
 
 All responses use the existing versioned envelope. Writes use the same-origin web proxy.
 
-| Contract                                            | Purpose                                                                           |
-| --------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `GET /api/v1/research`                              | Provider readiness, companies and recent import health                            |
-| `POST /api/v1/research/import`                      | Explicit issuer retrieval: version, UUID idempotencyKey, symbol                   |
-| `POST /api/v1/research/upload`                      | PDF/text upload: version, UUID, symbol, name, contentBase64, optional publishedAt |
-| `GET /api/v1/research/imports/:id`                  | Durable processing/completed/failed/interrupted status                            |
-| `GET /api/v1/research/companies/:symbol?at=…`       | Point-in-time document timeline and financial history                             |
-| `GET /api/v1/research/documents/:id?at=…`           | Metadata, claims and source passages                                              |
-| `GET /api/v1/research/documents/:id/raw`            | Download preserved original                                                       |
-| `GET /api/v1/research/search?symbol=…&query=…&at=…` | PostgreSQL full-text search                                                       |
-| `POST /api/v1/research/compare`                     | Version, before/after document IDs and optional cutoff                            |
+| Contract                                            | Purpose                                                                                                |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `GET /api/v1/research`                              | Provider readiness, companies and recent import health                                                 |
+| `POST /api/v1/research/import`                      | Explicit issuer retrieval: version, UUID idempotencyKey, symbol                                        |
+| `POST /api/v1/research/upload`                      | PDF/text upload: version, UUID, symbol, name, contentBase64, optional publishedAt, title and sourceUrl |
+| `GET /api/v1/research/imports/:id`                  | Durable processing/completed/failed/interrupted status                                                 |
+| `GET /api/v1/research/companies/:symbol?at=…`       | Point-in-time document timeline and financial history                                                  |
+| `GET /api/v1/research/documents/:id?at=…`           | Metadata, claims and source passages                                                                   |
+| `GET /api/v1/research/documents/:id/raw`            | Download preserved original                                                                            |
+| `GET /api/v1/research/search?symbol=…&query=…&at=…` | PostgreSQL full-text search                                                                            |
+| `POST /api/v1/research/compare`                     | Version, before/after document IDs and optional cutoff                                                 |
 
 The shared search additions are `research_search_evidence_v2`, `research_read_passage_v1`, `research_query_facts_v2` and `research_find_company_v1`. Compatible original Agent read tools are `research_search_filings_v1`, `research_search_documents_v1`, `research_get_company_facts_v1` and `research_compare_revisions_v1`. They cannot download external data, execute SQL or mutate financial state. All inference continues through the existing provider-neutral `LlmProvider` and run budgets.
 
@@ -95,3 +100,13 @@ See [company charts](COMPANY_CHARTS.md) for source-linked price/event and financ
 ### Live SEC verification — November 1, 2026
 
 After configuring a real contact identity in the ignored backend environment, a bounded NVIDIA import in a disposable database completed five HTTP requests, all returning 200: ticker map, submissions metadata, two 10-Q filings, and XBRL company facts. Four documents were preserved and their original-byte SHA-256 hashes verified; the financial-history read returned its capped 500 rows. Portfolio revision stayed unchanged. No LLM was called, so inference usage/cost was zero. Production SEC readiness was enabled through environment configuration; the verification documents were not imported into the user's workspace. This verifies the NVDA path, not all issuers or filing formats.
+
+## Import outcome migration
+
+Migration 0019 adds nullable `added_count`, `reused_count` and `passage_count` to `research_imports`. They are committed atomically with the evidence; a database constraint requires nonnegative completed-job counts consistent with the document ID list. Historical imports retain null counts rather than invented outcomes. GET import-status/recent-import responses expose these additive fields. Source hashes and original availability dates are never rewritten by deduplication. The ERD is regenerated with the three fields.
+
+Live public-source verification used a disposable database and two Federal Reserve calendar requests. The second response contained changed bytes and correctly created a revision; replaying that exact captured response reused its document. Eleven passages, original SHA-256 and unchanged portfolio state were verified. There were no model calls or inference costs. This check covers public HTTP imports and does not establish access to blocked or paywalled sites.
+
+Verification for the three-tab workspace: 198 unit tests, 52 PostgreSQL/API integration tests and the full 41-test browser suite passed. Four targeted browser checks were repeated after the final citation-navigation and narrow-screen refinements. Tests cover retained drafts, operation-local progress, repeated-content outcomes, ambiguous-response retries using the same key, source metadata, revision history, constraints and unchanged portfolio state. Typecheck, lint, formatting, ERD consistency, Compose validation and all Docker builds passed. A PostgreSQL backup was taken before deployment.
+
+After deployment, all four services were healthy. Read-only browser/API checks confirmed unchanged portfolio, saved research documents and provider/analysis preferences, preserved Research-tab navigation, and a functioning Add research panel, with no browser errors or write requests. Start the stack with `docker compose up -d --build --wait` and open `http://127.0.0.1:3000/research`.

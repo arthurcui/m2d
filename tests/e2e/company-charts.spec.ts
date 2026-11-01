@@ -17,7 +17,12 @@ test('company charts use stored evidence, cite sources, retain selections and en
   const finances = page.getByRole('article', { name: 'Financial trends' });
   await expect(price).toBeVisible();
   expect(writes).toEqual([]);
+  await page.getByRole('button', { name: 'Add research', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Suggested sources', exact: true })
+    .click();
   await page.getByRole('button', { name: 'Load demo reports' }).click();
+  await page.getByRole('button', { name: 'Close add research' }).click();
   await expect(
     finances.getByRole('group', { name: 'NVDA reported financial trend' }),
   ).toBeVisible({ timeout: 20000 });
@@ -28,6 +33,7 @@ test('company charts use stored evidence, cite sources, retain selections and en
   ).toHaveValue(/120000000 USD/);
   await finances.getByRole('button', { name: 'Open financial source' }).click();
   await expect(page.locator('#research-document')).toContainText('SYNTHETIC');
+  await page.getByRole('tab', { name: 'Overview', exact: true }).click();
   await price
     .getByRole('button', { name: 'Refresh price history', exact: true })
     .click();
@@ -69,6 +75,7 @@ test('company charts use stored evidence, cite sources, retain selections and en
   await expect(page.locator('#research-document')).toContainText(
     'Synthetic event.',
   );
+  await page.getByRole('tab', { name: 'Overview', exact: true }).click();
   await finances.getByLabel('Reporting period').selectOption('annual');
   await page
     .getByRole('link', { name: 'Portfolio', exact: true })
@@ -111,6 +118,7 @@ test('company charts use stored evidence, cite sources, retain selections and en
   ).toBe(true);
   await price.screenshot({ path: '.tmp/company-price-mobile.png' });
   await finances.screenshot({ path: '.tmp/company-financial-mobile.png' });
+  await page.getByText('Historical view', { exact: true }).click();
   await page.getByLabel('Evidence available by (UTC)').fill('2020-01-01T00:00');
   await expect(price.getByRole('group')).toHaveCount(0);
   await expect(finances.getByRole('group')).toHaveCount(0);

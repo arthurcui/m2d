@@ -521,6 +521,8 @@ export async function researchRoutes(
             .min(4)
             .max(16 * 1024 * 1024),
           publishedAt: z.iso.datetime().nullable().default(null),
+          title: z.string().trim().min(1).max(180).optional(),
+          sourceUrl: sourceLinkSchema.shape.url.optional(),
           category: z.enum(['upload', 'analyst']).default('upload'),
         })
         .strict()
@@ -546,9 +548,9 @@ export async function researchRoutes(
             symbol: a.symbol,
             upload: {
               key: a.name,
-              title: a.name,
+              title: a.title ?? a.name,
               form: a.category === 'analyst' ? 'ANALYST' : 'UPLOAD',
-              url: null,
+              url: a.sourceUrl ?? null,
               publishedAt: a.publishedAt,
               mime: /\.pdf$/i.test(a.name) ? 'application/pdf' : 'text/plain',
               raw,

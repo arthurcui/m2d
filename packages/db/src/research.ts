@@ -88,7 +88,7 @@ export function createResearchRepository(pool: pg.Pool) {
     async import(id: string) {
       const row = (
         await pool.query(
-          `select id,symbol,provider,status,started_at,finished_at,document_ids,error from research_imports where id=$1`,
+          `select id,symbol,provider,status,started_at,finished_at,document_ids,error,added_count,reused_count,passage_count from research_imports where id=$1`,
           [id],
         )
       ).rows[0];
@@ -103,7 +103,7 @@ export function createResearchRepository(pool: pg.Pool) {
     async imports() {
       return (
         await pool.query(
-          `select id,symbol,provider,status,started_at,finished_at,document_ids,error from research_imports order by started_at desc limit 20`,
+          `select id,symbol,provider,status,started_at,finished_at,document_ids,error,added_count,reused_count,passage_count from research_imports order by started_at desc limit 20`,
         )
       ).rows;
     },
@@ -139,14 +139,17 @@ export function createResearchRepository(pool: pg.Pool) {
         );
         const companyId = c.rows[0]!.id;
         const ids: string[] = [];
+        let added = 0,
+          reused = 0;
         for (const s of sources) {
           const hash = createHash('sha256').update(s.raw).digest('hex');
           const duplicate = await client.query<{ id: string }>(
-            `select id from source_documents where company_id=$1 and provider=$2 and upstream_key=$3 and hash=$4`,
-            [companyId, provider, s.key, hash],
+            `select id from source_documents where company_id=$1 and provider=$2 and (upstream_key=$3 or ($2 in ('upload','analyst') and url is not distinct from $5::text)) and hash=$4 order by observed_at,id limit 1`,
+            [companyId, provider, s.key, hash, s.url],
           );
           if (duplicate.rows[0]) {
             ids.push(duplicate.rows[0].id);
+            reused++;
             continue;
           }
           const r = await client.query<{ id: string }>(
@@ -166,6 +169,7 @@ export function createResearchRepository(pool: pg.Pool) {
           );
           const documentId = r.rows[0]!.id;
           ids.push(documentId);
+          added++;
           // Bounded JSON recordsets keep large annual reports out of per-row round trips.
           await client.query(
             `insert into document_chunks(document_id,chunk_index,page,text) select $1,x.index,x.page,x.text from jsonb_to_recordset($2::jsonb) as x(index int,page int,text text)`,
@@ -199,9 +203,13 @@ export function createResearchRepository(pool: pg.Pool) {
             [documentId, JSON.stringify(findings)],
           );
         }
+        const passages = await client.query<{ count: number }>(
+          'select count(*)::int as count from document_chunks where document_id=any($1::uuid[])',
+          [ids],
+        );
         await client.query(
-          `update research_imports set status='completed',document_ids=$2,finished_at=now() where id=$1`,
-          [id, JSON.stringify(ids)],
+          `update research_imports set status='completed',document_ids=$2,added_count=$3,reused_count=$4,passage_count=$5,finished_at=now() where id=$1`,
+          [id, JSON.stringify(ids), added, reused, passages.rows[0]!.count],
         );
         await client.query('commit');
         return ids;

@@ -1,6 +1,6 @@
 # Public research sources (M4 extension)
 
-Research → select a ticker → **Sources**. Import a preset, browse its document links, or save a public HTTPS URL under a company. Saving a link does not fetch or index it. Imported evidence is shared by the user search screen and Agent, with source filters, passage citations and historical availability. No portfolio changes follow from research.
+Research → select a ticker → **Add research → Suggested sources** (or **From URL**). Import a preset, browse its document links, or save a public HTTPS URL under a company. Saving a link does not fetch or index it. Imported evidence is shared by the user search screen and Agent, with source filters, passage citations and historical availability. No portfolio changes follow from research.
 
 | Category                     | Included inputs                                                                                     | Important distinction                                                                                                                    |
 | ---------------------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
@@ -67,3 +67,5 @@ The official Fed meeting calendar and BLS current release calendar also download
 Final verification: 182 unit tests, 47 PostgreSQL/API integration tests and 33 Playwright tests passed. Formatting, lint, strict TypeScript checks, ERD consistency, Compose validation and all application image builds passed. The final local deployment passed desktop/mobile read-only checks with zero browser errors and all four services healthy. The recorded portfolio, holdings/cash and saved provider/analysis preferences were unchanged. A database backup was taken before the additive migration; live test documents stayed in disposable databases. The browser checks also exposed and fixed a pending-conversation-reset race that could erase the next typed message.
 
 See [Analyst Research](ANALYST_RESEARCH.md) for public bank sources, categorized uploads, cited fields and Agent comparisons.
+
+The unified Add research panel keeps browse results under their source, disables repeat operations until completion, and displays durable new/reused import counts. General market presets are collapsed separately from company-specific and saved sources. Exact duplicate uploads are also reused across filenames within the same company/category and attributed URL; changed public-source bytes remain versioned evidence.

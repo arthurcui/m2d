@@ -303,6 +303,9 @@ erDiagram
         timestamp_with_time_zone finished_at "nullable"
         jsonb document_ids
         text error "nullable"
+        integer added_count "nullable"
+        integer reused_count "nullable"
+        integer passage_count "nullable"
     }
     research_search_jobs {
         uuid id PK

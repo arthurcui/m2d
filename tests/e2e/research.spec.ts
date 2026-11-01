@@ -13,15 +13,25 @@ test('research imports, compares, searches and keeps its state and cited Agent d
     .getByRole('button', { name: 'Reset conversation', exact: true })
     .click();
   await page.getByLabel('Research ticker').fill(symbol);
+  await page.getByRole('button', { name: 'Add research', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Suggested sources', exact: true })
+    .click();
   await page.getByRole('button', { name: 'Load demo reports' }).click();
   const reports = page.locator('.research-documents .research-card');
   await expect(reports).toHaveCount(2, { timeout: 20000 });
-  await reports.nth(1).getByRole('button', { name: 'Use as before' }).click();
-  await reports.nth(0).getByRole('button', { name: 'Use as after' }).click();
+  await page.getByRole('button', { name: 'Close add research' }).click();
+  await page.getByRole('tab', { name: 'Documents', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Compare reports', exact: true })
+    .click();
+  await page.getByLabel('Earlier report').selectOption({ index: 2 });
+  await page.getByLabel('Newer report').selectOption({ index: 1 });
   await page.getByRole('button', { name: 'Compare selected reports' }).click();
   await expect(
     page.getByRole('region', { name: 'Report comparison' }),
   ).toContainText('Customer concentration');
+  await page.getByRole('tab', { name: 'Search', exact: true }).click();
   await page.getByLabel('Search stored evidence').fill('concentration');
   await page
     .getByRole('button', { name: 'Search documents', exact: true })
@@ -36,6 +46,10 @@ test('research imports, compares, searches and keeps its state and cited Agent d
     .first()
     .click();
   await expect(page.getByLabel('Research ticker')).toHaveValue(symbol);
+  await expect(
+    page.getByRole('tab', { name: 'Search', exact: true }),
+  ).toHaveAttribute('aria-selected', 'true');
+  await page.getByRole('tab', { name: 'Documents', exact: true }).click();
   await expect(
     page.getByRole('region', { name: 'Report comparison' }),
   ).toBeVisible();
@@ -61,10 +75,13 @@ test('research imports, compares, searches and keeps its state and cited Agent d
   await expect(
     page.getByRole('link', { name: 'Download preserved original' }),
   ).toBeVisible();
+  await page.getByText('Historical view', { exact: true }).click();
   await page.getByLabel('Evidence available by (UTC)').fill('2020-01-01T00:00');
   await expect(reports).toHaveCount(0);
   await page.getByRole('button', { name: 'Current view' }).click();
   await expect(reports).toHaveCount(2);
+  await page.getByRole('button', { name: 'Add research', exact: true }).click();
+  await page.getByRole('button', { name: 'Upload file', exact: true }).click();
   await page.getByLabel('Upload a company or fund document').setInputFiles({
     name: 'issuer-note.txt',
     mimeType: 'text/plain',

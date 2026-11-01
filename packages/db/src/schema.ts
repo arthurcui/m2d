@@ -626,11 +626,18 @@ export const researchImports = pgTable(
     finishedAt: utc('finished_at'),
     documentIds: jsonb('document_ids').$type<string[]>().notNull().default([]),
     error: text('error'),
+    addedCount: integer('added_count'),
+    reusedCount: integer('reused_count'),
+    passageCount: integer('passage_count'),
   },
   (t) => [
     check(
       'research_import_status',
       sql`${t.status} in ('running','completed','failed','interrupted')`,
+    ),
+    check(
+      'research_import_counts',
+      sql`(${t.addedCount} is null and ${t.reusedCount} is null and ${t.passageCount} is null) or (${t.addedCount} is not null and ${t.reusedCount} is not null and ${t.passageCount} is not null and ${t.addedCount} >= 0 and ${t.reusedCount} >= 0 and ${t.passageCount} >= 0 and ${t.status} = 'completed' and ${t.addedCount} + ${t.reusedCount} = jsonb_array_length(${t.documentIds}))`,
     ),
     index('research_import_symbol').on(t.symbol, t.startedAt),
   ],

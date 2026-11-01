@@ -196,3 +196,66 @@ it('answers a selected-company research question through the real chat orchestra
   expect(JSON.stringify(session)).toContain('/research?document=');
   expect((await db.portfolio.overview()).revision).toBe(0);
 });
+it('reports durable new/reused outcomes, deduplicates renamed uploads and preserves revisions and pasted metadata', async () => {
+  const before = (await db.portfolio.overview()).revision;
+  const base = {
+    version: 1,
+    symbol: 'PASTE',
+    name: 'note.txt',
+    title: 'Company note',
+    sourceUrl: 'https://example.com/report',
+    publishedAt: '2026-01-01T00:00:00Z',
+    contentBase64: Buffer.from(
+      'Revenue outlook is improving. Customer concentration remains a material risk.',
+    ).toString('base64'),
+  };
+  async function send(input: typeof base, id = randomUUID()) {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/research/upload',
+      payload: { ...input, idempotencyKey: id },
+    });
+    expect(response.statusCode, response.body).toBe(202);
+    await service.close();
+    return await db.research.import(id);
+  }
+  const id = randomUUID(),
+    first = await send(base, id);
+  expect(first).toMatchObject({
+    status: 'completed',
+    added_count: 1,
+    reused_count: 0,
+  });
+  expect(first.passage_count).toBeGreaterThan(0);
+  expect((await send(base, id)).document_ids).toEqual(first.document_ids);
+  const duplicate = await send({ ...base, name: 'renamed.txt' });
+  expect(duplicate).toMatchObject({ added_count: 0, reused_count: 1 });
+  expect(duplicate.document_ids).toEqual(first.document_ids);
+  const changed = await send({
+    ...base,
+    contentBase64: Buffer.from(
+      'Revenue guidance is lower. Customer concentration risk increased.',
+    ).toString('base64'),
+  });
+  expect(changed).toMatchObject({ added_count: 1, reused_count: 0 });
+  const docs = await db.research.timeline('PASTE');
+  expect(docs).toHaveLength(2);
+  expect(docs.map((d) => d.revision)).toEqual([2, 1]);
+  expect(docs[1]).toMatchObject({ title: 'Company note', url: base.sourceUrl });
+  const invalid = await app.inject({
+    method: 'POST',
+    url: '/api/v1/research/upload',
+    payload: {
+      ...base,
+      sourceUrl: 'javascript:alert(1)',
+      idempotencyKey: randomUUID(),
+    },
+  });
+  expect(invalid.statusCode).toBeGreaterThanOrEqual(400);
+  await expect(
+    db.pool.query('update research_imports set reused_count=-1 where id=$1', [
+      id,
+    ]),
+  ).rejects.toThrow();
+  expect((await db.portfolio.overview()).revision).toBe(before);
+});

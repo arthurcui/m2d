@@ -45,6 +45,7 @@ test('hybrid company search finds paraphrases, keeps filters and opens cited evi
     .getByRole('button', { name: 'Reset conversation', exact: true })
     .click();
   await page.getByLabel('Research ticker').fill(symbol);
+  await page.getByRole('tab', { name: 'Search', exact: true }).click();
   const search = page.getByRole('region', { name: 'Company evidence search' });
   await search.getByText('Search options', { exact: true }).click();
   await search.getByLabel('Search method').selectOption('keyword');
@@ -55,6 +56,7 @@ test('hybrid company search finds paraphrases, keeps filters and opens cited evi
     .getByRole('button', { name: 'Search documents', exact: true })
     .click();
   await expect(search).toContainText('0 matching passages');
+  await search.getByText('Search coverage', { exact: true }).click();
   await search
     .getByRole('button', { name: 'Build search index', exact: true })
     .click();
@@ -98,6 +100,23 @@ test('hybrid company search finds paraphrases, keeps filters and opens cited evi
   await expect(page.locator('.research-document')).toContainText(
     'Existing liquidity',
   );
+  await page.getByRole('tab', { name: 'Search', exact: true }).click();
+  await page
+    .getByRole('link', { name: 'Portfolio', exact: true })
+    .first()
+    .click();
+  await page
+    .getByRole('link', { name: 'Research', exact: true })
+    .first()
+    .click();
+  await expect(
+    page.getByRole('tab', { name: 'Search', exact: true }),
+  ).toHaveAttribute('aria-selected', 'true');
+  await search.getByRole('link', { name: 'Open cited passage' }).click();
+  await expect(
+    page.getByRole('tab', { name: 'Documents', exact: true }),
+  ).toHaveAttribute('aria-selected', 'true');
+  await page.getByRole('tab', { name: 'Search', exact: true }).click();
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(search.getByLabel('Search stored evidence')).toBeVisible();
   expect(
