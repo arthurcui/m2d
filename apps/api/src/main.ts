@@ -40,6 +40,14 @@ const marketProvider =
             process.env.TWELVE_DATA_API_KEY ?? '',
             config.MARKET_DELAY_MINUTES,
           );
+const listingProvider =
+  config.LISTING_PROVIDER === 'fixture'
+    ? new FixtureMarketProvider()
+    : config.LISTING_PROVIDER === 'massive'
+      ? new MassiveBasicProvider(process.env.MASSIVE_API_KEY ?? '', () =>
+          database.market.waitForMassiveRequest(),
+        )
+      : undefined;
 const app = buildApp(
   database.repository,
   config,
@@ -53,11 +61,13 @@ const app = buildApp(
     repository: database.market,
     ibkr,
     provider: marketProvider,
+    listingProvider,
     service: createMarketService(
       database.market,
       database.portfolio,
       marketProvider,
       config.BASE_CURRENCY,
+      listingProvider,
     ),
   },
 );

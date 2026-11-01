@@ -1,0 +1,2 @@
+ALTER TABLE "market_observations" DROP CONSTRAINT "market_kind";--> statement-breakpoint
+ALTER TABLE "market_observations" ADD CONSTRAINT "market_kind" CHECK ("market_observations"."kind" in ('quote','bars','fx','options','listing'));

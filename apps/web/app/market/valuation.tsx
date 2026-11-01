@@ -1,5 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState, useRef } from 'react';
+import { marketTime, marketApi } from './market-client';
+import { refreshListingDetails } from './listing-details';
 import type { Valuation } from '@m2d/market';
 import { isMarketSourceFailure, marketFailureMessage } from '@m2d/market';
 type FeedRequest =
@@ -12,34 +14,7 @@ export type ValuationView = Valuation & {
   provider: string;
   refreshIntervalMs: number;
 };
-export function marketTime(value: string | null) {
-  return value
-    ? new Date(value).toLocaleString('en-CA', {
-        timeZone: 'America/Vancouver',
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      }) + ' Vancouver'
-    : 'Unavailable';
-}
-export async function marketApi<T>(path: string, body?: unknown): Promise<T> {
-  const response = await fetch(
-    `/api/v1/${path}`,
-    body === undefined
-      ? { cache: 'no-store' }
-      : {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        },
-  );
-  const result = (await response.json()) as {
-    data: T;
-    error?: { message: string };
-  };
-  if (!response.ok)
-    throw new Error(result.error?.message ?? 'Market request failed.');
-  return result.data;
-}
+export { marketTime, marketApi } from './market-client';
 export function ValuationPanel() {
   const stop = useRef(false);
   const [value, setValue] = useState<ValuationView | null>(null);
@@ -97,7 +72,7 @@ export function ValuationPanel() {
         if (stop.current) break;
         const label =
           request.kind === 'quote'
-            ? `${request.instrument.symbol}${request.instrument.assetType === 'OPTION' ? ` ${request.instrument.expiry} ${request.instrument.strike} ${request.instrument.optionRight}` : ''} (${request.instrument.exchange})`
+            ? `${request.instrument.symbol}${request.instrument.assetType === 'OPTION' ? ` ${request.instrument.expiry} ${request.instrument.strike} ${request.instrument.optionRight}` : ''}${['UNKNOWN', 'US', 'SMART'].includes(request.instrument.exchange) ? '' : ` (${request.instrument.exchange})`}`
             : request.kind === 'options'
               ? `${request.symbol} ${request.expiry}`
               : `${request.base}/${request.quote}`;
@@ -126,6 +101,18 @@ export function ValuationPanel() {
         }
       }
       await load();
+      if (!stop.current && !halted) {
+        try {
+          await refreshListingDetails(setProgress, () => stop.current);
+        } catch (e) {
+          failures.push(
+            'Prices are kept. ' +
+              (e instanceof Error
+                ? e.message
+                : 'Listing details could not be refreshed.'),
+          );
+        }
+      }
       if (value.requests.length > 50)
         failures.push('Refresh limited to 50 sources.');
       setError(failures.join(' · '));

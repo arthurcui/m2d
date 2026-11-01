@@ -19,6 +19,8 @@ No new API key or OpenAI call is required. IBKR data entitlements and applicable
 - OAuth client registration and tokens are persisted in the API-only `ibkr_credentials` Docker volume, at `/app/data/credentials/ibkr.json`, with restrictive file modes and atomic replacement. The file is a secret, like `.env`: do not commit it, share it, mount it into the web service, or include it in an unprotected backup. Native development uses ignored repository `data/credentials/ibkr.json`; `IBKR_CREDENTIAL_PATH` can override the backend path. This is separate from portfolio/database backups. `docker compose down` preserves the volume; do not use `--volumes` on the real app.
 - Expiring tokens refresh on the next requested connection, without a background polling task. Expired/revoked grants require reconnecting. Disconnect removes local tokens and pending authorization; it does not revoke IBKR's server-side consent. Revoke that separately in **Client Portal → Settings → Manage Third-Party Consents**.
 
+Listing names and logos can separately use `LISTING_PROVIDER=massive` with the existing Massive key while IBKR remains the price provider. See [listing metadata setup](M3_MARKET.md#listing-names-and-logos). The initial IBKR MCP adapter does not provide company logos.
+
 ## Supported evidence and limits
 
 - Initial coverage is USD US-listed stocks/ETFs and standard 100-share equity options. FX and currency trading are not enabled. Missing non-USD conversion evidence leaves NAV incomplete.

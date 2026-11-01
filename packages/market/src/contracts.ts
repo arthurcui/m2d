@@ -28,6 +28,71 @@ export const evidenceSchema = z.object({
   quality: z.enum(['VALID', 'DELAYED', 'UNKNOWN', 'FIXTURE']),
   entitlement: z.string().max(200),
 });
+export const listingLookupSchema = z.object({
+  symbol: symbolSchema,
+  exchange: z.string().regex(/^[A-Z0-9.-]{1,20}$/),
+  currency,
+  assetType: z.enum(['STOCK', 'ETF', 'EQUITY']),
+});
+export type ListingLookup = z.infer<typeof listingLookupSchema>;
+export function listingLookup(instrument: Instrument): ListingLookup {
+  return {
+    symbol: instrument.underlying ?? instrument.symbol,
+    exchange:
+      instrument.assetType === 'OPTION' ? 'UNKNOWN' : instrument.exchange,
+    currency: instrument.currency,
+    assetType:
+      instrument.assetType === 'OPTION' ? 'EQUITY' : instrument.assetType,
+  };
+}
+export function listingKey(lookup: ListingLookup) {
+  return [
+    lookup.symbol,
+    lookup.exchange,
+    lookup.currency,
+    lookup.assetType,
+  ].join(':');
+}
+export const listingSchema = evidenceSchema.extend({
+  lookup: listingLookupSchema,
+  name: z.string().trim().min(1).max(500),
+  exchange: z.string().regex(/^[A-Z0-9.-]{1,20}$/),
+  assetType: z.enum(['STOCK', 'ETF']),
+  logo: z
+    .object({
+      mime: z.enum(['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml']),
+      base64: z
+        .string()
+        .min(4)
+        .max(350000)
+        .regex(/^[A-Za-z0-9+/]+={0,2}$/),
+    })
+    .nullable(),
+  logoIssue: z.enum(['NOT_PROVIDED', 'UNAVAILABLE']).nullable(),
+});
+export type Listing = z.infer<typeof listingSchema>;
+export function listingCacheMs(value: Listing) {
+  return value.logoIssue === 'UNAVAILABLE' ? 5 * 60000 : 7 * 86400000;
+}
+export type ListingView = Pick<
+  Listing,
+  | 'lookup'
+  | 'name'
+  | 'exchange'
+  | 'assetType'
+  | 'provider'
+  | 'asOf'
+  | 'logoIssue'
+> & {
+  id: string;
+  logoUrl: string | null;
+};
+export type ListingOverview = {
+  provider: string;
+  configured: boolean;
+  listings: Record<string, ListingView>;
+  requests: Array<{ kind: 'listing'; lookup: ListingLookup }>;
+};
 export const quoteSchema = evidenceSchema
   .extend({
     instrument: instrumentSchema,
@@ -95,6 +160,7 @@ export const optionSchema = z.object({
   openInterest: nonnegative.nullable(),
 });
 export const payloadSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('listing'), value: listingSchema }),
   z.object({ kind: z.literal('quote'), value: quoteSchema }),
   z.object({ kind: z.literal('bars'), value: z.array(barSchema).max(100) }),
   z.object({ kind: z.literal('fx'), value: fxSchema }),
@@ -126,6 +192,7 @@ export interface MarketProvider
   extends QuoteProvider, BarsProvider, FxProvider, OptionsProvider {
   id: 'fixture' | 'twelvedata' | 'massive' | 'ibkr';
   configured: boolean;
+  fetchListing?(lookup: ListingLookup): Promise<FeedResult>;
 }
 export class MarketError extends Error {
   constructor(

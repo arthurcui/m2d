@@ -29,6 +29,7 @@ export function buildApp(
   market?: {
     repository: MarketRepository;
     provider: MarketProvider;
+    listingProvider?: MarketProvider | undefined;
     service: MarketService;
     ibkr?: IbkrConnection;
   },

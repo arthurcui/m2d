@@ -8,6 +8,9 @@ import {
   MarketError,
   payloadSchema,
   symbolSchema,
+  listingLookupSchema,
+  listingKey,
+  listingCacheMs,
   massiveCompletedDate,
   newYorkDate,
   isMarketSourceFailure,
@@ -21,6 +24,7 @@ import {
 } from './schema.js';
 
 export const marketRequestSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('listing'), lookup: listingLookupSchema }),
   z.object({ kind: z.literal('quote'), instrument: instrumentSchema }),
   z.object({
     kind: z.literal('bars'),
@@ -36,13 +40,15 @@ export const marketRequestSchema = z.discriminatedUnion('kind', [
 ]);
 export type MarketRequest = z.infer<typeof marketRequestSchema>;
 export function marketSubject(r: MarketRequest) {
-  return r.kind === 'quote'
-    ? instrumentKey(r.instrument)
-    : r.kind === 'fx'
-      ? `${r.base}/${r.quote}`
-      : r.kind === 'options'
-        ? `${r.symbol}:${r.expiry}`
-        : `${r.symbol}:${r.exchange ?? 'NASDAQ'}`;
+  return r.kind === 'listing'
+    ? listingKey(r.lookup)
+    : r.kind === 'quote'
+      ? instrumentKey(r.instrument)
+      : r.kind === 'fx'
+        ? `${r.base}/${r.quote}`
+        : r.kind === 'options'
+          ? `${r.symbol}:${r.expiry}`
+          : `${r.symbol}:${r.exchange ?? 'NASDAQ'}`;
 }
 const hash = (v: unknown) =>
   createHash('sha256').update(JSON.stringify(v)).digest('hex');
@@ -134,6 +140,14 @@ export function createMarketRepository(pool: pg.Pool) {
         ? { id: row.id, payload: row.payload, availableAt: row.availableAt }
         : null;
     },
+    async listingLogo(id: string) {
+      const [row] = await db
+        .select({ payload: observations.payload })
+        .from(observations)
+        .where(and(eq(observations.id, id), eq(observations.kind, 'listing')))
+        .limit(1);
+      return row?.payload.kind === 'listing' ? row.payload.value.logo : null;
+    },
     async status(provider: string) {
       return db
         .select({
@@ -216,7 +230,7 @@ export function createMarketRepository(pool: pg.Pool) {
           );
         // Completed-day evidence is reusable across refreshes and restarts.
         // Historical versions stay immutable; new dates create new evidence.
-        if (provider.id === 'massive') {
+        if (provider.id === 'massive' || request.kind === 'listing') {
           const cached = (
             await rdb
               .select()
@@ -233,8 +247,12 @@ export function createMarketRepository(pool: pg.Pool) {
           )[0];
           if (
             cached &&
-            newYorkDate(Date.parse(cached.asOf)) ===
-              massiveCompletedDate(Date.now())
+            (request.kind === 'listing'
+              ? cached.payload.kind === 'listing' &&
+                Date.now() - Date.parse(cached.availableAt) <
+                  listingCacheMs(cached.payload.value)
+              : newYorkDate(Date.parse(cached.asOf)) ===
+                massiveCompletedDate(Date.now()))
           ) {
             const saved = (
               await rdb
@@ -289,16 +307,27 @@ export function createMarketRepository(pool: pg.Pool) {
             .returning()
         )[0]!;
         try {
-          const response = await (request.kind === 'quote'
-            ? provider.quote(request.instrument)
-            : request.kind === 'bars'
-              ? provider.bars(request.symbol, request.exchange)
-              : request.kind === 'fx'
-                ? provider.fx(request.base, request.quote)
-                : provider.options(request.symbol, request.expiry));
+          if (request.kind === 'listing' && !provider.fetchListing)
+            throw new MarketError(
+              'NO_COVERAGE',
+              'Listing metadata is unavailable for this provider.',
+            );
+          const response = await (request.kind === 'listing'
+            ? provider.fetchListing!(request.lookup)
+            : request.kind === 'quote'
+              ? provider.quote(request.instrument)
+              : request.kind === 'bars'
+                ? provider.bars(request.symbol, request.exchange)
+                : request.kind === 'fx'
+                  ? provider.fx(request.base, request.quote)
+                  : provider.options(request.symbol, request.expiry));
           const payload = payloadSchema.parse(response.payload);
           if (
             payload.kind !== request.kind ||
+            (payload.kind === 'listing' &&
+              request.kind === 'listing' &&
+              listingKey(payload.value.lookup) !==
+                listingKey(request.lookup)) ||
             (payload.kind === 'quote' &&
               request.kind === 'quote' &&
               instrumentKey(payload.value.instrument) !==
@@ -358,6 +387,8 @@ export function createMarketRepository(pool: pg.Pool) {
             provider: provider.id,
             request,
             raw: response.raw,
+            // Branding can change at a stable URL without a reference text change.
+            ...(payload.kind === 'listing' ? { logo: payload.value.logo } : {}),
           });
           const asOf = all
             .map((e) => e.asOf)

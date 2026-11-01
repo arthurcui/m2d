@@ -49,7 +49,10 @@ export const marketObservations = pgTable(
       'market_provider',
       sql`${t.provider} in ('fixture','twelvedata','massive','ibkr')`,
     ),
-    check('market_kind', sql`${t.kind} in ('quote','bars','fx','options')`),
+    check(
+      'market_kind',
+      sql`${t.kind} in ('quote','bars','fx','options','listing')`,
+    ),
     check(
       'market_observation_time',
       sql`${t.asOf} <= ${t.receivedAt} and ${t.receivedAt} <= ${t.availableAt}`,

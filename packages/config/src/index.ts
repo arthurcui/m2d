@@ -81,6 +81,7 @@ const configSchema = z.object({
     (v) => (v === '' ? undefined : v),
     z.string().min(1).optional(),
   ),
+  LISTING_PROVIDER: z.enum(['none', 'fixture', 'massive']).default('none'),
   MARKET_PROVIDER: z
     .enum(['fixture', 'twelvedata', 'massive', 'ibkr'])
     .default('fixture'),

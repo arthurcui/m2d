@@ -13,6 +13,12 @@ import {
   type FeedResult,
   type Evidence,
 } from './contracts.js';
+import { massiveBrandingUrl, readListingLogo } from './listing-logo.js';
+import {
+  listingLookupSchema,
+  type ListingLookup,
+  type Listing,
+} from './contracts.js';
 import { equitySession } from './calendar.js';
 
 const exchanges: Record<string, string> = {
@@ -53,6 +59,13 @@ const equityReference = z.object({
   status: z.literal('OK'),
   results: z.object({
     ticker: z.string(),
+    name: z.string().trim().min(1).max(500).optional(),
+    branding: z
+      .object({
+        icon_url: z.string().optional(),
+        logo_url: z.string().optional(),
+      })
+      .optional(),
     market: z.literal('stocks'),
     locale: z.literal('us'),
     primary_exchange: z.string(),
@@ -188,7 +201,7 @@ export class MassiveBasicProvider implements MarketProvider {
         'Massive Basic · end-of-day only · no live quotes, bid/ask or Greeks',
     };
   }
-  private async request(path: string, params: Record<string, string> = {}) {
+  private async pace() {
     if (!this.configured)
       throw new MarketError(
         'MARKET_NOT_CONFIGURED',
@@ -200,6 +213,9 @@ export class MassiveBasicProvider implements MarketProvider {
     if (wait > 0) await this.sleep(wait);
     await this.beforeRequest();
     this.nextCall = this.clock() + 13000;
+  }
+  private async request(path: string, params: Record<string, string> = {}) {
+    await this.pace();
     const url = new URL(path, 'https://api.massive.com');
     for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
     try {
@@ -288,6 +304,68 @@ export class MassiveBasicProvider implements MarketProvider {
     return {
       raw: response.raw,
       exchange: parsed.data.results.primary_exchange,
+      details: parsed.data.results,
+    };
+  }
+  async fetchListing(input: ListingLookup): Promise<FeedResult> {
+    const lookup = listingLookupSchema.parse(input);
+    if (lookup.currency !== 'USD')
+      throw new MarketError(
+        'NO_COVERAGE',
+        'Listing details cover USD US listings.',
+      );
+    const date = newYorkDate(this.clock());
+    const reference = await this.equity(
+      lookup.symbol,
+      lookup.exchange,
+      date,
+      lookup.assetType === 'EQUITY' ? undefined : lookup.assetType,
+    );
+    const details = reference.details;
+    if (!details.name || !['CS', 'ADRC', 'ETF'].includes(details.type))
+      throw new MarketError(
+        'NO_COVERAGE',
+        'No matching stock or ETF listing name.',
+      );
+    const url =
+      massiveBrandingUrl(details.branding?.icon_url) ??
+      massiveBrandingUrl(details.branding?.logo_url);
+    let logo: Listing['logo'] = null;
+    let logoIssue: Listing['logoIssue'] = 'NOT_PROVIDED';
+    if (url) {
+      try {
+        await this.pace();
+        logo = await readListingLogo(
+          await this.transport(url, {
+            headers: { Authorization: `Bearer ${this.key}` },
+            signal: AbortSignal.timeout(12000),
+            redirect: 'error',
+          }),
+        );
+        logoIssue = null;
+      } catch {
+        logoIssue = 'UNAVAILABLE';
+      }
+    }
+    const now = new Date(this.clock()).toISOString();
+    return {
+      raw: { reference: reference.raw, logoSource: url, logoIssue },
+      payload: {
+        kind: 'listing',
+        value: {
+          ...this.evidence(`listing:${lookup.symbol}:${date}`, now, 'UNKNOWN'),
+          quality: 'VALID',
+          delayedMinutes: null,
+          entitlement:
+            'Massive ticker reference; display metadata, not price evidence',
+          lookup,
+          name: details.name,
+          exchange: reference.exchange,
+          assetType: details.type === 'ETF' ? 'ETF' : 'STOCK',
+          logo,
+          logoIssue,
+        },
+      },
     };
   }
   async quote(input: Instrument): Promise<FeedResult> {

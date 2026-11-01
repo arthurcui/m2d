@@ -6,6 +6,7 @@ import {
   type MarketProvider,
   type Evidence,
   type FeedResult,
+  type ListingLookup,
 } from './contracts.js';
 const prices: Record<string, string> = {
   TSLA: '400',
@@ -32,6 +33,40 @@ export class FixtureMarketProvider implements MarketProvider {
       delayedMinutes: 15,
       quality: 'FIXTURE',
       entitlement: 'Synthetic offline examples; not market prices',
+    };
+  }
+  async fetchListing(lookup: ListingLookup): Promise<FeedResult> {
+    const names: Record<string, string> = {
+      TSLA: 'Tesla, Inc.',
+      NVDA: 'NVIDIA Corporation',
+      AAPL: 'Apple Inc.',
+      CRWV: 'CoreWeave, Inc.',
+      SPY: 'SPDR S&P 500 ETF Trust',
+      IBIT: 'iShares Bitcoin Trust ETF',
+      TSLL: 'Direxion Daily TSLA Bull 2X Shares',
+      OPEN: 'Opendoor Technologies Inc.',
+    };
+    if (!names[lookup.symbol] || lookup.currency !== 'USD')
+      throw new MarketError('NO_COVERAGE', 'No fixture listing.');
+    const value = {
+      ...this.evidence(`listing:${lookup.symbol}`),
+      lookup,
+      name: names[lookup.symbol]!,
+      exchange: lookup.exchange === 'UNKNOWN' ? 'NASDAQ' : lookup.exchange,
+      assetType: ['SPY', 'IBIT', 'TSLL'].includes(lookup.symbol)
+        ? ('ETF' as const)
+        : ('STOCK' as const),
+      logo: {
+        mime: 'image/svg+xml' as const,
+        base64: Buffer.from(
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect x="4" y="4" width="24" height="24" rx="6" fill="#23584a"/><path d="M9 22V10h4l3 6 3-6h4v12h-4v-6l-3 5-3-5v6z" fill="white"/></svg>',
+        ).toString('base64'),
+      },
+      logoIssue: null,
+    };
+    return {
+      payload: { kind: 'listing', value },
+      raw: { fixture: 'listing-v1', symbol: lookup.symbol },
     };
   }
   async quote(instrument: Instrument): Promise<FeedResult> {

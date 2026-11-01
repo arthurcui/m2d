@@ -1,5 +1,19 @@
 import { test, expect } from '@playwright/test';
 import type { Valuation } from '../../packages/market/src/index.js';
+test.beforeEach(async ({ page }) => {
+  await page.route('**/api/v1/portfolio/listings', (route) =>
+    route.fulfill({
+      json: {
+        data: {
+          provider: 'none',
+          configured: false,
+          listings: {},
+          requests: [],
+        },
+      },
+    }),
+  );
+});
 type ValuationView = Valuation & {
   provider: string;
   portfolioRevision: number;
@@ -74,6 +88,8 @@ test('portfolio refresh shows partial values immediately and continues past an u
   try {
     await expect.poll(() => sent.length).toBe(3);
     await expect(panel).toContainText('123.45 USD');
+    await expect(panel).toContainText('Refreshing TSLA · 3 of 3 sources');
+    await expect(panel).not.toContainText('(UNKNOWN)');
     await expect(panel.getByRole('alert')).toContainText('MISSING');
     await expect(panel.getByRole('alert')).toContainText('No price available');
   } finally {

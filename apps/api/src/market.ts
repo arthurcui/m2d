@@ -14,6 +14,11 @@ import {
   qualityAt,
   valuePortfolio,
   symbolSchema,
+  listingLookup,
+  listingKey,
+  listingCacheMs,
+  MarketError,
+  type ListingOverview,
   type MarketProvider,
   type Quote,
   type Fx,
@@ -24,8 +29,52 @@ export function createMarketService(
   portfolio: PortfolioRepository,
   provider: MarketProvider,
   baseCurrency: string,
+  listingProvider?: MarketProvider,
 ) {
   return {
+    async listings(): Promise<ListingOverview> {
+      const value: ListingOverview = {
+        provider: listingProvider?.id ?? 'none',
+        configured: listingProvider?.configured ?? false,
+        listings: {},
+        requests: [],
+      };
+      if (!listingProvider) return value;
+      const overview = await portfolio.overview();
+      const unique = new Map(
+        overview.state.positions
+          .filter((p) => p.quantity !== '0')
+          .map((p) => {
+            const lookup = listingLookup(p.instrument);
+            return [listingKey(lookup), lookup];
+          }),
+      );
+      for (const [key, lookup] of unique) {
+        const row = await repository.read(listingProvider.id, 'listing', key);
+        if (row?.payload.kind === 'listing') {
+          const v = row.payload.value;
+          value.listings[key] = {
+            id: row.id,
+            lookup: v.lookup,
+            name: v.name,
+            exchange: v.exchange,
+            assetType: v.assetType,
+            provider: v.provider,
+            asOf: v.asOf,
+            logoIssue: v.logoIssue,
+            logoUrl: v.logo ? `/api/v1/market/listings/${row.id}/logo` : null,
+          };
+        }
+        if (
+          !row ||
+          row.payload.kind !== 'listing' ||
+          Date.now() - Date.parse(row.availableAt) >=
+            listingCacheMs(row.payload.value)
+        )
+          value.requests.push({ kind: 'listing', lookup });
+      }
+      return value;
+    },
     async valuation() {
       const overview = await portfolio.overview();
       const requests: MarketRequest[] = [];
@@ -126,14 +175,15 @@ export async function marketRoutes(
   opts: {
     repository: MarketRepository;
     provider: MarketProvider;
+    listingProvider?: MarketProvider | undefined;
     service: MarketService;
     ibkr?: IbkrConnection;
   },
 ) {
   const { repository, provider, service } = opts;
-  const envelope = (data: unknown) => ({
+  const envelope = (data: unknown, source: string = provider.id) => ({
     data,
-    meta: { version: 1, asOf: new Date().toISOString(), source: provider.id },
+    meta: { version: 1, asOf: new Date().toISOString(), source },
   });
   app.addHook('onRequest', async (req, reply) => {
     if (req.method === 'GET') return;
@@ -145,6 +195,23 @@ export async function marketRoutes(
           message: 'Cross-origin market refresh rejected.',
         },
       });
+  });
+  app.get('/api/v1/portfolio/listings', async () =>
+    envelope(await service.listings(), opts.listingProvider?.id ?? 'none'),
+  );
+  app.get('/api/v1/market/listings/:id/logo', async (req, reply) => {
+    const { id } = z.object({ id: z.uuid() }).parse(req.params);
+    const logo = await repository.listingLogo(id);
+    if (!logo)
+      return reply.code(404).send({
+        error: { code: 'NO_LOGO', message: 'Listing logo unavailable.' },
+      });
+    return reply
+      .header('Content-Type', logo.mime)
+      .header('Cache-Control', 'private, max-age=86400, immutable')
+      .header('X-Content-Type-Options', 'nosniff')
+      .header('Content-Security-Policy', "default-src 'none'; sandbox")
+      .send(Buffer.from(logo.base64, 'base64'));
   });
   app.get('/api/v1/market/status', async () =>
     envelope(await service.status()),
@@ -214,8 +281,17 @@ export async function marketRoutes(
       })
       .strict()
       .parse(req.body);
+    const selected =
+      input.request.kind === 'listing' ? opts.listingProvider : provider;
+    if (!selected)
+      throw new MarketError(
+        'MARKET_NOT_CONFIGURED',
+        'Listing details are not configured. Set LISTING_PROVIDER in the backend environment.',
+        503,
+      );
     return envelope(
-      await repository.refresh(input.idempotencyKey, input.request, provider),
+      await repository.refresh(input.idempotencyKey, input.request, selected),
+      selected.id,
     );
   });
   app.get('/api/v1/market/quotes', async (req) => {

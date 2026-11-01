@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { beforeAll, afterAll, it, expect } from 'vitest';
+import { beforeAll, afterAll, it, expect, vi } from 'vitest';
 import { createDatabase } from '../packages/db/src/index.js';
 import { migrateDatabase } from '../packages/db/src/migrate.js';
 import {
@@ -369,4 +369,115 @@ it('persists IBKR evidence and pacing without changing portfolio state', async (
   );
   expect(gate.rows[0].reserved).toBe(true);
   expect((await db.portfolio.overview()).revision).toBe(0);
+});
+
+it('caches listing evidence and serves logos without changing the portfolio or price source', async () => {
+  const before = await db.portfolio.overview();
+  const lookup = {
+    symbol: 'TSLA',
+    exchange: 'NASDAQ',
+    currency: 'USD',
+    assetType: 'STOCK' as const,
+  };
+  let calls = 0;
+  class Listings extends FixtureMarketProvider {
+    override async fetchListing(input: typeof lookup) {
+      calls++;
+      const result = await super.fetchListing(input);
+      if (
+        calls > 1 &&
+        result.payload.kind === 'listing' &&
+        result.payload.value.logo
+      )
+        result.payload.value.logo.base64 = Buffer.from(
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" fill="green"/></svg>',
+        ).toString('base64');
+      return result;
+    }
+  }
+  const listings = new Listings();
+  const request = { kind: 'listing' as const, lookup };
+  const first = await db.market.refresh(randomUUID(), request, listings);
+  const cached = await db.market.refresh(randomUUID(), request, listings);
+  expect(cached).toMatchObject({
+    status: 'SUCCEEDED',
+    observationId: first.observationId,
+    cached: true,
+  });
+  expect(calls).toBe(1);
+  const realNow = Date.now();
+  const advanced = vi
+    .spyOn(Date, 'now')
+    .mockReturnValue(realNow + 8 * 86400000);
+  try {
+    const renewed = await db.market.refresh(randomUUID(), request, listings);
+    expect(renewed.status).toBe('SUCCEEDED');
+    expect(renewed.observationId).not.toBe(first.observationId);
+    expect(calls).toBe(2);
+  } finally {
+    advanced.mockRestore();
+  }
+  const portfolio = {
+    ...db.portfolio,
+    overview: async () => ({
+      ...before,
+      state: {
+        ...before.state,
+        positions: [
+          {
+            accountKey: 'TEST',
+            instrument,
+            quantity: '2',
+            averageCost: '100',
+            quality: 'COMPLETE_LEDGER' as const,
+            notes: '',
+            description: 'STOCK',
+          },
+        ],
+      },
+    }),
+  };
+  const withListings = createMarketService(
+    db.market,
+    portfolio,
+    provider,
+    'USD',
+    listings,
+  );
+  const api = buildApp(
+    db.repository,
+    readConfig({ DATABASE_URL: target.toString() }),
+    false,
+    db.portfolio,
+    undefined,
+    {
+      repository: db.market,
+      provider,
+      listingProvider: listings,
+      service: withListings,
+    },
+  );
+  try {
+    const response = await api.inject('/api/v1/portfolio/listings');
+    expect(response.statusCode).toBe(200);
+    const data = response.json().data;
+    expect(data.listings['TSLA:NASDAQ:USD:STOCK'].name).toBe('Tesla, Inc.');
+    expect(data.requests).toEqual([]);
+    expect(response.body).not.toContain('base64');
+    const image = await api.inject(
+      data.listings['TSLA:NASDAQ:USD:STOCK'].logoUrl,
+    );
+    expect(image.statusCode).toBe(200);
+    expect(image.headers['content-type']).toContain('image/svg+xml');
+    expect(image.headers['content-security-policy']).toContain('sandbox');
+    expect(image.body).toContain('<svg');
+    expect(
+      (await api.inject(`/api/v1/market/listings/${randomUUID()}/logo`))
+        .statusCode,
+    ).toBe(404);
+    expect(calls).toBe(2);
+    expect(await db.portfolio.overview()).toEqual(before);
+  } finally {
+    await api.close();
+  }
 });

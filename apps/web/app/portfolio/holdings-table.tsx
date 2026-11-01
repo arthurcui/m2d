@@ -1,6 +1,10 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { instrumentKey, type State } from '@m2d/portfolio';
+import { listingLookup, listingKey, type ListingOverview } from '@m2d/market';
+import { marketApi, marketTime } from '../market/market-client';
+import { refreshListingDetails } from '../market/listing-details';
+import { SecurityLogo } from './security-logo';
 export type HoldingSelection = {
   accountKey: string;
   instrumentKey?: string;
@@ -19,6 +23,45 @@ export function HoldingsTable({
   selected: HoldingSelection | null;
   onSelect: (holding: HoldingSelection) => void;
 }) {
+  const [metadata, setMetadata] = useState<ListingOverview | null>(null);
+  const [listingMessage, setListingMessage] = useState('');
+  const [listingError, setListingError] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+  const stopped = useRef(false);
+  const loadListings = useCallback(async () => {
+    try {
+      setMetadata(await marketApi<ListingOverview>('portfolio/listings'));
+    } catch {
+      setListingError(
+        'Listing details could not be loaded. Your recorded holdings are still available.',
+      );
+    }
+  }, []);
+  useEffect(() => {
+    stopped.current = false;
+    void loadListings();
+    window.addEventListener('m2d-listings-updated', loadListings);
+    return () => {
+      stopped.current = true;
+      window.removeEventListener('m2d-listings-updated', loadListings);
+    };
+  }, [loadListings, state]);
+  async function refreshListings() {
+    stopped.current = false;
+    setRefreshing(true);
+    setListingError('');
+    try {
+      setListingMessage(
+        await refreshListingDetails(setListingMessage, () => stopped.current),
+      );
+    } catch (e) {
+      setListingError(
+        e instanceof Error ? e.message : 'Listing refresh failed.',
+      );
+    } finally {
+      setRefreshing(false);
+    }
+  }
   const [search, setSearch] = useState('');
   const [collapsed, setCollapsed] = useState<string[]>([]);
   const query = search.trim().toLowerCase();
@@ -52,6 +95,39 @@ export function HoldingsTable({
           />
         </label>
       </div>
+      <div className="listing-details-note">
+        <span>
+          {metadata?.provider === 'fixture'
+            ? 'Synthetic listing names and demo logos'
+            : metadata?.provider === 'massive'
+              ? 'Listing names & logos · Massive'
+              : 'Listing details unavailable'}
+        </span>
+        {metadata?.configured && (
+          <button disabled={refreshing} onClick={() => void refreshListings()}>
+            Refresh listing details
+          </button>
+        )}
+        {refreshing && (
+          <button
+            onClick={() => {
+              stopped.current = true;
+            }}
+          >
+            Stop
+          </button>
+        )}
+      </div>
+      {listingMessage && (
+        <p className="listing-feedback" role="status">
+          {listingMessage}
+        </p>
+      )}
+      {listingError && (
+        <p className="notice listing-feedback" role="alert">
+          {listingError}
+        </p>
+      )}
       <div className="portfolio-metrics">
         <div>
           <strong>{state.accounts.filter((a) => a.active).length}</strong>
@@ -84,7 +160,7 @@ export function HoldingsTable({
               p.accountKey === a.accountKey &&
               p.quantity !== '0' &&
               (!query ||
-                `${p.instrument.symbol} ${p.description ?? ''} ${a.displayName}`
+                `${p.instrument.symbol} ${metadata?.listings[listingKey(listingLookup(p.instrument))]?.name ?? ''} ${a.displayName}`
                   .toLowerCase()
                   .includes(query)),
           );
@@ -144,6 +220,10 @@ export function HoldingsTable({
                       <tbody>
                         {positions.map((p) => {
                           const key = instrumentKey(p.instrument);
+                          const listing =
+                            metadata?.listings[
+                              listingKey(listingLookup(p.instrument))
+                            ];
                           const chosen =
                             selected?.accountKey === a.accountKey &&
                             selected.instrumentKey === key;
@@ -153,16 +233,26 @@ export function HoldingsTable({
                               className={chosen ? 'holding-selected' : ''}
                             >
                               <th>
-                                <span
-                                  className="security-monogram"
-                                  aria-hidden="true"
-                                >
-                                  {p.instrument.symbol.slice(0, 2)}
-                                </span>
+                                <SecurityLogo
+                                  key={listing?.logoUrl ?? key}
+                                  url={listing?.logoUrl ?? null}
+                                  name={listing?.name ?? p.instrument.symbol}
+                                  fund={
+                                    listing?.assetType === 'ETF' ||
+                                    p.instrument.assetType === 'ETF'
+                                  }
+                                />
                                 <span className="security-identity">
                                   <strong>{p.instrument.symbol}</strong>
-                                  <small>
-                                    {p.description || p.instrument.assetType}
+                                  <small
+                                    title={
+                                      listing
+                                        ? `${listing.provider} listing · retrieved ${marketTime(listing.asOf)}`
+                                        : 'Refresh listing details to look up this security.'
+                                    }
+                                  >
+                                    {listing?.name ??
+                                      'Listing name unavailable'}
                                   </small>
                                   {p.instrument.assetType === 'OPTION' && (
                                     <small>
