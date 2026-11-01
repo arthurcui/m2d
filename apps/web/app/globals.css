@@ -2125,3 +2125,123 @@ footer {
     display: none;
   }
 }
+
+/* Research uses the same restrained surfaces and typography as Portfolio. */
+.research-toolbar,
+.research-upload,
+.research-actions,
+.research-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  margin: 16px 0;
+}
+.research-toolbar label,
+.research-upload label {
+  flex: 1 1 210px;
+}
+.research-heading {
+  align-items: center;
+  justify-content: space-between;
+}
+.research-heading h2 {
+  margin: 0;
+}
+.research-documents {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 14px;
+}
+.research-card {
+  padding: 18px;
+  border: 1px solid #dbe4e3;
+  border-radius: 10px;
+  background: #fff;
+  min-width: 0;
+}
+.research-card h3 {
+  margin: 8px 0;
+  font-size: 1rem;
+}
+.research-link {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+.research-actions span {
+  font-size: 0.8rem;
+}
+.research-actions button[aria-pressed='true'] {
+  background: #0f534c;
+  color: white;
+}
+.research-comparison {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  max-height: 600px;
+  overflow: auto;
+}
+.research-comparison blockquote,
+.research-document blockquote {
+  margin: 12px 0;
+  padding: 12px;
+  border-left: 3px solid #9ebcb6;
+  background: #f4f8f7;
+}
+.research-comparison p,
+.research-passage p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.88rem;
+  line-height: 1.65;
+}
+.research-facts {
+  overflow: auto;
+  max-height: 440px;
+}
+.research-facts small {
+  display: block;
+}
+.research-document {
+  margin-top: 24px;
+  border-top: 1px solid #dbe4e3;
+  padding-top: 20px;
+}
+.research-passage {
+  padding: 12px 0;
+  border-bottom: 1px solid #e4eaea;
+  scroll-margin-top: 20px;
+}
+.research-passage:target {
+  background: #edf6f2;
+}
+.research-page details {
+  margin: 20px 0;
+}
+.research-page input {
+  max-width: 100%;
+}
+.research-page input[type='file'] {
+  font-size: 0.85rem;
+}
+.research-page .muted-label {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 800px) {
+  .research-comparison {
+    grid-template-columns: 1fr;
+  }
+  .research-toolbar,
+  .research-upload {
+    align-items: stretch;
+  }
+  .research-toolbar label,
+  .research-upload label {
+    flex-basis: 100%;
+  }
+}

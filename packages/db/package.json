@@ -20,7 +20,8 @@
     "pg": "^8.16.3",
     "@m2d/domain": "workspace:*",
     "decimal.js": "10.6.0",
-    "@m2d/llm": "workspace:*"
+    "@m2d/llm": "workspace:*",
+    "@m2d/research": "workspace:*"
   },
   "devDependencies": {
     "drizzle-kit": "0.31.11",

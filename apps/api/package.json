@@ -21,6 +21,7 @@
     "fastify": "5.12.7",
     "@m2d/agent": "workspace:*",
     "@m2d/llm": "workspace:*",
-    "decimal.js": "10.6.0"
+    "decimal.js": "10.6.0",
+    "@m2d/research": "workspace:*"
   }
 }

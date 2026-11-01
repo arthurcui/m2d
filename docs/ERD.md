@@ -2,7 +2,7 @@
 
 Generated from the implemented Drizzle schema. Run `pnpm docs:erd` after schema changes; `pnpm docs:erd:check` fails when this document is stale.
 
-This is the current M3 application schema. PostgreSQL also contains pg-boss-managed queue tables, which are maintained by pg-boss and omitted here. Historical baselines and interpretation results contain typed JSON snapshots; positions and cash below are the rebuildable current projections. Stable account IDs preserve history across display-name changes. Confirmed sheet aliases point back to the same account. Holding transaction dates are optional date-only metadata, not a reconstructed transaction ledger.
+This is the current M4 application schema. PostgreSQL also contains pg-boss-managed queue tables, which are maintained by pg-boss and omitted here. Historical baselines and interpretation results contain typed JSON snapshots; positions and cash below are the rebuildable current projections. Stable account IDs preserve history across display-name changes. Confirmed sheet aliases point back to the same account. Holding transaction dates are optional date-only metadata, not a reconstructed transaction ledger.
 
 The diagram shows declared database foreign keys. Logical references without a database foreign key (including revision baseline IDs, mapping preview IDs and JSON identifiers) are deliberately not drawn. Nullable attributes are marked in quotes.
 
@@ -77,11 +77,28 @@ erDiagram
         text currency
         numeric_30__12_ balance
     }
+    company_facts {
+        uuid id PK
+        uuid document_id FK
+        text metric
+        text unit
+        date period_start "nullable"
+        date period_end
+        numeric value
+        text accession
+        date filed
+    }
     demo_job_runs {
         uuid job_id PK
         text queue
         integer version
         timestamp_with_time_zone completed_at
+    }
+    document_chunks {
+        uuid document_id FK
+        integer chunk_index
+        integer page "nullable"
+        text text
     }
     instruments {
         text id PK
@@ -236,6 +253,48 @@ erDiagram
         text quality
         text notes
     }
+    research_companies {
+        uuid id PK
+        text symbol
+        text name
+        text cik "nullable"
+        timestamp_with_time_zone created_at
+    }
+    research_findings {
+        uuid id PK
+        uuid document_id FK
+        integer chunk_index
+        text claim
+        text category
+        text extractor_version
+    }
+    research_imports {
+        uuid id PK
+        text symbol
+        text provider
+        text fingerprint
+        text status
+        timestamp_with_time_zone started_at
+        timestamp_with_time_zone finished_at "nullable"
+        jsonb document_ids
+        text error "nullable"
+    }
+    source_documents {
+        uuid id PK
+        uuid company_id FK
+        text provider
+        text upstream_key
+        text title
+        text form
+        text url "nullable"
+        timestamp_with_time_zone published_at "nullable"
+        timestamp_with_time_zone observed_at
+        timestamp_with_time_zone available_at
+        text hash
+        integer revision
+        text mime
+        text raw_base64
+    }
     valuation_snapshots {
         uuid id PK
         text request_key
@@ -256,6 +315,8 @@ erDiagram
     portfolio_previews |o--o{ agent_runs : "preview_id"
     agent_runs ||--o{ agent_tool_calls : "run_id"
     accounts ||--o{ cash_projection : "account_key"
+    source_documents ||--o{ company_facts : "document_id"
+    source_documents ||--o{ document_chunks : "document_id"
     market_observations |o--o{ market_refreshes : "observation_id"
     accounts ||--o{ portfolio_account_aliases : "account_key"
     portfolio_imports ||--o{ portfolio_account_aliases : "source_import_id"
@@ -270,4 +331,6 @@ erDiagram
     portfolio_imports |o--o{ portfolio_previews : "import_id"
     accounts ||--o{ position_projection : "account_key"
     instruments ||--o{ position_projection : "instrument_id"
+    source_documents ||--o{ research_findings : "document_id"
+    research_companies ||--o{ source_documents : "company_id"
 ```

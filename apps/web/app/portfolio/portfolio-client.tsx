@@ -1,4 +1,8 @@
 'use client';
+import {
+  ResearchClient,
+  type ResearchContext,
+} from '../research/research-client';
 import Link from 'next/link';
 import { HoldingsTable, type HoldingSelection } from './holdings-table';
 import { ResizablePanels } from '../resizable-panels';
@@ -7,6 +11,7 @@ import { ValuationPanel } from '../market/valuation';
 import { agentContexts, submitAgentOnEnter } from '../agent-contexts';
 import { usePathname } from 'next/navigation';
 import {
+  Suspense,
   useEffect,
   useState,
   useRef,
@@ -218,6 +223,8 @@ function Changes({ changes }: { changes: Change[] }) {
   );
 }
 export function PortfolioClient({ children }: { children?: ReactNode }) {
+  const [researchContext, setResearchContext] =
+    useState<ResearchContext | null>(null);
   const pathname = usePathname();
   const context =
     agentContexts.find((context) => context.path === pathname) ??
@@ -259,6 +266,14 @@ export function PortfolioClient({ children }: { children?: ReactNode }) {
   ]);
   useEffect(() => {
     setAgentOpen(localStorage.getItem('m2d.agent.closed') !== 'true');
+  }, []);
+  useEffect(() => {
+    const open = () => {
+      setAgentOpen(true);
+      localStorage.setItem('m2d.agent.closed', 'false');
+    };
+    window.addEventListener('m2d:research-discuss', open);
+    return () => window.removeEventListener('m2d:research-discuss', open);
   }, []);
   const toggleAgent = (open: boolean) => {
     setAgentOpen(open);
@@ -506,6 +521,12 @@ export function PortfolioClient({ children }: { children?: ReactNode }) {
     <ResizablePanels open={agentOpen}>
       <div>
         <div>{children}</div>
+        <Suspense fallback={null}>
+          <ResearchClient
+            active={context.path === '/research'}
+            onContext={setResearchContext}
+          />
+        </Suspense>
         {!data && isPortfolio && (
           <div>
             <p role="status">{error || 'Loading portfolio…'}</p>
@@ -707,6 +728,9 @@ export function PortfolioClient({ children }: { children?: ReactNode }) {
                     : item.path === '/chat'
                       ? 'general'
                       : item.path.slice(1)
+                }
+                researchContext={
+                  item.path === '/research' ? researchContext : null
                 }
                 label={item.label}
                 active={item.path === context.path}

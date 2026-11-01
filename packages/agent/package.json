@@ -15,7 +15,8 @@
     "@m2d/ingestion": "workspace:*",
     "@m2d/portfolio": "workspace:*",
     "zod": "^4.1.12",
-    "decimal.js": "10.6.0"
+    "decimal.js": "10.6.0",
+    "@m2d/research": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^24.10.0"

@@ -1,3 +1,4 @@
+import type { ResearchService } from './research.js';
 import type { FastifyInstance } from 'fastify';
 import type { MarketService } from './market.js';
 import { z } from 'zod';
@@ -29,6 +30,7 @@ export async function chatRoutes(
     key,
     provider: override,
     market,
+    research,
   }: {
     repository: ChatRepository;
     portfolio: PortfolioRepository;
@@ -36,6 +38,7 @@ export async function chatRoutes(
     key?: string;
     provider?: LlmProvider;
     market?: MarketService;
+    research?: ResearchService;
   },
 ) {
   const running = new Map<
@@ -217,7 +220,9 @@ export async function chatRoutes(
     const claimed = await r.claim({
       context: ctx,
       requestKey: input.idempotencyKey,
-      message: input.message,
+      message: input.researchContext
+        ? `Research context: ${input.researchContext.symbol}${input.researchContext.at ? '; evidence available by ' + input.researchContext.at : ''}.\n${input.message}`
+        : input.message,
       ...(input.holdingContext
         ? {
             holdingContext: {
@@ -282,10 +287,25 @@ export async function chatRoutes(
             mode,
             limits,
             signal: controller.signal,
+            ...(ctx === 'research'
+              ? {
+                  researchScope: {
+                    ...(input.researchContext?.at
+                      ? { at: input.researchContext.at }
+                      : {}),
+                  },
+                }
+              : {}),
             ...(continuation ? { continuation } : {}),
           },
           {
             overview: () => portfolio.overview(),
+            ...(research
+              ? {
+                  research: (name: string, args: unknown) =>
+                    research.tool(name, args, input.researchContext?.at),
+                }
+              : {}),
             ...(market ? { valuation: () => market.valuation() } : {}),
             preview: async (data) => {
               const preview = await portfolio.preview(data);

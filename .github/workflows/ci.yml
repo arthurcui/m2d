@@ -17,6 +17,7 @@ jobs:
     env:
       MARKET_PROVIDER: fixture
       LISTING_PROVIDER: fixture
+      RESEARCH_PROVIDER: fixture
       LLM_PROVIDER: fixture
       LLM_MODEL: fixture-v1
       TEST_DATABASE_URL: postgresql://m2d:test-only@localhost:5432/m2d_test

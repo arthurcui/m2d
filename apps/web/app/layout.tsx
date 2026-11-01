@@ -29,7 +29,7 @@ export default function Layout({
           <div className="content">
             <header>
               <span>Move · Motive · Decision</span>
-              <span className="badge">M2 · Portfolio Agent</span>
+              <span className="badge">M4 · Research</span>
             </header>
             <main id="main">
               <MarketDataProvider>

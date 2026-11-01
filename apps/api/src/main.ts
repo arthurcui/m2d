@@ -1,3 +1,5 @@
+import { createResearchService } from './research.js';
+import { FixtureResearchProvider, SecResearchProvider } from '@m2d/research';
 import { readConfig } from '@m2d/config';
 import { fileURLToPath } from 'node:url';
 import { createDatabase } from '@m2d/db';
@@ -48,6 +50,12 @@ const listingProvider =
   config.LISTING_PROVIDER === 'none'
     ? undefined
     : providers[config.LISTING_PROVIDER];
+const research = createResearchService(
+  database.research,
+  config.RESEARCH_PROVIDER === 'sec'
+    ? new SecResearchProvider(config.SEC_USER_AGENT)
+    : new FixtureResearchProvider(),
+);
 const app = buildApp(
   database.repository,
   config,
@@ -56,6 +64,7 @@ const app = buildApp(
   {
     key: process.env.OPENAI_API_KEY ?? '',
     chat: database.chat,
+    research,
   },
   {
     repository: database.market,
@@ -85,6 +94,7 @@ for (const signal of ['SIGINT', 'SIGTERM'])
     void shutdown();
   });
 try {
+  await database.research.recover();
   await database.chat.recover();
   await database.market.recover();
   await app.listen({ host: config.API_HOST, port: config.API_PORT });

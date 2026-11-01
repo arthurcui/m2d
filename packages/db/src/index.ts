@@ -1,3 +1,5 @@
+import { createResearchRepository } from './research.js';
+export { type ResearchRepository, type ResearchDocument } from './research.js';
 import { createChatRepository } from './chat.js';
 import { createMarketRepository } from './market.js';
 export { marketRequestSchema, marketSubject } from './market.js';
@@ -90,6 +92,7 @@ export function createDatabase(connectionString: string) {
     portfolio: createPortfolioRepository(pool),
     chat: createChatRepository(pool),
     market: createMarketRepository(pool),
+    research: createResearchRepository(pool),
     close: () => pool.end(),
   };
 }

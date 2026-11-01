@@ -60,6 +60,37 @@ export class ChatFixtureProvider implements LlmProvider {
       user?.kind === 'text' &&
       /\b(nav|valuation|portfolio worth|unrealized)\b/i.test(user.text) &&
       !/\b(buy|bought|sell|sold)\b/i.test(user.text);
+    const researchQuestion =
+      user?.kind === 'text' &&
+      /Research context:|stored research|research documents/i.test(user.text);
+    if (researchQuestion) {
+      const symbol = (
+        /Research context: ([A-Z0-9.-]+)/.exec(user.text)?.[1] ?? 'TSLA'
+      ).replace(/\.$/, '');
+      if (!result)
+        return call('research_search_documents_v1', {
+          symbol,
+          query: 'revenue OR risk OR outlook',
+        });
+      const rows = Array.isArray(result.output)
+        ? (result.output as {
+            id: string;
+            title: string;
+            text: string;
+            chunk_index: number;
+            provider: string;
+            available_at: string;
+          }[])
+        : [];
+      const source = rows[0];
+      return source
+        ? reply(
+            `Synthetic fixture research. The retrieved source states: ${source.text.slice(0, 220)} [${source.title}](/research?document=${source.id}#chunk-${source.chunk_index}). Available: ${source.available_at}. This quote is evidence, not a trading recommendation. Interpretation: inspect the changed outlook and concentration risks before deciding. NO_SIGNAL: no executable strategy is evaluated.`,
+          )
+        : reply(
+            'NO_SIGNAL: No matching stored research. Import reports on Research first.',
+          );
+    }
     if (!result)
       return call(
         valuationQuestion ? 'market_valuation_read_v1' : 'portfolio_read_v1',

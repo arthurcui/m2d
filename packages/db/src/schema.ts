@@ -11,6 +11,7 @@ import {
   date,
   primaryKey,
   index,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import type {
@@ -494,5 +495,138 @@ export const marketProviderLimits = pgTable(
   },
   (t) => [
     check('market_limit_provider', sql`${t.provider} in ('massive','ibkr')`),
+  ],
+);
+
+export const researchCompanies = pgTable('research_companies', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  symbol: text('symbol').notNull().unique(),
+  name: text('name').notNull(),
+  cik: text('cik'),
+  createdAt: utc('created_at').notNull().defaultNow(),
+});
+export const sourceDocuments = pgTable(
+  'source_documents',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    companyId: uuid('company_id')
+      .notNull()
+      .references(() => researchCompanies.id),
+    provider: text('provider').notNull(),
+    upstreamKey: text('upstream_key').notNull(),
+    title: text('title').notNull(),
+    form: text('form').notNull(),
+    url: text('url'),
+    publishedAt: utc('published_at'),
+    observedAt: utc('observed_at').notNull(),
+    availableAt: utc('available_at').notNull(),
+    hash: text('hash').notNull(),
+    revision: integer('revision').notNull(),
+    mime: text('mime').notNull(),
+    rawBase64: text('raw_base64').notNull(),
+  },
+  (t) => [
+    uniqueIndex('source_document_content').on(
+      t.companyId,
+      t.provider,
+      t.upstreamKey,
+      t.hash,
+    ),
+    uniqueIndex('source_document_revision').on(
+      t.companyId,
+      t.provider,
+      t.upstreamKey,
+      t.revision,
+    ),
+    check('source_provider', sql`${t.provider} in ('fixture','sec','upload')`),
+    check('source_revision', sql`${t.revision}>0`),
+    check(
+      'source_available',
+      sql`${t.availableAt}>=${t.observedAt} and (${t.publishedAt} is null or ${t.availableAt}>=${t.publishedAt})`,
+    ),
+    index('source_company_available').on(t.companyId, t.availableAt),
+  ],
+);
+export const documentChunks = pgTable(
+  'document_chunks',
+  {
+    documentId: uuid('document_id')
+      .notNull()
+      .references(() => sourceDocuments.id),
+    chunkIndex: integer('chunk_index').notNull(),
+    page: integer('page'),
+    text: text('text').notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.documentId, t.chunkIndex] }),
+    index('document_search').using(
+      'gin',
+      sql`to_tsvector('english',${t.text})`,
+    ),
+    check('chunk_index_nonnegative', sql`${t.chunkIndex}>=0`),
+    check('chunk_page_positive', sql`${t.page} is null or ${t.page}>0`),
+  ],
+);
+export const companyFacts = pgTable(
+  'company_facts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    documentId: uuid('document_id')
+      .notNull()
+      .references(() => sourceDocuments.id),
+    metric: text('metric').notNull(),
+    unit: text('unit').notNull(),
+    periodStart: date('period_start'),
+    periodEnd: date('period_end').notNull(),
+    value: numeric('value').notNull(),
+    accession: text('accession').notNull(),
+    filed: date('filed').notNull(),
+  },
+  (t) => [
+    index('fact_document_metric').on(t.documentId, t.metric),
+    check(
+      'fact_period',
+      sql`${t.periodStart} is null or ${t.periodStart}<=${t.periodEnd}`,
+    ),
+  ],
+);
+export const researchFindings = pgTable(
+  'research_findings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    documentId: uuid('document_id')
+      .notNull()
+      .references(() => sourceDocuments.id),
+    chunkIndex: integer('chunk_index').notNull(),
+    claim: text('claim').notNull(),
+    category: text('category').notNull(),
+    extractorVersion: text('extractor_version').notNull(),
+  },
+  (t) => [
+    check(
+      'finding_category',
+      sql`${t.category} in ('guidance','risk','business','financial')`,
+    ),
+  ],
+);
+export const researchImports = pgTable(
+  'research_imports',
+  {
+    id: uuid('id').primaryKey(),
+    symbol: text('symbol').notNull(),
+    provider: text('provider').notNull(),
+    fingerprint: text('fingerprint').notNull(),
+    status: text('status').notNull(),
+    startedAt: utc('started_at').notNull().defaultNow(),
+    finishedAt: utc('finished_at'),
+    documentIds: jsonb('document_ids').$type<string[]>().notNull().default([]),
+    error: text('error'),
+  },
+  (t) => [
+    check(
+      'research_import_status',
+      sql`${t.status} in ('running','completed','failed','interrupted')`,
+    ),
+    index('research_import_symbol').on(t.symbol, t.startedAt),
   ],
 );

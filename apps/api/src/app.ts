@@ -1,3 +1,5 @@
+import { researchRoutes, type ResearchService } from './research.js';
+import { ResearchError } from '@m2d/research';
 import { chatRoutes } from './chat.js';
 import { marketRoutes, type MarketService } from './market.js';
 import type { MarketSelection } from './market-selection.js';
@@ -26,7 +28,12 @@ export function buildApp(
   config: Config,
   logger = false,
   portfolio?: PortfolioRepository,
-  aiOptions?: { key?: string; provider?: LlmProvider; chat?: ChatRepository },
+  aiOptions?: {
+    key?: string;
+    provider?: LlmProvider;
+    chat?: ChatRepository;
+    research?: ResearchService;
+  },
   market?: {
     repository: MarketRepository;
     provider: MarketProvider;
@@ -50,7 +57,7 @@ export function buildApp(
     dataQuality: 'OPERATIONAL' as const,
   });
   app.setErrorHandler((error, _request, reply) => {
-    if (error instanceof MarketError)
+    if (error instanceof MarketError || error instanceof ResearchError)
       return reply.code(error.status).send({
         error: { code: error.code, message: error.message },
         meta: meta(),
@@ -106,11 +113,14 @@ export function buildApp(
   if (portfolio && workbookAi)
     app.register(portfolioRoutes, { repository: portfolio, workbookAi });
   if (market) app.register(marketRoutes, market);
+  if (aiOptions?.research)
+    app.register(researchRoutes, { service: aiOptions.research });
   if (portfolio && aiOptions?.chat)
     app.register(chatRoutes, {
       repository: aiOptions.chat,
       portfolio,
       config,
+      ...(aiOptions.research ? { research: aiOptions.research } : {}),
       ...(market ? { market: market.service } : {}),
       ...(aiOptions.key ? { key: aiOptions.key } : {}),
       ...(aiOptions.provider ? { provider: aiOptions.provider } : {}),

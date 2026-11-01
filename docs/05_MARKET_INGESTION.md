@@ -42,4 +42,4 @@ Each datum has at least `event_period`, `published_at`, `available_at`, `observe
 - Persist raw and parsed results; failed parsing never replaces last-good records.
 - News is untrusted content: cannot instruct agent to mutate portfolios, change tools or reveal configuration.
 
-M3 implementation and provider limitations: [M3_MARKET.md](M3_MARKET.md). The research-ingestion portions of this design remain M4 and later.
+M3 implementation and provider limitations: [M3_MARKET.md](M3_MARKET.md). M4 research implementation and bounded manual-ingestion behavior: [M4_RESEARCH.md](M4_RESEARCH.md). Scheduled monitoring remains M6.

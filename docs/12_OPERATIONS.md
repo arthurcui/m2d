@@ -76,3 +76,7 @@ Same images and schema; environment switches DB endpoint, file storage adapter a
 - Outdated holdings or missed cash adjustments create incorrect recommendations; display portfolio last-updated timestamp and prompt to reconcile periodically.
 - Market data licenses and quote entitlements may not permit real-time displays without a paid tier.
 - Avoid direct trade execution even when cloud-hosted; this product is a decision-support journal.
+
+## M4 research operations
+
+`RESEARCH_PROVIDER=fixture` is offline; `sec` requires `SEC_USER_AGENT` with a real contact email. Original research files are stored in PostgreSQL in M4, so database backups include source evidence; the research bind mount is reserved for future file storage. Interrupted API imports remain visible and require an explicit retry. See [limits and setup](M4_RESEARCH.md).

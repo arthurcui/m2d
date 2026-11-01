@@ -71,3 +71,7 @@ flowchart TD
 - `FileStore` interface makes cloud object storage optional; PostgreSQL can be local or managed.
 - If remotely deployed, keep the web interface behind private networking; defer public identity/account framework.
 - Only local default web port mapped to `127.0.0.1`, DB private to compose network.
+
+## M4 implementation boundary
+
+See [M4 research](M4_RESEARCH.md) and ADR-041. Explicit research imports run as bounded API background tasks with durable statuses; PDF extraction uses an isolated child process. Originals are stored transactionally in PostgreSQL, rather than the planned file store. The existing independent worker remains operational; scheduled research monitoring and the worker-based research pipeline are future work. No M5/M6 services are introduced.

@@ -1,4 +1,6 @@
 'use client';
+import Link from 'next/link';
+import type { ResearchContext } from './research/research-client';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Change } from '@m2d/portfolio';
 import type { HoldingSelection } from './portfolio/holdings-table';
@@ -82,6 +84,7 @@ export function AgentChat({
   disabled = false,
   selectedHolding = null,
   onClearHolding,
+  researchContext = null,
 }: {
   context: string;
   label: string;
@@ -89,7 +92,21 @@ export function AgentChat({
   disabled?: boolean;
   selectedHolding?: HoldingSelection | null;
   onClearHolding?: () => void;
+  researchContext?: ResearchContext | null;
 }) {
+  useEffect(() => {
+    if (context !== 'research') return;
+    const receive = (e: Event) => {
+      const message = (e as CustomEvent<unknown>).detail;
+      if (typeof message === 'string') {
+        setDraft(message);
+        draftEdited.current = true;
+        localStorage.setItem('m2d:chat-draft:research', message);
+      }
+    };
+    window.addEventListener('m2d:research-discuss', receive);
+    return () => window.removeEventListener('m2d:research-discuss', receive);
+  }, [context]);
   const [session, setSession] = useState<Session | null>(null),
     [draft, setDraft] = useState(''),
     [mode, setMode] = useState<Mode>('standard'),
@@ -257,6 +274,7 @@ export function AgentChat({
           : {
               idempotencyKey: crypto.randomUUID(),
               message: message.trim(),
+              ...(researchContext ? { researchContext } : {}),
               analysisMode: mode,
               ...(selectedHolding
                 ? {
@@ -357,14 +375,22 @@ export function AgentChat({
         }}
       >
         <div role="log" aria-label={`${label} conversation`}>
+          {researchContext && (
+            <p className="message-holding-context">
+              Research · {researchContext.symbol}
+              {researchContext.at
+                ? ` · available by ${researchContext.at}`
+                : ''}
+            </p>
+          )}
           <div className="agent-message">
             <strong>Agent</strong>
             <p>
               Ask about your recorded portfolio or describe a change. I will ask
-              for missing details and show a preview before you confirm. Market
-              research is not available yet. Stored market valuation is
-              available with source and freshness labels; it is not an execution
-              quote.
+              for missing details and show a preview before you confirm.
+              Research documents can be imported on Research and discussed with
+              citations. Stored market valuation is available with source and
+              freshness labels; it is not an execution quote.
             </p>
           </div>
           {session?.history
@@ -385,7 +411,7 @@ export function AgentChat({
                     · {item.holdingContext.accountKey}
                   </small>
                 )}
-                <p>{item.text}</p>
+                <p>{researchLinks(item.text ?? '')}</p>
               </div>
             ))}
           {live && (
@@ -678,4 +704,24 @@ export function AgentChat({
       </form>
     </section>
   );
+}
+
+function researchLinks(text: string) {
+  return text
+    .split(
+      /(\[[^\]\n]{1,200}\]\(\/research\?document=[0-9a-f-]{36}(?:#chunk-\d+)?\))/g,
+    )
+    .map((part, i) => {
+      const m =
+        /^\[([^\]]+)\]\((\/research\?document=[0-9a-f-]{36}(?:#chunk-\d+)?)\)$/.exec(
+          part,
+        );
+      return m ? (
+        <Link key={i} href={m[2]!}>
+          {m[1]}
+        </Link>
+      ) : (
+        part
+      );
+    });
 }
