@@ -135,3 +135,5 @@ Many broker/platform accounts each own cash and holdings. Holding imports requir
 ### Shared Agent and schema documentation
 
 Agent is available throughout the app; M1 handles portfolio imports and clarification. Navigation preserves unfinished portfolio work. New account tabs require a new-account or rename choice; renames preserve stable IDs and history. Holdings optionally include an ISO transaction date. See [the generated database ERD](docs/ERD.md) and [M1 behavior](docs/M1_PORTFOLIO.md). Run `pnpm docs:erd` after schema edits; CI checks the diagram for drift.
+
+See [Analyst Research](docs/ANALYST_RESEARCH.md) for public bank sources, categorized uploads, cited fields and Agent comparisons.

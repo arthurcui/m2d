@@ -196,3 +196,49 @@ it('keeps pre-extension request fingerprints replayable', async () => {
     service.start({ symbol, idempotencyKey: id }),
   ).resolves.toMatchObject({ status: 'failed' });
 });
+
+it('stores analyst uploads as opinions with exact cited fields, revisions and source filtering', async () => {
+  const upload = {
+    version: 1,
+    symbol: 'ANALYST',
+    name: 'broker-report.txt',
+    category: 'analyst',
+    idempotencyKey: randomUUID(),
+    contentBase64: Buffer.from(
+      'Publisher: Example Research\nAnalyst: Sample Author\nRating: Buy\nPrice target: $200\nRisks: Demand could weaken.',
+    ).toString('base64'),
+  };
+  const send = () =>
+    app.inject({
+      method: 'POST',
+      url: '/api/v1/research/upload',
+      payload: upload,
+    });
+  expect((await send()).statusCode).toBe(202);
+  await service.close();
+  const original = (await db.research.timeline('ANALYST'))[0]!;
+  expect(original.provider).toBe('analyst');
+  const doc = await db.research.document(original.id);
+  expect(
+    doc.analyst!.fields.find((f) => f.field === 'rating')!.excerpts[0]!.text,
+  ).toBe('Rating: Buy');
+  expect(
+    doc.analyst!.fields.find((f) => f.field === 'currency')!.excerpts,
+  ).toEqual([]);
+  await send();
+  await service.close();
+  expect(await db.research.timeline('ANALYST')).toHaveLength(1);
+  expect(
+    (
+      await search.search({
+        symbol: 'ANALYST',
+        query: 'Demand',
+        source: 'analyst',
+        mode: 'keyword',
+      })
+    ).hits.length,
+  ).toBeGreaterThan(0);
+  await expect(
+    db.research.document(original.id, '2020-01-01T00:00:00Z'),
+  ).rejects.toMatchObject({ code: 'DOCUMENT_NOT_AVAILABLE' });
+});

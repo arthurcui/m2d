@@ -65,3 +65,5 @@ OCC directory and memo requests returned HTTP 403, so live OCC ingestion is **no
 The official Fed meeting calendar and BLS current release calendar also downloaded and parsed successfully (11 and 6 passages respectively); these are research snapshots, not automated reminders.
 
 Final verification: 182 unit tests, 47 PostgreSQL/API integration tests and 33 Playwright tests passed. Formatting, lint, strict TypeScript checks, ERD consistency, Compose validation and all application image builds passed. The final local deployment passed desktop/mobile read-only checks with zero browser errors and all four services healthy. The recorded portfolio, holdings/cash and saved provider/analysis preferences were unchanged. A database backup was taken before the additive migration; live test documents stayed in disposable databases. The browser checks also exposed and fixed a pending-conversation-reset race that could erase the next typed message.
+
+See [Analyst Research](ANALYST_RESEARCH.md) for public bank sources, categorized uploads, cited fields and Agent comparisons.

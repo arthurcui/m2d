@@ -542,7 +542,7 @@ export const sourceDocuments = pgTable(
     ),
     check(
       'source_provider',
-      sql`${t.provider} in ('fixture','sec','upload','ir','fund','occ','macro','news')`,
+      sql`${t.provider} in ('fixture','sec','upload','ir','fund','occ','macro','news','analyst')`,
     ),
     check('source_revision', sql`${t.revision}>0`),
     check(
@@ -650,7 +650,7 @@ export const researchSourceLinks = pgTable(
     uniqueIndex('research_source_link_unique').on(t.symbol, t.kind, t.url),
     check(
       'research_link_kind',
-      sql`${t.kind} in ('ir','fund','occ','macro','news')`,
+      sql`${t.kind} in ('ir','fund','occ','macro','news','analyst')`,
     ),
     check('research_link_symbol', sql`${t.symbol} ~ '^[A-Z0-9.-]{1,24}$'`),
     check('research_link_name', sql`length(${t.name}) between 1 and 150`),

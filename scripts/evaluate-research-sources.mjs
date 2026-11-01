@@ -22,7 +22,9 @@ import { buildApp } from '../apps/api/dist/app.js';
 
 // Explicit opt-in; isolated databases only. No portfolio information is read or sent.
 const live = process.argv.includes('--live');
-if (process.argv.slice(2).some((arg) => arg !== '--live'))
+const analyst = process.argv.includes('--analyst');
+const scope = analyst ? 'NVDA' : 'TSLL';
+if (process.argv.slice(2).some((arg) => !['--live', '--analyst'].includes(arg)))
   throw new Error('Only --live is supported.');
 const url = process.env.TEST_DATABASE_URL;
 if (!url)
@@ -83,7 +85,7 @@ const app = buildApp(db.repository, config, false, db.portfolio, {
   key: live ? key : '',
 });
 const presets = sourcePresets('TSLA', sources.newsConfigured);
-const selected = [
+let selected = [
   'tesla-q3-2026',
   'fed-calendar',
   'bls-calendar',
@@ -99,6 +101,17 @@ selected.push({
   name: 'Direxion TSLL/TSLS fact sheet',
 });
 selected.push(sourcePresets('NVDA', false).find((p) => p.id === 'nvidia-ir'));
+if (analyst)
+  selected = [
+    {
+      id: 'goldman-article',
+      symbol: scope,
+      kind: 'analyst',
+      name: 'Goldman Sachs public AI research',
+      url: 'https://www.goldmansachs.com/insights/articles/competition-among-chinas-ai-models-is-intensifying-as-chip-sector-advances',
+      configured: true,
+    },
+  ];
 const report = {
   at: new Date().toISOString(),
   mode: live ? 'live' : 'fixture',
@@ -156,28 +169,32 @@ try {
       originalHashesVerified: true,
     });
   }
-  for (const id of [
-    'tesla-q3-2026',
-    'fed-calendar',
-    'bls-calendar',
-    'fed-policy',
-    'bls-cpi',
-    'bls-jobs',
-    'direxion-tsla',
-  ])
+  for (const id of analyst
+    ? ['goldman-article']
+    : [
+        'tesla-q3-2026',
+        'fed-calendar',
+        'bls-calendar',
+        'fed-policy',
+        'bls-cpi',
+        'bls-jobs',
+        'direxion-tsla',
+      ])
     assert(
       report.sources.some((s) => s.id === id && s.status === 'completed'),
       `Required public source failed: ${id}`,
     );
-  const job = await search.startIndex('TSLL', randomUUID());
+  const job = await search.startIndex(scope, randomUUID());
   await search.close();
   const status = await search.repository.job(job.id);
   assert.equal(status.status, 'completed', status.error);
-  const query = live
-    ? 'Why can holding TSLL longer than one day produce a result different from two times Teslaâ€™s return?'
-    : 'What is the revenue outlook?';
+  const query = analyst
+    ? 'What does the report say about competition among Chinese AI models? Does it supply an NVDA price target, currency and horizon? Mark absent fields unknown.'
+    : live
+      ? 'Why can holding TSLL longer than one day produce a result different from two times Teslaâ€™s return?'
+      : 'What is the revenue outlook?';
   const evidence = await search.search({
-    symbol: 'TSLL',
+    symbol: scope,
     query,
     mode: 'hybrid',
     limit: 5,
@@ -185,7 +202,9 @@ try {
   assert(evidence.hits.length > 0);
   assert(
     evidence.hits.every(
-      (hit) => hit.citation && hit.provider === (live ? 'fund' : 'fixture'),
+      (hit) =>
+        hit.citation &&
+        hit.provider === (live ? (analyst ? 'analyst' : 'fund') : 'fixture'),
     ),
   );
   report.checks.sharedHybridSearch = true;
@@ -196,7 +215,7 @@ try {
       version: 1,
       idempotencyKey: randomUUID(),
       analysisMode: 'standard',
-      researchContext: { symbol: 'TSLL' },
+      researchContext: { symbol: scope },
       message: query + ' Cite the stored evidence and explain the main risks.',
     },
   });
@@ -243,7 +262,7 @@ try {
   if (created) await admin.pool.query(`drop database "${name}"`);
   await admin.close();
   await mkdir('.tmp', { recursive: true });
-  const path = `.tmp/research-sources-${live ? 'live' : 'fixture'}-report.json`;
+  const path = `.tmp/research-${analyst ? 'analyst' : 'sources'}-${live ? 'live' : 'fixture'}-report.json`;
   await writeFile(path, JSON.stringify(report, null, 2) + '\n');
   await writeFile(
     path.replace('-report.json', `-${report.at.replaceAll(':', '-')}.json`),

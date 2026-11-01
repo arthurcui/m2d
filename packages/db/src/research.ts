@@ -1,3 +1,4 @@
+import { analystProfile } from '@m2d/research';
 import type pg from 'pg';
 import { createHash } from 'node:crypto';
 import {
@@ -257,7 +258,15 @@ export function createResearchRepository(pool: pg.Pool) {
           [id],
         )
       ).rows;
-      return { ...d, chunks, findings };
+      return {
+        ...d,
+        chunks,
+        findings,
+        analyst:
+          d.provider === 'analyst' || d.form === 'ANALYST'
+            ? analystProfile(chunks)
+            : null,
+      };
     },
     async raw(id: string) {
       const row = (

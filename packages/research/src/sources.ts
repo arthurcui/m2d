@@ -4,7 +4,14 @@ import { convert } from 'html-to-text';
 import { ResearchError, symbolSchema, type Source } from './contracts.js';
 import { getPublic, publicUrl, type PublicGetter } from './public-fetch.js';
 
-export const sourceKindSchema = z.enum(['ir', 'fund', 'occ', 'macro', 'news']);
+export const sourceKindSchema = z.enum([
+  'ir',
+  'fund',
+  'occ',
+  'macro',
+  'news',
+  'analyst',
+]);
 export type SourceKind = z.infer<typeof sourceKindSchema>;
 export const sourceLinkSchema = z
   .object({
@@ -25,6 +32,21 @@ export type SourcePreset = SourceLink & {
   configured: boolean;
 };
 const standard = [
+  {
+    id: 'goldman-research',
+    kind: 'analyst',
+    name: 'Goldman Sachs public research',
+    url: 'https://www.goldmansachs.com/insights',
+    note: 'Selected public insights, not the full client research library. Browse and choose a relevant report.',
+  },
+  {
+    id: 'morgan-research',
+    kind: 'analyst',
+    name: 'Morgan Stanley public research',
+    url: 'https://www.morganstanley.com/insights',
+    note: 'Public thematic research and commentary. Verify relevance to the selected company.',
+  },
+
   {
     id: 'fed-calendar',
     kind: 'macro',
@@ -237,7 +259,7 @@ export class PublicResearchSources {
               l.title &&
               (feed ||
                 /\.pdf(?:\?|$)/i.test(l.url) ||
-                /infomemos\?|prospectus|earnings|pressrelease|press-release|report|download|statement|shareholder|memo|holdings|fact.sheet/i.test(
+                /infomemos\?|prospectus|earnings|pressrelease|press-release|report|download|statement|shareholder|memo|holdings|fact.sheet|insight|research/i.test(
                   l.url + ' ' + l.title,
                 )),
           )
@@ -254,7 +276,13 @@ export class PublicResearchSources {
             }
           }),
       ).values(),
-    ].slice(0, 30);
+    ]
+      .sort(
+        (a, b) =>
+          Number(/\/articles\/|\.pdf(?:\?|$)/i.test(b.url)) -
+          Number(/\/articles\/|\.pdf(?:\?|$)/i.test(a.url)),
+      )
+      .slice(0, 30);
   }
   async fetch(link: SourceLink, news = false): Promise<Source[]> {
     if (this.mode === 'fixture')

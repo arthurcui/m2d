@@ -106,3 +106,41 @@ test('saved research sources survive navigation, import with citations and show 
     ),
   ).toBe(true);
 });
+
+test('analyst upload preserves labelled opinions and prepares a cited comparison question', async ({
+  page,
+}) => {
+  test.skip(
+    process.env.E2E_ALLOW_PORTFOLIO_WRITES !== '1',
+    'Fixture stack only.',
+  );
+  await page.goto('/research');
+  await page
+    .getByLabel('Research ticker')
+    .fill('AR' + randomUUID().slice(0, 8).toUpperCase());
+  await page.getByLabel('Document category').selectOption('analyst');
+  await page.getByLabel('Upload a company or fund document').setInputFiles({
+    name: 'analyst.txt',
+    mimeType: 'text/plain',
+    buffer: Buffer.from(
+      'Publisher: Synthetic Bank\nRating: Buy\nPrice target: $200\nRisks: Demand might decline.',
+    ),
+  });
+  await page
+    .getByRole('button', { name: 'Upload document', exact: true })
+    .click();
+  const card = page.locator('.research-documents .research-card');
+  await expect(card).toHaveCount(1, { timeout: 20000 });
+  await card.getByRole('button', { name: 'analyst.txt' }).click();
+  const details = page.getByRole('region', { name: 'Analyst report details' });
+  await expect(details).toContainText('Price target: $200');
+  await expect(details).toContainText('Unknown');
+  await details
+    .getByRole('button', {
+      name: 'Analyze / compare analyst reports with Agent',
+    })
+    .click();
+  await expect(page.getByLabel('Research message')).toHaveValue(
+    /Mark missing fields unknown/,
+  );
+});

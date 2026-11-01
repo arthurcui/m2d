@@ -250,6 +250,7 @@ export function CompanySearch({
                 <option value="fund">ETF / fund documents</option>
                 <option value="occ">Options notices</option>
                 <option value="macro">Economic releases</option>
+                <option value="analyst">Analyst Research</option>
                 <option value="news">Financial news</option>
                 <option value="fixture">Synthetic fixtures</option>
               </select>

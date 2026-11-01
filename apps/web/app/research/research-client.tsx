@@ -19,6 +19,13 @@ type Doc = {
 };
 type Passage = { index: number; page: number | null; text: string };
 type Document = Doc & {
+  analyst?: {
+    version: string;
+    fields: {
+      field: string;
+      excerpts: { text: string; chunkIndex: number; page: number | null }[];
+    }[];
+  } | null;
   chunks: Passage[];
   findings: {
     id: string;
@@ -92,6 +99,9 @@ export function ResearchClient({
   active: boolean;
   onContext: (c: ResearchContext | null) => void;
 }) {
+  const [uploadCategory, setUploadCategory] = useState<'upload' | 'analyst'>(
+    'upload',
+  );
   const [overview, setOverview] = useState<Overview | null>(null),
     [symbol, setSymbol] = useState(''),
     [companyInput, setCompanyInput] = useState(''),
@@ -370,6 +380,18 @@ export function ResearchClient({
       )}
       <section className="research-upload">
         <label>
+          Document category
+          <select
+            value={uploadCategory}
+            onChange={(e) =>
+              setUploadCategory(e.target.value as 'upload' | 'analyst')
+            }
+          >
+            <option value="upload">Company / fund document</option>
+            <option value="analyst">Analyst Research</option>
+          </select>
+        </label>
+        <label>
           Upload a company or fund document
           <input
             type="file"
@@ -395,6 +417,7 @@ export function ResearchClient({
                 },
               );
               const r = await api<Import>('/upload', {
+                category: uploadCategory,
                 version: 1,
                 symbol,
                 name: file.name,
@@ -632,9 +655,50 @@ export function ResearchClient({
           <a href={`/api/v1/research/documents/${document.id}/raw`}>
             Download preserved original
           </a>
+          {document.analyst && (
+            <section aria-label="Analyst report details">
+              <h3>Analyst Research � attributed opinions</h3>
+              <p>
+                Exact labelled excerpts, not verified values. Missing fields
+                remain unknown; ask Agent to interpret other report formats.
+              </p>
+              <dl>
+                {document.analyst.fields.map((f) => (
+                  <div key={f.field}>
+                    <dt>{f.field.replace(/([A-Z])/g, ' $1')}</dt>
+                    <dd>
+                      {f.excerpts.length
+                        ? f.excerpts.map((e, i) => (
+                            <p key={i}>
+                              <a href={`#chunk-${e.chunkIndex}`}>
+                                {e.text} �{' '}
+                                {e.page
+                                  ? `page ${e.page}`
+                                  : `passage ${e.chunkIndex + 1}`}
+                              </a>
+                            </p>
+                          ))
+                        : 'Unknown � no explicit labelled excerpt found'}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+              <button
+                onClick={() =>
+                  window.dispatchEvent(
+                    new CustomEvent('m2d:research-discuss', {
+                      detail: `Analyze analyst report ${document.id} for ${document.symbol}. Extract publisher, analyst, date, rating, target with currency and horizon, forecasts, assumptions, catalysts and risks with citations. Mark missing fields unknown. Compare with other stored analyst reports for this company, citing each report date. Separate opinions from company facts; do not assume consensus.`,
+                    }),
+                  )
+                }
+              >
+                Analyze / compare analyst reports with Agent
+              </button>
+            </section>
+          )}
           <details>
             <summary>
-              Extracted issuer statements · {document.findings.length}
+              Extracted source statements · {document.findings.length}
             </summary>
             <p>
               Quoted passages selected by topic rules. These are source claims,

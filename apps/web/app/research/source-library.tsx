@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-type Kind = 'ir' | 'fund' | 'occ' | 'macro' | 'news';
+type Kind = 'ir' | 'fund' | 'occ' | 'macro' | 'news' | 'analyst';
 type Link = { symbol: string; kind: Kind; name: string; url: string };
 type Entry = Link & {
   id: string;
@@ -15,6 +15,7 @@ const labels: Record<Kind, string> = {
   occ: 'Options notices',
   macro: 'Economic releases',
   news: 'Financial news',
+  analyst: 'Analyst Research',
 };
 async function api<T>(path: string, body?: unknown): Promise<T> {
   const response = await fetch(`/api/v1/research/sources${path}`, {

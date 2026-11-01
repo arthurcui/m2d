@@ -82,7 +82,9 @@ export function createResearchService(
           ? 'fixture'
           : input.link.kind
         : input.upload
-          ? 'upload'
+          ? input.upload.form === 'ANALYST'
+            ? 'analyst'
+            : 'upload'
           : provider.id;
       const fingerprint = createHash('sha256')
         .update(
@@ -519,6 +521,7 @@ export async function researchRoutes(
             .min(4)
             .max(16 * 1024 * 1024),
           publishedAt: z.iso.datetime().nullable().default(null),
+          category: z.enum(['upload', 'analyst']).default('upload'),
         })
         .strict()
         .parse(req.body);
@@ -544,7 +547,7 @@ export async function researchRoutes(
             upload: {
               key: a.name,
               title: a.name,
-              form: 'UPLOAD',
+              form: a.category === 'analyst' ? 'ANALYST' : 'UPLOAD',
               url: null,
               publishedAt: a.publishedAt,
               mime: /\.pdf$/i.test(a.name) ? 'application/pdf' : 'text/plain',
