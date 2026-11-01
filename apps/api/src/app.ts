@@ -1,5 +1,6 @@
 import { chatRoutes } from './chat.js';
 import { marketRoutes, type MarketService } from './market.js';
+import type { MarketSelection } from './market-selection.js';
 import { MarketError, type MarketProvider } from '@m2d/market';
 import type { IbkrConnection } from '@m2d/market/ibkr-connection';
 import type { MarketRepository } from '@m2d/db';
@@ -31,6 +32,7 @@ export function buildApp(
     provider: MarketProvider;
     listingProvider?: MarketProvider | undefined;
     service: MarketService;
+    selection?: MarketSelection;
     ibkr?: IbkrConnection;
   },
 ) {
@@ -181,14 +183,19 @@ export function buildApp(
                   : 'stale',
         },
         ai: workbookAi?.status ?? aiStatus(config),
-        market: {
-          provider: config.MARKET_PROVIDER,
-          status: market?.provider.configured
-            ? config.MARKET_PROVIDER === 'fixture'
-              ? 'fixture_only'
-              : 'ready'
-            : 'unconfigured',
-        },
+        market: await (async () => {
+          const state = market
+            ? await market.service.status().catch(() => null)
+            : null;
+          return {
+            provider: state?.provider ?? config.MARKET_PROVIDER,
+            status: state?.configured
+              ? state.provider === 'fixture'
+                ? 'fixture_only'
+                : 'ready'
+              : 'unconfigured',
+          };
+        })(),
         displayTimezone: config.APP_TIMEZONE,
         marketTimezone: config.MARKET_TIMEZONE,
       },

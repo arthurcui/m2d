@@ -89,6 +89,58 @@ function provider(
   };
 }
 describe('IBKR market normalization', () => {
+  it('retrieves an exact listing description without inventing a logo or asset class', async () => {
+    const { p, call, close } = provider({
+      search_contracts: {
+        results: [
+          { ...listing.results[0], description: 'TESLA INC COMMON STOCK' },
+        ],
+      },
+    });
+    const result = await p.fetchListing({
+      symbol: 'TSLA',
+      exchange: 'UNKNOWN',
+      currency: 'USD',
+      assetType: 'STOCK',
+    });
+    expect(result.payload).toMatchObject({
+      kind: 'listing',
+      value: {
+        name: 'TESLA INC COMMON STOCK',
+        exchange: 'NASDAQ',
+        provider: 'ibkr',
+        assetType: null,
+        logo: null,
+        logoIssue: 'NOT_PROVIDED',
+        asOf: new Date(now).toISOString(),
+      },
+    });
+    expect(call).toHaveBeenCalledTimes(1);
+    expect(call).toHaveBeenCalledWith('search_contracts', {
+      query: 'TSLA',
+      language: 'en_US',
+    });
+    expect(close).toHaveBeenCalledOnce();
+  });
+  it('rejects listing names without a description or unambiguous USD US identity', async () => {
+    const lookup = {
+      symbol: 'TSLA',
+      exchange: 'UNKNOWN',
+      currency: 'USD',
+      assetType: 'STOCK' as const,
+    };
+    await expect(provider().p.fetchListing(lookup)).rejects.toMatchObject({
+      code: 'INVALID_MARKET_DATA',
+    });
+    await expect(
+      provider().p.fetchListing({ ...lookup, currency: 'CAD' }),
+    ).rejects.toMatchObject({ code: 'UNSUPPORTED_INSTRUMENT' });
+    await expect(
+      provider({
+        search_contracts: { results: [...listing.results, ...listing.results] },
+      }).p.fetchListing(lookup),
+    ).rejects.toMatchObject({ code: 'INSTRUMENT_MISMATCH' });
+  });
   it('stops further tool calls when a slow refresh exhausts its time allowance', async () => {
     let current = now;
     const call = vi.fn<IbkrSession['call']>(async (name) => {

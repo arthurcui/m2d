@@ -19,7 +19,9 @@ test('IBKR connection shows read-only scope and keeps the selected provider expl
   await page.goto('/market');
   const panel = page.getByRole('region', { name: 'IBKR connection' });
   await expect(panel).toContainText('Connected');
-  await expect(panel).toContainText('MARKET_PROVIDER=ibkr');
+  await expect(panel).toContainText(
+    'Choose IBKR in the Price provider selector',
+  );
   await expect(panel).toContainText('recorded portfolio remains self-reported');
   await expect(
     panel.getByRole('button', { name: 'Reconnect IBKR' }),

@@ -387,9 +387,24 @@ export const appSettings = pgTable(
     id: integer('id').primaryKey().default(1),
     revision: integer('revision').notNull().default(0),
     defaultAnalysisMode: text('default_analysis_mode'),
+    marketProvider: text('market_provider'),
+    listingProvider: text('listing_provider'),
+    priceRefreshSeconds: integer('price_refresh_seconds').notNull().default(0),
   },
   (t) => [
     check('settings_singleton', sql`${t.id} = 1`),
+    check(
+      'settings_market_provider',
+      sql`${t.marketProvider} in ('fixture','massive','ibkr','twelvedata')`,
+    ),
+    check(
+      'settings_listing_provider',
+      sql`${t.listingProvider} in ('none','fixture','massive','ibkr')`,
+    ),
+    check(
+      'settings_price_refresh',
+      sql`${t.priceRefreshSeconds} = 0 or ${t.priceRefreshSeconds} between 15 and 3600`,
+    ),
     check(
       'settings_mode',
       sql`${t.defaultAnalysisMode} in ('quick','standard','extensive')`,

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { createMarketSelection } from '../apps/api/src/market-selection.js';
 import { beforeAll, afterAll, it, expect, vi } from 'vitest';
 import { createDatabase } from '../packages/db/src/index.js';
 import { migrateDatabase } from '../packages/db/src/migrate.js';
@@ -478,6 +479,188 @@ it('caches listing evidence and serves logos without changing the portfolio or p
     expect(calls).toBe(2);
     expect(await db.portfolio.overview()).toEqual(before);
   } finally {
+    await api.close();
+  }
+});
+
+it('saves independent providers, fences stale requests and keeps an in-flight result under its original source', async () => {
+  const before = await db.portfolio.overview();
+  let release = () => {};
+  let started = () => {};
+  const waiting = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const entered = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  let calls = 0;
+  const ibkr: MarketProvider = {
+    id: 'ibkr',
+    configured: true,
+    quote: async (input) => {
+      calls++;
+      started();
+      await waiting;
+      const result = await provider.quote(input);
+      if (result.payload.kind === 'quote')
+        result.payload.value.provider = 'ibkr';
+      return result;
+    },
+    bars: (s) => provider.bars(s),
+    options: (s, e) => provider.options(s, e),
+    fx: (a, b) => provider.fx(a, b),
+    fetchListing: (lookup) => provider.fetchListing(lookup),
+  };
+  const registry = {
+    fixture: provider,
+    ibkr,
+    massive: { ...ibkr, id: 'massive' as const, configured: false },
+    twelvedata: { ...ibkr, id: 'twelvedata' as const, configured: false },
+  };
+  const selection = createMarketSelection(db.market, registry, {
+    priceProvider: 'fixture',
+    listingProvider: 'fixture',
+  });
+  const api = buildApp(
+    db.repository,
+    readConfig({ DATABASE_URL: target.toString() }),
+    false,
+    db.portfolio,
+    undefined,
+    {
+      repository: db.market,
+      provider,
+      listingProvider: provider,
+      selection,
+      service: createMarketService(
+        db.market,
+        db.portfolio,
+        provider,
+        'USD',
+        provider,
+        selection,
+      ),
+    },
+  );
+  const patch = async (body: object) =>
+    api.inject({
+      method: 'POST',
+      url: '/api/v1/market/settings',
+      payload: body,
+    });
+  try {
+    const initial = (await api.inject('/api/v1/market/settings')).json().data;
+    const enabled = await patch({
+      version: 1,
+      revision: initial.revision,
+      refreshSeconds: 30,
+    });
+    expect(enabled.statusCode).toBe(200);
+    const selected = await patch({
+      version: 1,
+      revision: enabled.json().data.revision,
+      priceProvider: 'ibkr',
+    });
+    expect(selected.json().data).toMatchObject({
+      priceProvider: 'ibkr',
+      listingProvider: 'fixture',
+      refreshSeconds: 0,
+    });
+    const system = await api.inject('/api/v1/system/status');
+    expect(system.statusCode, system.body).toBe(200);
+    expect(system.json().data.market.provider).toBe('ibkr');
+    expect(
+      (await api.inject('/api/v1/portfolio/listings')).json().data.provider,
+    ).toBe('fixture');
+    const blocked = await api.inject({
+      method: 'POST',
+      url: '/api/v1/market/refresh',
+      payload: {
+        version: 1,
+        idempotencyKey: randomUUID(),
+        expectedProvider: 'fixture',
+        request: { kind: 'quote', instrument },
+      },
+    });
+    expect(blocked.statusCode).toBe(409);
+    expect(blocked.json().error.code).toBe('PROVIDER_CHANGED');
+    expect(calls).toBe(0);
+    // Capture the chosen instance before the asynchronous request starts.
+    const pending = api
+      .inject({
+        method: 'POST',
+        url: '/api/v1/market/refresh',
+        payload: {
+          version: 1,
+          idempotencyKey: randomUUID(),
+          expectedProvider: 'ibkr',
+          request: {
+            kind: 'quote',
+            instrument: { ...instrument, symbol: 'NVDA' },
+          },
+        },
+      })
+      .then((r) => r);
+    await entered;
+    const switched = await patch({
+      version: 1,
+      revision: selected.json().data.revision,
+      priceProvider: 'fixture',
+      listingProvider: 'none',
+    });
+    expect(switched.statusCode).toBe(200);
+    release();
+    expect((await pending).json().meta.source).toBe('ibkr');
+    expect(calls).toBe(1);
+    const stored = await db.market.read(
+      'ibkr',
+      'quote',
+      'STOCK|NVDA|NASDAQ|USD||||1||',
+    );
+    expect(stored?.payload).toMatchObject({
+      kind: 'quote',
+      value: { provider: 'ibkr' },
+    });
+    const active = await api.inject('/api/v1/market/quotes?symbol=NVDA');
+    expect(active.json()).toMatchObject({
+      data: null,
+      meta: { source: 'fixture' },
+    });
+    const reloaded = createMarketSelection(db.market, registry, {
+      priceProvider: 'ibkr',
+      listingProvider: 'ibkr',
+    });
+    expect(await reloaded.settings()).toMatchObject({
+      priceProvider: 'fixture',
+      listingProvider: 'none',
+    });
+    expect(
+      (
+        await patch({
+          version: 1,
+          revision: initial.revision,
+          listingProvider: 'fixture',
+        })
+      ).statusCode,
+    ).toBe(409);
+    const current = await reloaded.settings();
+    expect(
+      (
+        await patch({
+          version: 1,
+          revision: current.revision,
+          priceProvider: 'massive',
+        })
+      ).statusCode,
+    ).toBe(409);
+    await expect(
+      db.pool.query(
+        'update app_settings set price_refresh_seconds=1 where id=1',
+      ),
+    ).rejects.toMatchObject({ code: '23514' });
+    expect(await db.portfolio.overview()).toEqual(before);
+  } finally {
+    release();
     await api.close();
   }
 });

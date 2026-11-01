@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { MarketSelection } from './market-selection.js';
 import type { IbkrConnection } from '@m2d/market/ibkr-connection';
 import type { FastifyInstance } from 'fastify';
 import { instrumentKey, currency } from '@m2d/portfolio';
@@ -27,12 +28,20 @@ import {
 export function createMarketService(
   repository: MarketRepository,
   portfolio: PortfolioRepository,
-  provider: MarketProvider,
+  defaultProvider: MarketProvider,
   baseCurrency: string,
-  listingProvider?: MarketProvider,
+  defaultListingProvider?: MarketProvider,
+  selection?: MarketSelection,
 ) {
+  const current = () =>
+    selection?.current() ??
+    Promise.resolve({
+      price: defaultProvider,
+      listing: defaultListingProvider,
+    });
   return {
     async listings(): Promise<ListingOverview> {
+      const { listing: listingProvider } = await current();
       const value: ListingOverview = {
         provider: listingProvider?.id ?? 'none',
         configured: listingProvider?.configured ?? false,
@@ -76,6 +85,7 @@ export function createMarketService(
       return value;
     },
     async valuation() {
+      const { price: provider } = await current();
       const overview = await portfolio.overview();
       const requests: MarketRequest[] = [];
       for (const p of overview.state.positions.filter(
@@ -139,6 +149,7 @@ export function createMarketService(
       };
     },
     async status() {
+      const { price: provider } = await current();
       return {
         provider: provider.id,
         configured: provider.configured,
@@ -178,10 +189,14 @@ export async function marketRoutes(
     listingProvider?: MarketProvider | undefined;
     service: MarketService;
     ibkr?: IbkrConnection;
+    selection?: MarketSelection;
   },
 ) {
-  const { repository, provider, service } = opts;
-  const envelope = (data: unknown, source: string = provider.id) => ({
+  const { repository, service } = opts;
+  const current = () =>
+    opts.selection?.current() ??
+    Promise.resolve({ price: opts.provider, listing: opts.listingProvider });
+  const envelope = (data: unknown, source = 'market') => ({
     data,
     meta: { version: 1, asOf: new Date().toISOString(), source },
   });
@@ -196,9 +211,19 @@ export async function marketRoutes(
         },
       });
   });
-  app.get('/api/v1/portfolio/listings', async () =>
-    envelope(await service.listings(), opts.listingProvider?.id ?? 'none'),
-  );
+  app.get('/api/v1/portfolio/listings', async () => {
+    const value = await service.listings();
+    return envelope(value, value.provider);
+  });
+  if (opts.selection) {
+    const selection = opts.selection;
+    app.get('/api/v1/market/settings', async () =>
+      envelope(await selection.settings()),
+    );
+    app.post('/api/v1/market/settings', async (req) =>
+      envelope(await selection.update(req.body)),
+    );
+  }
   app.get('/api/v1/market/listings/:id/logo', async (req, reply) => {
     const { id } = z.object({ id: z.uuid() }).parse(req.params);
     const logo = await repository.listingLogo(id);
@@ -213,9 +238,10 @@ export async function marketRoutes(
       .header('Content-Security-Policy', "default-src 'none'; sandbox")
       .send(Buffer.from(logo.base64, 'base64'));
   });
-  app.get('/api/v1/market/status', async () =>
-    envelope(await service.status()),
-  );
+  app.get('/api/v1/market/status', async () => {
+    const value = await service.status();
+    return envelope(value, value.provider);
+  });
   app.get('/api/v1/market/ibkr/status', async () =>
     envelope({
       ...(opts.ibkr?.status() ?? {
@@ -224,7 +250,7 @@ export async function marketRoutes(
         scope: 'mcp.read',
         expiresAt: null,
       }),
-      active: provider.id === 'ibkr',
+      active: (await current()).price.id === 'ibkr',
       available: !!opts.ibkr,
     }),
   );
@@ -250,12 +276,14 @@ export async function marketRoutes(
     if (!opts.ibkr) throw new Error('IBKR connection unavailable');
     return envelope(await opts.ibkr.disconnect());
   });
-  app.get('/api/v1/portfolio/valuation', async () =>
-    envelope(await service.valuation()),
-  );
-  app.get('/api/v1/market/snapshots', async () =>
-    envelope(await repository.snapshots(provider.id)),
-  );
+  app.get('/api/v1/portfolio/valuation', async () => {
+    const value = await service.valuation();
+    return envelope(value, value.provider);
+  });
+  app.get('/api/v1/market/snapshots', async () => {
+    const { price: provider } = await current();
+    return envelope(await repository.snapshots(provider.id), provider.id);
+  });
   app.post('/api/v1/market/snapshots', async (req) => {
     const { idempotencyKey } = z
       .object({ version: z.literal(1), idempotencyKey: z.uuid() })
@@ -266,7 +294,7 @@ export async function marketRoutes(
       await repository.saveSnapshot(
         idempotencyKey,
         value.portfolioRevision,
-        provider.id,
+        value.provider,
         value,
         value.observationIds,
       ),
@@ -278,16 +306,26 @@ export async function marketRoutes(
         version: z.literal(1),
         idempotencyKey: z.uuid(),
         request: marketRequestSchema,
+        expectedProvider: z
+          .enum(['fixture', 'massive', 'ibkr', 'twelvedata'])
+          .optional(),
       })
       .strict()
       .parse(req.body);
+    const providers = await current();
     const selected =
-      input.request.kind === 'listing' ? opts.listingProvider : provider;
+      input.request.kind === 'listing' ? providers.listing : providers.price;
     if (!selected)
       throw new MarketError(
         'MARKET_NOT_CONFIGURED',
-        'Listing details are not configured. Set LISTING_PROVIDER in the backend environment.',
+        'Choose a configured listing provider to refresh details.',
         503,
+      );
+    if (input.expectedProvider && input.expectedProvider !== selected.id)
+      throw new MarketError(
+        'PROVIDER_CHANGED',
+        'The selected provider changed. Refresh again using the new selection.',
+        409,
       );
     return envelope(
       await repository.refresh(input.idempotencyKey, input.request, selected),
@@ -295,6 +333,7 @@ export async function marketRoutes(
     );
   });
   app.get('/api/v1/market/quotes', async (req) => {
+    const { price: provider } = await current();
     const input = z
       .object({
         symbol: symbolSchema,
@@ -327,9 +366,11 @@ export async function marketRoutes(
             quality: qualityAt(row.payload.value, new Date().toISOString()),
           }
         : null,
+      provider.id,
     );
   });
   app.get('/api/v1/market/bars/:ticker', async (req) => {
+    const { price: provider } = await current();
     const { ticker } = z.object({ ticker: symbolSchema }).parse(req.params);
     const { exchange } = z
       .object({
@@ -338,21 +379,26 @@ export async function marketRoutes(
       .parse(req.query);
     return envelope(
       await repository.read(provider.id, 'bars', `${ticker}:${exchange}`),
+      provider.id,
     );
   });
   app.get('/api/v1/market/options/:ticker', async (req) => {
+    const { price: provider } = await current();
     const { ticker } = z.object({ ticker: symbolSchema }).parse(req.params);
     const { expiry } = z.object({ expiry: z.iso.date() }).parse(req.query);
     return envelope(
       await repository.read(provider.id, 'options', `${ticker}:${expiry}`),
+      provider.id,
     );
   });
   app.get('/api/v1/market/fx', async (req) => {
+    const { price: provider } = await current();
     const { base, quote } = z
       .object({ base: currency, quote: currency })
       .parse(req.query);
     return envelope(
       await repository.read(provider.id, 'fx', `${base}/${quote}`),
+      provider.id,
     );
   });
 }

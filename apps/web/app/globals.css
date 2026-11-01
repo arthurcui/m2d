@@ -1425,13 +1425,14 @@ h1 {
 }
 .holdings-columns {
   display: grid;
-  grid-template-columns: 40% 13% 27% 20%;
+  grid-template-columns: 32% 9% 18% 26% 15%;
   padding: 14px 8px;
   font-size: 11px;
   color: var(--muted);
 }
 .holdings-columns span:nth-child(2),
-.holdings-columns span:nth-child(3) {
+.holdings-columns span:nth-child(3),
+.holdings-columns span:nth-child(4) {
   text-align: right;
 }
 .holdings-columns span:last-child {
@@ -1484,19 +1485,77 @@ h1 {
   vertical-align: middle;
 }
 .holding-account th {
-  width: 40%;
+  width: 32%;
 }
 .holding-account td:nth-child(2) {
-  width: 13%;
+  width: 9%;
   text-align: right;
 }
 .holding-account td:nth-child(3) {
-  width: 27%;
+  width: 18%;
   text-align: right;
 }
 .holding-account td:last-child {
-  width: 20%;
+  width: 15%;
   text-align: center;
+}
+.holding-account td.holding-market-price {
+  width: 26%;
+  text-align: right;
+}
+.market-mark {
+  font-variant-numeric: tabular-nums;
+}
+.price-currency {
+  font-size: 9px;
+  color: var(--muted);
+}
+.holding-price-evidence {
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.holding-price-evidence summary {
+  cursor: pointer;
+}
+.holding-price-evidence p {
+  text-align: left;
+  margin: 8px 0;
+}
+.holding-account .price-asof {
+  font-size: 9px;
+}
+.portfolio-price-controls {
+  padding: 16px 0;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+.price-control-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+}
+.price-control-fields label {
+  flex: 1 1 150px;
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.price-control-fields select {
+  width: 100%;
+  min-width: 0;
+  font-size: 12px;
+}
+.price-source-notes {
+  display: grid;
+  gap: 5px;
+  margin-top: 12px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
 }
 .security-logo {
   display: inline-flex;
@@ -1755,13 +1814,13 @@ footer {
     width: calc(100% - 32px);
   }
   .holding-account th {
-    width: 36%;
+    width: 32%;
   }
   .holding-account td:nth-child(3) {
-    width: 28%;
+    width: 18%;
   }
   .holding-account td:last-child {
-    width: 23%;
+    width: 15%;
   }
   .holding-account th,
   .holding-account td {
@@ -1995,7 +2054,7 @@ footer {
   }
   .holding-account tr {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 12px;
     padding: 16px 4px;
     border-bottom: 1px solid var(--border);
@@ -2012,6 +2071,7 @@ footer {
   .holding-account td,
   .holding-account td:nth-child(2),
   .holding-account td:nth-child(3),
+  .holding-account td:nth-child(4),
   .holding-account td:last-child {
     width: auto;
     padding: 0;
@@ -2023,7 +2083,8 @@ footer {
     text-align: right;
   }
   .holding-account td:nth-child(2)::before,
-  .holding-account td:nth-child(3)::before {
+  .holding-account td:nth-child(3)::before,
+  .holding-account td:nth-child(4)::before {
     display: block;
     margin-bottom: 3px;
     color: var(--muted);
@@ -2045,5 +2106,22 @@ footer {
     flex: 1;
     min-width: 0;
     width: auto;
+  }
+}
+
+@media (max-width: 700px) {
+  .holding-account td.holding-market-price {
+    width: auto;
+    text-align: left;
+  }
+  .holding-account td:nth-child(4)::before {
+    content: 'Market price';
+  }
+  .holding-account td:last-child {
+    grid-column: 1 / -1;
+    justify-self: end;
+  }
+  .holding-account .price-asof {
+    display: none;
   }
 }

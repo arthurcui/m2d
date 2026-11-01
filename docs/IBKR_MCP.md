@@ -7,7 +7,7 @@ M²D can establish its own connection to IBKR's official hosted MCP server at `h
 1. Keep the working market provider selected while connecting. Set `PUBLIC_APP_URL` in the ignored root `.env` to the exact browser origin, including its port. Default: `http://127.0.0.1:3000`. A remotely hosted installation must use HTTPS. This is an origin, without a path.
 2. Recreate the app: `docker compose up --build --detach --wait --wait-timeout 180`.
 3. Open **Market → Interactive Brokers → Connect IBKR**. Complete authentication and consent on IBKR's website. Return to M²D through `/api/ibkr/callback`.
-4. To select the connected provider for quotes, charts, option samples and portfolio refresh, set `MARKET_PROVIDER=ibkr` and recreate the containers with the command above. `massive`, `twelvedata` and `fixture` remain available; there is no automatic fallback or provider switch.
+4. Choose **IBKR** in the **Price provider** selector on Portfolio or Market. The selection saves automatically; no container restart is needed. IBKR can also be selected separately for listing descriptions, which may be abbreviated and do not include logos.
 
 No new API key or OpenAI call is required. IBKR data entitlements and applicable subscriptions determine availability. M²D cannot verify account-wide coverage until the separately authorized application makes a market request. Read-only navigation and Agent tools use stored evidence; external market requests remain explicit user actions.
 

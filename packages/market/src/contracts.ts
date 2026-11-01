@@ -57,7 +57,7 @@ export const listingSchema = evidenceSchema.extend({
   lookup: listingLookupSchema,
   name: z.string().trim().min(1).max(500),
   exchange: z.string().regex(/^[A-Z0-9.-]{1,20}$/),
-  assetType: z.enum(['STOCK', 'ETF']),
+  assetType: z.enum(['STOCK', 'ETF']).nullable(),
   logo: z
     .object({
       mime: z.enum(['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml']),

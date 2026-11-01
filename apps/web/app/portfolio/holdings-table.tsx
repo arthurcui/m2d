@@ -5,6 +5,9 @@ import { listingLookup, listingKey, type ListingOverview } from '@m2d/market';
 import { marketApi, marketTime } from '../market/market-client';
 import { refreshListingDetails } from '../market/listing-details';
 import { SecurityLogo } from './security-logo';
+import { HoldingMarketPrice } from './holding-market-price';
+import { MarketControls } from '../market/market-controls';
+import { useMarketData } from '../market/market-context';
 export type HoldingSelection = {
   accountKey: string;
   instrumentKey?: string;
@@ -23,14 +26,18 @@ export function HoldingsTable({
   selected: HoldingSelection | null;
   onSelect: (holding: HoldingSelection) => void;
 }) {
+  const { value, settings, busy, now } = useMarketData();
+  const listingRead = useRef(0);
   const [metadata, setMetadata] = useState<ListingOverview | null>(null);
   const [listingMessage, setListingMessage] = useState('');
   const [listingError, setListingError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const stopped = useRef(false);
   const loadListings = useCallback(async () => {
+    const id = ++listingRead.current;
     try {
-      setMetadata(await marketApi<ListingOverview>('portfolio/listings'));
+      const result = await marketApi<ListingOverview>('portfolio/listings');
+      if (id === listingRead.current) setMetadata(result);
     } catch {
       setListingError(
         'Listing details could not be loaded. Your recorded holdings are still available.',
@@ -45,7 +52,7 @@ export function HoldingsTable({
       stopped.current = true;
       window.removeEventListener('m2d-listings-updated', loadListings);
     };
-  }, [loadListings, state]);
+  }, [loadListings, state, settings?.listingProvider]);
   async function refreshListings() {
     stopped.current = false;
     setRefreshing(true);
@@ -67,6 +74,7 @@ export function HoldingsTable({
   const query = search.trim().toLowerCase();
   return (
     <div className="capital-holdings">
+      <MarketControls />
       <div className="holdings-controls">
         <label>
           <span className="sr-only">Account</span>
@@ -101,10 +109,15 @@ export function HoldingsTable({
             ? 'Synthetic listing names and demo logos'
             : metadata?.provider === 'massive'
               ? 'Listing names & logos · Massive'
-              : 'Listing details unavailable'}
+              : metadata?.provider === 'ibkr'
+                ? 'Listing descriptions · IBKR · logos unavailable'
+                : 'Listing details unavailable'}
         </span>
         {metadata?.configured && (
-          <button disabled={refreshing} onClick={() => void refreshListings()}>
+          <button
+            disabled={refreshing || busy}
+            onClick={() => void refreshListings()}
+          >
             Refresh listing details
           </button>
         )}
@@ -150,6 +163,7 @@ export function HoldingsTable({
         <span>Account / Asset</span>
         <span>Quantity</span>
         <span>Unit cost</span>
+        <span>Market price</span>
         <span>Context</span>
       </div>
       {state.accounts
@@ -214,6 +228,7 @@ export function HoldingsTable({
                           <th>Asset</th>
                           <th>Quantity</th>
                           <th>Unit cost</th>
+                          <th>Market price</th>
                           <th>Context</th>
                         </tr>
                       </thead>
@@ -280,6 +295,15 @@ export function HoldingsTable({
                                   {p.quality.replaceAll('_', ' ').toLowerCase()}
                                 </small>
                               </td>
+                              <HoldingMarketPrice
+                                now={now}
+                                position={value?.positions.find(
+                                  (v) =>
+                                    v.accountKey === p.accountKey &&
+                                    v.instrumentKey === key,
+                                )}
+                                currency={p.instrument.currency}
+                              />
                               <td>
                                 <button
                                   className="holding-context-action"

@@ -9,6 +9,9 @@ export async function refreshListingDetails(
 ) {
   if (refreshing) return 'Listing details are already refreshing.';
   refreshing = true;
+  window.dispatchEvent(
+    new CustomEvent('m2d-listing-refresh', { detail: true }),
+  );
   let completed = 0;
   try {
     const data = await marketApi<ListingOverview>('portfolio/listings');
@@ -27,6 +30,7 @@ export async function refreshListingDetails(
       }>('market/refresh', {
         version: 1,
         idempotencyKey: crypto.randomUUID(),
+        expectedProvider: data.provider,
         request,
       });
       if (result.status === 'SUCCEEDED') completed++;
@@ -49,5 +53,8 @@ export async function refreshListingDetails(
   } finally {
     window.dispatchEvent(new Event('m2d-listings-updated'));
     refreshing = false;
+    window.dispatchEvent(
+      new CustomEvent('m2d-listing-refresh', { detail: false }),
+    );
   }
 }

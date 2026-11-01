@@ -1,9 +1,14 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { MarketControls } from './market-controls';
+import { useMarketData } from './market-context';
 import type { Bar, OptionSnapshot, Quote } from '@m2d/market';
 import { marketApi, marketTime, ValuationPanel } from './valuation';
 type RecordValue<T> = { payload: { value: T } } | null;
 export function MarketPanel() {
+  const { settings } = useMarketData();
+  const selectedProvider = useRef(settings?.priceProvider);
+  selectedProvider.current = settings?.priceProvider;
   const [symbol, setSymbol] = useState('TSLA'),
     [exchange, setExchange] = useState('NASDAQ');
   const [expiry, setExpiry] = useState('2026-12-18');
@@ -22,9 +27,26 @@ export function MarketPanel() {
     [busy, setBusy] = useState(false);
   const [restored, setRestored] = useState(false);
   useEffect(() => {
+    setQuote(null);
+    setBars([]);
+    setOptions(null);
+    let current = true;
     void marketApi<typeof status>('market/status')
-      .then(setStatus)
-      .catch(() => setError('Market status unavailable.'));
+      .then((result) => {
+        if (current) setStatus(result);
+      })
+      .catch(() => {
+        if (current) setError('Market status unavailable.');
+      });
+    if (settings?.priceProvider && restored)
+      void load().catch(() => {
+        if (current) setError('Stored market data unavailable.');
+      });
+    return () => {
+      current = false;
+    };
+  }, [settings?.priceProvider, restored]);
+  useEffect(() => {
     try {
       const saved: unknown = JSON.parse(
         sessionStorage.getItem('m2d.market.selection.v1') ?? 'null',
@@ -77,6 +99,7 @@ export function MarketPanel() {
   }, [restored, symbol, exchange, expiry, assetType]);
   async function load(selection = { symbol, exchange, expiry, assetType }) {
     const { symbol, exchange, expiry, assetType } = selection;
+    const source = selectedProvider.current;
     const [q, b, o] = await Promise.all([
       marketApi<RecordValue<Quote>>(
         `market/quotes?symbol=${encodeURIComponent(symbol)}&exchange=${exchange}&assetType=${assetType}`,
@@ -88,9 +111,14 @@ export function MarketPanel() {
         `market/options/${encodeURIComponent(symbol)}?expiry=${expiry}`,
       ),
     ]);
-    setQuote(q?.payload.value ?? null);
-    setBars(b?.payload.value ?? []);
-    setOptions(o?.payload.value ?? null);
+    if (source !== selectedProvider.current) return;
+    setQuote(q && q.payload.value.provider === source ? q.payload.value : null);
+    setBars((b?.payload.value ?? []).filter((bar) => bar.provider === source));
+    setOptions(
+      o?.payload.value.every((option) => option.quote.provider === source)
+        ? o.payload.value
+        : null,
+    );
   }
   async function refresh(kind: 'quote' | 'bars' | 'options') {
     setBusy(true);
@@ -122,6 +150,7 @@ export function MarketPanel() {
       }>('market/refresh', {
         version: 1,
         idempotencyKey: crypto.randomUUID(),
+        expectedProvider: settings?.priceProvider ?? status?.provider,
         request,
       });
       await load();
@@ -140,6 +169,7 @@ export function MarketPanel() {
   }
   return (
     <>
+      <MarketControls />
       <section className="workspace-card market-view" aria-label="Market data">
         <div className="card-heading">
           <h2>Market data</h2>
@@ -152,7 +182,7 @@ export function MarketPanel() {
           <label>
             Asset class
             <select
-              disabled={busy}
+              disabled={busy || !settings}
               value={assetType}
               onChange={(e) => {
                 setAssetType(e.target.value === 'ETF' ? 'ETF' : 'STOCK');
@@ -166,7 +196,7 @@ export function MarketPanel() {
           <label>
             Symbol
             <input
-              disabled={busy}
+              disabled={busy || !settings}
               value={symbol}
               maxLength={24}
               onChange={(e) => {
@@ -180,7 +210,7 @@ export function MarketPanel() {
           <label>
             Exchange
             <select
-              disabled={busy}
+              disabled={busy || !settings}
               value={exchange}
               onChange={(e) => {
                 setExchange(e.target.value);
@@ -197,7 +227,7 @@ export function MarketPanel() {
           <label>
             Option expiry
             <input
-              disabled={busy}
+              disabled={busy || !settings}
               type="date"
               value={expiry}
               onChange={(e) => {
@@ -208,20 +238,26 @@ export function MarketPanel() {
           </label>
         </div>
         <div className="market-actions">
-          <button disabled={busy} onClick={() => void refresh('quote')}>
+          <button
+            disabled={busy || !settings}
+            onClick={() => void refresh('quote')}
+          >
             Refresh quote
           </button>
-          <button disabled={busy} onClick={() => void refresh('bars')}>
+          <button
+            disabled={busy || !settings}
+            onClick={() => void refresh('bars')}
+          >
             Refresh chart
           </button>
           <button
-            disabled={busy || status?.provider === 'massive'}
+            disabled={busy || !settings || status?.provider === 'massive'}
             onClick={() => void refresh('options')}
           >
             Refresh options
           </button>
           <button
-            disabled={busy}
+            disabled={busy || !settings}
             onClick={() => {
               void load().catch(() => setError('Stored data unavailable.'));
             }}

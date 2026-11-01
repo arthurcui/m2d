@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { createDatabase } from '@m2d/db';
 import { buildApp } from './app.js';
 import { createMarketService } from './market.js';
+import { createMarketSelection } from './market-selection.js';
 import {
   FixtureMarketProvider,
   TwelveDataProvider,
@@ -24,30 +25,29 @@ const ibkr = new IbkrConnection(
   () => database.market.waitForIbkrRequest(),
 );
 await ibkr.load();
-const marketProvider =
-  config.MARKET_PROVIDER === 'fixture'
-    ? new FixtureMarketProvider()
-    : config.MARKET_PROVIDER === 'ibkr'
-      ? new IbkrMcpMarketDataProvider(
-          () => ibkr.open(),
-          () => ibkr.connected,
-        )
-      : config.MARKET_PROVIDER === 'massive'
-        ? new MassiveBasicProvider(process.env.MASSIVE_API_KEY ?? '', () =>
-            database.market.waitForMassiveRequest(),
-          )
-        : new TwelveDataProvider(
-            process.env.TWELVE_DATA_API_KEY ?? '',
-            config.MARKET_DELAY_MINUTES,
-          );
+const providers = {
+  fixture: new FixtureMarketProvider(),
+  ibkr: new IbkrMcpMarketDataProvider(
+    () => ibkr.open(),
+    () => ibkr.connected,
+  ),
+  massive: new MassiveBasicProvider(process.env.MASSIVE_API_KEY ?? '', () =>
+    database.market.waitForMassiveRequest(),
+  ),
+  twelvedata: new TwelveDataProvider(
+    process.env.TWELVE_DATA_API_KEY ?? '',
+    config.MARKET_DELAY_MINUTES,
+  ),
+};
+const selection = createMarketSelection(database.market, providers, {
+  priceProvider: config.MARKET_PROVIDER,
+  listingProvider: config.LISTING_PROVIDER,
+});
+const marketProvider = providers[config.MARKET_PROVIDER];
 const listingProvider =
-  config.LISTING_PROVIDER === 'fixture'
-    ? new FixtureMarketProvider()
-    : config.LISTING_PROVIDER === 'massive'
-      ? new MassiveBasicProvider(process.env.MASSIVE_API_KEY ?? '', () =>
-          database.market.waitForMassiveRequest(),
-        )
-      : undefined;
+  config.LISTING_PROVIDER === 'none'
+    ? undefined
+    : providers[config.LISTING_PROVIDER];
 const app = buildApp(
   database.repository,
   config,
@@ -59,6 +59,7 @@ const app = buildApp(
   },
   {
     repository: database.market,
+    selection,
     ibkr,
     provider: marketProvider,
     listingProvider,
@@ -68,6 +69,7 @@ const app = buildApp(
       marketProvider,
       config.BASE_CURRENCY,
       listingProvider,
+      selection,
     ),
   },
 );

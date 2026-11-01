@@ -10,8 +10,9 @@ async function proxy(
   const path = (await context.params).path.join('/');
   const post = request.method !== 'GET';
   const marketRead =
-    /^(portfolio\/(?:valuation|listings)|market\/(?:status|quotes|fx|snapshots|listings\/[0-9a-f-]{36}\/logo|ibkr\/status|(?:bars|options)\/[A-Z0-9.^-]{1,24}))$/;
-  const marketWrite = /^market\/(?:refresh|snapshots|ibkr\/disconnect)$/;
+    /^(portfolio\/(?:valuation|listings)|market\/(?:settings|status|quotes|fx|snapshots|listings\/[0-9a-f-]{36}\/logo|ibkr\/status|(?:bars|options)\/[A-Z0-9.^-]{1,24}))$/;
+  const marketWrite =
+    /^market\/(?:settings|refresh|snapshots|ibkr\/disconnect)$/;
   const chatRead =
     /^(settings\/analysis|chat\/sessions\/[a-z]+|chat\/runs\/[0-9a-f-]{36}(?:\/events)?)$/;
   const chatWrite =

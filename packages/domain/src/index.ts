@@ -62,7 +62,7 @@ export const systemStatusSchema = z.object({
       message: z.string(),
     }),
     market: z.object({
-      provider: z.enum(['fixture', 'twelvedata']),
+      provider: z.enum(['fixture', 'twelvedata', 'massive', 'ibkr']),
       status: z.enum([
         'not_implemented',
         'fixture_only',

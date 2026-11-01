@@ -17,6 +17,10 @@ export function IbkrConnectionPanel() {
   const load = async () =>
     setStatus(await marketApi<Status>('market/ibkr/status'));
   useEffect(() => {
+    const changed = () => {
+      void load().catch(() => setError('IBKR connection status unavailable.'));
+    };
+    window.addEventListener('m2d-provider-changed', changed);
     void load().catch(() => setError('IBKR connection status unavailable.'));
     const url = new URL(window.location.href);
     if (url.searchParams.get('ibkr') === 'connected')
@@ -29,6 +33,7 @@ export function IbkrConnectionPanel() {
       url.searchParams.delete('ibkr');
       window.history.replaceState(null, '', url);
     }
+    return () => window.removeEventListener('m2d-provider-changed', changed);
   }, []);
   async function connect() {
     setBusy(true);
@@ -66,6 +71,7 @@ export function IbkrConnectionPanel() {
     try {
       await marketApi('market/ibkr/disconnect', {});
       await load();
+      window.dispatchEvent(new Event('m2d-market-updated'));
       setNotice(
         'Local IBKR authorization removed. You can also revoke the app consent in IBKR Client Portal.',
       );
@@ -96,7 +102,7 @@ export function IbkrConnectionPanel() {
         <p>
           {status.active
             ? 'IBKR is the selected market provider.'
-            : 'IBKR is connected. To use it for prices, set MARKET_PROVIDER=ibkr in the backend .env and recreate the app containers.'}
+            : 'IBKR is connected. Choose IBKR in the Price provider selector to use it.'}
         </p>
       )}
       <div className="market-actions">

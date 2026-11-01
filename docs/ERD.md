@@ -68,6 +68,9 @@ erDiagram
         integer id PK
         integer revision
         text default_analysis_mode "nullable"
+        text market_provider "nullable"
+        text listing_provider "nullable"
+        integer price_refresh_seconds
     }
     cash_projection {
         text account_key FK

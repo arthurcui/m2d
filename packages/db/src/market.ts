@@ -16,11 +16,13 @@ import {
   isMarketSourceFailure,
   type MarketProvider,
   type Valuation,
+  type MarketSettings,
 } from '@m2d/market';
 import {
   marketObservations as observations,
   marketRefreshes as refreshes,
   valuationSnapshots as snapshots,
+  appSettings,
 } from './schema.js';
 
 export const marketRequestSchema = z.discriminatedUnion('kind', [
@@ -54,6 +56,12 @@ const hash = (v: unknown) =>
   createHash('sha256').update(JSON.stringify(v)).digest('hex');
 export function createMarketRepository(pool: pg.Pool) {
   const db = drizzle(pool);
+  async function settings() {
+    await db.insert(appSettings).values({ id: 1 }).onConflictDoNothing();
+    return (
+      await db.select().from(appSettings).where(eq(appSettings.id, 1))
+    )[0]!;
+  }
   async function reserveProviderRequest(
     provider: 'massive' | 'ibkr',
     intervalMs: number,
@@ -85,6 +93,28 @@ export function createMarketRepository(pool: pg.Pool) {
     }
   }
   return {
+    settings,
+    async updateSettings(
+      revision: number,
+      values: {
+        marketProvider: MarketSettings['priceProvider'];
+        listingProvider: MarketSettings['listingProvider'];
+        priceRefreshSeconds: number;
+      },
+    ) {
+      const [row] = await db
+        .update(appSettings)
+        .set({ ...values, revision: revision + 1 })
+        .where(and(eq(appSettings.id, 1), eq(appSettings.revision, revision)))
+        .returning();
+      if (!row)
+        throw new MarketError(
+          'SETTINGS_CONFLICT',
+          'Settings changed in another view. Your selection was not saved; try again.',
+          409,
+        );
+      return row;
+    },
     reserveMassiveRequest,
     waitForIbkrRequest: () => waitForProvider('ibkr', 1000),
     async waitForMassiveRequest() {

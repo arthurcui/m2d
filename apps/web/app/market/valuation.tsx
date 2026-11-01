@@ -1,26 +1,23 @@
 'use client';
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useState } from 'react';
+import { useMarketData } from './market-context';
 import { marketTime, marketApi } from './market-client';
-import { refreshListingDetails } from './listing-details';
 import type { Valuation } from '@m2d/market';
-import { isMarketSourceFailure, marketFailureMessage } from '@m2d/market';
-type FeedRequest =
-  | { kind: 'quote'; instrument: import('@m2d/portfolio').Instrument }
-  | { kind: 'options'; symbol: string; expiry: string }
-  | { kind: 'fx'; base: string; quote: string };
-export type ValuationView = Valuation & {
-  portfolioRevision: number;
-  requests: FeedRequest[];
-  provider: string;
-  refreshIntervalMs: number;
-};
+export type { ValuationView } from './market-context';
 export { marketTime, marketApi } from './market-client';
 export function ValuationPanel() {
-  const stop = useRef(false);
-  const [value, setValue] = useState<ValuationView | null>(null);
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [progress, setProgress] = useState('');
+  const {
+    value,
+    error,
+    busy,
+    listingBusy,
+    progress,
+    stop,
+    refresh,
+    setBusy,
+    setError,
+    setProgress,
+  } = useMarketData();
   const [history, setHistory] = useState<
     Array<{
       id: string;
@@ -29,110 +26,6 @@ export function ValuationPanel() {
       valuation: Valuation;
     }>
   >([]);
-  const load = useCallback(async () => {
-    try {
-      const v = await marketApi<ValuationView>('portfolio/valuation');
-      setValue(v);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Valuation unavailable.');
-    }
-  }, []);
-  useEffect(() => {
-    void load();
-    window.addEventListener('m2d-market-updated', load);
-    return () => {
-      stop.current = true;
-      window.removeEventListener('m2d-market-updated', load);
-    };
-  }, [load]);
-  async function refresh() {
-    if (!value) return;
-    stop.current = false;
-    setBusy(true);
-    setError('');
-    const failures: string[] = [];
-    let completed = 0;
-    let halted = false;
-    try {
-      // Explicit user-triggered bounded refresh; navigation never starts paid calls.
-      const eligible = value.requests.filter(
-        (r) =>
-          (['fixture', 'ibkr'].includes(value.provider) ||
-            r.kind !== 'options') &&
-          (!['massive', 'ibkr'].includes(value.provider) || r.kind !== 'fx'),
-      );
-      if (eligible.length !== value.requests.length)
-        failures.push(
-          ['massive', 'ibkr'].includes(value.provider)
-            ? 'FX unavailable on this configuration; non-USD balances remain unconverted.'
-            : 'Licensed option prices unavailable; stock and FX feeds refreshed separately.',
-        );
-      const requests = eligible.slice(0, 50);
-      for (const [i, request] of requests.entries()) {
-        if (stop.current) break;
-        const label =
-          request.kind === 'quote'
-            ? `${request.instrument.symbol}${request.instrument.assetType === 'OPTION' ? ` ${request.instrument.expiry} ${request.instrument.strike} ${request.instrument.optionRight}` : ''}${['UNKNOWN', 'US', 'SMART'].includes(request.instrument.exchange) ? '' : ` (${request.instrument.exchange})`}`
-            : request.kind === 'options'
-              ? `${request.symbol} ${request.expiry}`
-              : `${request.base}/${request.quote}`;
-        setProgress(
-          `Refreshing ${label} · ${i + 1} of ${requests.length} sources…`,
-        );
-        const result = await marketApi<{
-          status: string;
-          errorCode: string | null;
-        }>('market/refresh', {
-          version: 1,
-          idempotencyKey: crypto.randomUUID(),
-          request,
-        });
-        if (result.status !== 'SUCCEEDED') {
-          failures.push(`${label}: ${marketFailureMessage(result.errorCode)}`);
-          halted = !isMarketSourceFailure(result.errorCode);
-        } else completed++;
-        // Basic batches can take minutes: show each completed source immediately.
-        await load();
-        setError(failures.join(' · '));
-        if (halted) break;
-        if (value.provider !== 'fixture' && i < requests.length - 1) {
-          if (value.refreshIntervalMs)
-            await new Promise((r) => setTimeout(r, value.refreshIntervalMs));
-        }
-      }
-      await load();
-      if (!stop.current && !halted) {
-        try {
-          await refreshListingDetails(setProgress, () => stop.current);
-        } catch (e) {
-          failures.push(
-            'Prices are kept. ' +
-              (e instanceof Error
-                ? e.message
-                : 'Listing details could not be refreshed.'),
-          );
-        }
-      }
-      if (value.requests.length > 50)
-        failures.push('Refresh limited to 50 sources.');
-      setError(failures.join(' · '));
-      setProgress(
-        stop.current
-          ? 'Refresh stopped. Completed sources are kept.'
-          : halted
-            ? `Refresh stopped after ${completed} successful sources. Completed values are kept; see the provider error below.`
-            : `Refresh finished. ${completed} of ${requests.length} sources updated or loaded from cache. Missing sources remain unpriced.`,
-      );
-    } catch (e) {
-      await load();
-      setError(e instanceof Error ? e.message : 'Refresh failed.');
-      setProgress(
-        `Refresh stopped after ${completed} successful sources. Completed values are kept.`,
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
   async function save() {
     setBusy(true);
     setError('');
@@ -161,13 +54,16 @@ export function ValuationPanel() {
         {busy && (
           <button
             onClick={() => {
-              stop.current = true;
+              stop();
             }}
           >
             Stop refreshing
           </button>
         )}
-        <button disabled={busy || !value} onClick={() => void refresh()}>
+        <button
+          disabled={busy || listingBusy || !value}
+          onClick={() => void refresh()}
+        >
           Refresh portfolio prices
         </button>
       </div>

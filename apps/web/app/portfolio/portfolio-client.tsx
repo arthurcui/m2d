@@ -278,6 +278,9 @@ export function PortfolioClient({ children }: { children?: ReactNode }) {
     [errorScope, setErrorScope] = useState('records'),
     [filter, setFilter] = useState(''),
     [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    window.dispatchEvent(new Event('m2d-market-updated'));
+  }, [data?.revision]);
   const refresh = async () => {
     const [d, h] = await Promise.all([
       api<Overview>('portfolio/overview'),

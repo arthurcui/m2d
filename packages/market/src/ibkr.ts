@@ -7,6 +7,8 @@ import {
   type FeedResult,
   type MarketProvider,
   type Quote,
+  listingLookupSchema,
+  type ListingLookup,
 } from './contracts.js';
 import { equitySession } from './calendar.js';
 
@@ -39,6 +41,7 @@ const listingSchema = z.object({
         symbol: z.string().optional(),
         exchange: z.string().optional(),
         country_code: z.string().optional(),
+        description: z.string().trim().max(500).optional(),
         sections: z.array(z.object({ security_type: z.string() })).optional(),
       }),
     )
@@ -146,6 +149,44 @@ export class IbkrMcpMarketDataProvider implements MarketProvider {
   ) {}
   get configured() {
     return this.connected();
+  }
+  async fetchListing(input: ListingLookup): Promise<FeedResult> {
+    const lookup = listingLookupSchema.parse(input);
+    if (lookup.currency !== 'USD')
+      throw new MarketError(
+        'UNSUPPORTED_INSTRUMENT',
+        'IBKR listing details currently support USD US securities.',
+      );
+    return this.run(async (call) => {
+      const row = await this.listing(call, lookup.symbol, lookup.exchange);
+      if (!row.description)
+        throw new MarketError(
+          'INVALID_MARKET_DATA',
+          'IBKR returned no listing description.',
+        );
+      const now = new Date(this.clock()).toISOString();
+      return {
+        kind: 'listing',
+        value: {
+          lookup,
+          name: row.description,
+          exchange: row.exchange!,
+          assetType: null,
+          logo: null,
+          logoIssue: 'NOT_PROVIDED',
+          provider: this.id,
+          sourceRecordId: `listing:${row.underlying_contract_id}`,
+          asOf: now,
+          receivedAt: now,
+          availableAt: now,
+          session: 'UNKNOWN',
+          delayedMinutes: null,
+          quality: 'VALID',
+          entitlement:
+            'Listing description only; IBKR STK does not distinguish stocks from ETFs. No logo or price evidence.',
+        },
+      };
+    });
   }
   private async run(
     action: (call: IbkrSession['call']) => Promise<FeedResult['payload']>,

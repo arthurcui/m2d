@@ -1,6 +1,23 @@
 import { test, expect } from '@playwright/test';
 import type { Valuation } from '../../packages/market/src/index.js';
-test.beforeEach(async ({ page }) => {
+test.beforeEach(async ({ page }, testInfo) => {
+  if (!testInfo.title.startsWith('market fixtures')) {
+    const settings = (
+      await (await page.request.get('/api/v1/market/settings')).json()
+    ).data;
+    await page.route('**/api/v1/market/settings', (route) =>
+      route.fulfill({
+        json: {
+          data: {
+            ...settings,
+            priceProvider: 'massive',
+            listingProvider: 'none',
+            refreshSeconds: 0,
+          },
+        },
+      }),
+    );
+  }
   await page.route('**/api/v1/portfolio/listings', (route) =>
     route.fulfill({
       json: {

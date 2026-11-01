@@ -6,3 +6,4 @@ export * from './twelvedata.js';
 export * from './massive.js';
 export * from './ibkr.js';
 export * from './valuation.js';
+export * from './settings.js';
