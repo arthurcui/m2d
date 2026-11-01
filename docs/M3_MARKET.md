@@ -124,4 +124,8 @@ Live provider verification is optional and was not performed for M3; mocked tran
 
 - 126 offline unit tests, 31 PostgreSQL integration tests and 20 browser tests passed. The new checks cover source precision, ticker/contract matching, missing data/keys, EOD labels, free-tier pacing, cache/idempotency and durable rate reservations across repository instances.
 - Strict typecheck, lint, formatting, ERD freshness, Compose validation and production image builds passed. The disposable stack also started in `massive` mode with an empty key and returned `MARKET_NOT_CONFIGURED` on refresh without a provider request.
-- Real Massive account access was **not verified**: `MASSIVE_API_KEY` is still blank. An empty placeholder was added to the existing ignored `.env`; existing OpenAI settings and fixture market mode were preserved. No paid market data or inference calls were made.
+- At implementation completion, real Massive account access was **not yet verified** because `MASSIVE_API_KEY` was blank. An empty placeholder was added to the existing ignored `.env`; existing OpenAI settings and fixture market mode were preserved.
+
+### Configured account verification — 2026-10-31
+
+After the user supplied a Massive key locally, the app was switched to `MARKET_PROVIDER=massive` and restarted successfully. Real requests through the application verified the October 30 TSLA stock close and the standard TSLA December 18, 2026 $450 call close. Both returned `SUCCEEDED` and persisted provider evidence with Basic end-of-day labels. This verifies those sample endpoints and account access, not full portfolio coverage, live quotes or Greeks. No OpenAI inference was invoked. Portfolio revision remained 8 and the holdings/cash state hash was unchanged. The key stays in the ignored `.env` and was not displayed or committed.
