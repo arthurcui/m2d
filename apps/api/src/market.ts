@@ -372,13 +372,14 @@ export async function marketRoutes(
   app.get('/api/v1/market/bars/:ticker', async (req) => {
     const { price: provider } = await current();
     const { ticker } = z.object({ ticker: symbolSchema }).parse(req.params);
-    const { exchange } = z
+    const { exchange, at } = z
       .object({
         exchange: z.enum(['NASDAQ', 'NYSE', 'AMEX', 'ARCA']).default('NASDAQ'),
+        at: z.iso.datetime().optional(),
       })
       .parse(req.query);
     return envelope(
-      await repository.read(provider.id, 'bars', `${ticker}:${exchange}`),
+      await repository.read(provider.id, 'bars', `${ticker}:${exchange}`, at),
       provider.id,
     );
   });

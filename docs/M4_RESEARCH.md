@@ -87,3 +87,7 @@ Live SEC retrieval has not been exercised with a configured contact identity in 
 Company IR, ETF/fund documents, OCC notices, official economic releases and financial-news summaries can now be saved and imported from the Research source library. Source settings persist by company; originals, revisions and citations share the existing research pipeline. See [supported inputs, API contracts, limits and live checks](RESEARCH_SOURCES.md). Retrieval remains user-triggered in M4.
 
 See [Analyst Research](ANALYST_RESEARCH.md) for public bank sources, categorized uploads, cited fields and Agent comparisons.
+
+## Company charts
+
+See [company charts](COMPANY_CHARTS.md) for source-linked price/event and financial-trend visuals, historical cutoffs, period comparability, live verification and coverage limits.

@@ -664,3 +664,21 @@ it('saves independent providers, fences stale requests and keeps an in-flight re
     await api.close();
   }
 });
+it('historical bar reads exclude observations recorded after the requested cutoff', async () => {
+  await db.market.refresh(
+    randomUUID(),
+    { kind: 'bars', symbol: 'NVDA', exchange: 'NASDAQ' },
+    provider,
+  );
+  const current = await app.inject('/api/v1/market/bars/NVDA?exchange=NASDAQ');
+  expect(current.statusCode).toBe(200);
+  expect(current.json().data.payload.value).toHaveLength(6);
+  const before = await app.inject(
+    '/api/v1/market/bars/NVDA?exchange=NASDAQ&at=2020-01-01T00:00:00Z',
+  );
+  expect(before.statusCode).toBe(200);
+  expect(before.json().data).toBeNull();
+  expect(
+    (await app.inject('/api/v1/market/bars/NVDA?at=invalid')).statusCode,
+  ).toBe(400);
+});

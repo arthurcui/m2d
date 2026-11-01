@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { CompanySearch } from './company-search';
 import { SourceLibrary } from './source-library';
+import { CompanyCharts } from './company-charts';
 import { useSearchParams } from 'next/navigation';
 export type ResearchContext = { symbol: string; at?: string };
 type Doc = {
@@ -102,6 +103,7 @@ export function ResearchClient({
   const [uploadCategory, setUploadCategory] = useState<'upload' | 'analyst'>(
     'upload',
   );
+  const [loadedSelection, setLoadedSelection] = useState('');
   const [overview, setOverview] = useState<Overview | null>(null),
     [symbol, setSymbol] = useState(''),
     [companyInput, setCompanyInput] = useState(''),
@@ -132,6 +134,7 @@ export function ResearchClient({
       if (selection.current === requestedSelection) {
         setDocuments(result.documents);
         setFacts(result.facts);
+        setLoadedSelection(requestedSelection);
       }
     }
   }
@@ -207,6 +210,7 @@ export function ResearchClient({
         if (live) {
           setDocuments(r.documents);
           setFacts(r.facts);
+          setLoadedSelection(symbol + suffix);
         }
       })
       .catch((e) => {
@@ -265,6 +269,11 @@ export function ResearchClient({
   }, [active, documentId, suffix]);
   async function openDoc(id: string) {
     setDocument(await api<Document>(`/documents/${id}${suffix}`));
+    requestAnimationFrame(() =>
+      window.document
+        .getElementById('research-document')
+        ?.scrollIntoView({ block: 'start' }),
+    );
   }
   function discuss(message: string) {
     window.dispatchEvent(
@@ -370,6 +379,17 @@ export function ResearchClient({
         Options use their underlying company. For ETFs, use fund documents;
         corporate ratios are not fund analysis.
       </p>
+      {symbol && (
+        <CompanyCharts
+          key={symbol}
+          symbol={symbol}
+          at={cutoff}
+          active={active}
+          facts={loadedSelection === symbol + suffix ? facts : []}
+          documents={loadedSelection === symbol + suffix ? documents : []}
+          onOpen={(id) => void action(() => openDoc(id))}
+        />
+      )}
       {symbol && (
         <SourceLibrary
           symbol={symbol}
