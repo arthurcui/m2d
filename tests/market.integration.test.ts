@@ -5,6 +5,7 @@ import { migrateDatabase } from '../packages/db/src/migrate.js';
 import {
   FixtureMarketProvider,
   MarketError,
+  massiveCompletedDate,
   type MarketProvider,
 } from '../packages/market/src/index.js';
 import { createMarketService } from '../apps/api/src/market.js';
@@ -159,4 +160,107 @@ it('recovers interrupted refreshes without repeating external calls', async () =
     error_code: 'REFRESH_INTERRUPTED',
   });
   expect((await db.portfolio.overview()).revision).toBe(0);
+});
+
+it('persists the Basic HTTP allowance across repository instances without consuming queued slots', async () => {
+  expect(await db.market.reserveMassiveRequest()).toBe(0);
+  const other = createDatabase(target.toString());
+  try {
+    const waits = await Promise.all([
+      db.market.reserveMassiveRequest(),
+      other.market.reserveMassiveRequest(),
+    ]);
+    expect(waits.every((ms) => ms > 0 && ms <= 13000)).toBe(true);
+    await db.pool.query(
+      "update market_provider_limits set next_allowed_at=clock_timestamp()-interval '1 second' where provider='massive'",
+    );
+    expect(await other.market.reserveMassiveRequest()).toBe(0);
+    await expect(
+      db.pool.query(
+        "insert into market_provider_limits(provider,next_allowed_at) values('unknown',now())",
+      ),
+    ).rejects.toThrow();
+  } finally {
+    await other.close();
+  }
+});
+
+it('caches completed-day Massive evidence, retains idempotency and does not let unavailable feeds block holdings', async () => {
+  let calls = 0;
+  const basic: MarketProvider = {
+    id: 'massive',
+    configured: true,
+    quote: async (i) => {
+      calls++;
+      return {
+        raw: { example: 'massive-basic' },
+        payload: {
+          kind: 'quote',
+          value: {
+            provider: 'massive',
+            sourceRecordId: 'example',
+            asOf: `${massiveCompletedDate(Date.now())}T20:00:00Z`,
+            receivedAt: new Date().toISOString(),
+            availableAt: new Date().toISOString(),
+            session: 'CLOSED',
+            delayedMinutes: null,
+            quality: 'DELAYED',
+            entitlement: 'Basic EOD',
+            instrument: i,
+            bid: null,
+            ask: null,
+            last: '400',
+            kind: 'EOD_CLOSE',
+          },
+        },
+      };
+    },
+    bars: (s) => provider.bars(s),
+    fx: (b, q) => provider.fx(b, q),
+    options: (s, e) => provider.options(s, e),
+  };
+  await expect(
+    db.market.refresh(
+      randomUUID(),
+      { kind: 'options', symbol: 'TSLA', expiry: '2026-12-18' },
+      basic,
+    ),
+  ).rejects.toMatchObject({ code: 'OPTIONS_UNAVAILABLE' });
+  await expect(
+    db.market.refresh(
+      randomUUID(),
+      { kind: 'fx', base: 'CAD', quote: 'USD' },
+      basic,
+    ),
+  ).rejects.toMatchObject({ code: 'FX_UNAVAILABLE' });
+  const first = await db.market.refresh(
+    randomUUID(),
+    { kind: 'quote', instrument },
+    basic,
+  );
+  expect(first.status).toBe('SUCCEEDED');
+  const key = randomUUID();
+  const cached = await db.market.refresh(
+    key,
+    { kind: 'quote', instrument },
+    basic,
+  );
+  expect(cached).toMatchObject({
+    status: 'SUCCEEDED',
+    cached: true,
+    observationId: first.observationId,
+  });
+  expect(
+    (await db.market.refresh(key, { kind: 'quote', instrument }, basic))
+      .duplicate,
+  ).toBe(true);
+  expect(calls).toBe(1);
+  expect((await db.portfolio.overview()).revision).toBe(0);
+  const basicService = createMarketService(
+    db.market,
+    db.portfolio,
+    basic,
+    'USD',
+  );
+  expect((await basicService.status()).description).toContain('end-of-day');
 });

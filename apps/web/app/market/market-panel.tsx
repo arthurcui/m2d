@@ -12,6 +12,7 @@ export function MarketPanel() {
     configured: boolean;
     session: string;
     options: string;
+    description: string;
   } | null>(null);
   const [bars, setBars] = useState<Bar[]>([]),
     [quote, setQuote] = useState<Quote | null>(null),
@@ -35,7 +36,7 @@ export function MarketPanel() {
         /^[A-Z0-9.^-]{1,24}$/.test(saved.symbol) &&
         'exchange' in saved &&
         typeof saved.exchange === 'string' &&
-        ['NASDAQ', 'NYSE', 'AMEX'].includes(saved.exchange) &&
+        ['NASDAQ', 'NYSE', 'AMEX', 'ARCA'].includes(saved.exchange) &&
         'expiry' in saved &&
         typeof saved.expiry === 'string' &&
         /^\d{4}-\d{2}-\d{2}$/.test(saved.expiry)
@@ -140,13 +141,7 @@ export function MarketPanel() {
             {status?.provider ?? 'Checking'} · {status?.session ?? 'UNKNOWN'}
           </span>
         </div>
-        <p>
-          {status?.provider === 'fixture'
-            ? 'Offline synthetic examples. These are not real market prices.'
-            : status?.configured
-              ? 'Configured provider. Refreshes use your data plan; allow 8 seconds between requests.'
-              : 'Set TWELVE_DATA_API_KEY in the backend environment to enable market requests.'}
-        </p>
+        <p>{status?.description ?? 'Checking market configuration…'}</p>
         <div className="market-controls">
           <label>
             Symbol
@@ -176,6 +171,7 @@ export function MarketPanel() {
               <option>NASDAQ</option>
               <option>NYSE</option>
               <option>AMEX</option>
+              <option>ARCA</option>
             </select>
           </label>
           <label>
@@ -198,7 +194,10 @@ export function MarketPanel() {
           <button disabled={busy} onClick={() => void refresh('bars')}>
             Refresh chart
           </button>
-          <button disabled={busy} onClick={() => void refresh('options')}>
+          <button
+            disabled={busy || status?.provider === 'massive'}
+            onClick={() => void refresh('options')}
+          >
             Refresh options
           </button>
           <button
@@ -233,11 +232,13 @@ export function MarketPanel() {
               {quote.quality}
             </p>
             <small>
-              As of {marketTime(quote.asOf)} · delay{' '}
+              {quote.kind === 'EOD_CLOSE' ? 'Daily period ending' : 'As of'}{' '}
+              {marketTime(quote.asOf)} · delay{' '}
               {quote.delayedMinutes ?? 'unknown'} min ·{' '}
               {Date.now() - Date.parse(quote.asOf) > 90000 ? 'STALE' : 'recent'}{' '}
               · WATCH_ONLY
             </small>
+            <p className="card-note">{quote.entitlement}</p>
           </div>
         )}
         <PriceChart bars={bars} />

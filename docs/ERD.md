@@ -101,6 +101,10 @@ erDiagram
         jsonb payload
         jsonb raw
     }
+    market_provider_limits {
+        text provider PK
+        timestamp_with_time_zone next_allowed_at
+    }
     market_refreshes {
         text request_key PK
         text fingerprint

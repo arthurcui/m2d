@@ -8,6 +8,8 @@ import {
   MarketError,
   payloadSchema,
   symbolSchema,
+  massiveCompletedDate,
+  newYorkDate,
   type MarketProvider,
   type Valuation,
 } from '@m2d/market';
@@ -22,7 +24,7 @@ export const marketRequestSchema = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('bars'),
     symbol: symbolSchema,
-    exchange: z.enum(['NASDAQ', 'NYSE', 'AMEX']).optional(),
+    exchange: z.enum(['NASDAQ', 'NYSE', 'AMEX', 'ARCA']).optional(),
   }),
   z.object({ kind: z.literal('fx'), base: currency, quote: currency }),
   z.object({
@@ -45,7 +47,31 @@ const hash = (v: unknown) =>
   createHash('sha256').update(JSON.stringify(v)).digest('hex');
 export function createMarketRepository(pool: pg.Pool) {
   const db = drizzle(pool);
+  async function reserveMassiveRequest() {
+    const reserved = await pool.query(
+      `insert into market_provider_limits(provider,next_allowed_at)
+       values('massive',clock_timestamp()+interval '13 seconds')
+       on conflict(provider) do update set next_allowed_at=clock_timestamp()+interval '13 seconds'
+       where market_provider_limits.next_allowed_at <= clock_timestamp()
+       returning provider`,
+    );
+    if (reserved.rowCount) return 0;
+    const result = await pool.query<{ wait: number }>(
+      "select greatest(1,ceil(extract(epoch from (next_allowed_at-clock_timestamp()))*1000))::integer as wait from market_provider_limits where provider='massive'",
+    );
+    return result.rows[0]?.wait ?? 13000;
+  }
   return {
+    reserveMassiveRequest,
+    async waitForMassiveRequest() {
+      // Recheck after sleeping: a reservation belongs to the actual dispatch,
+      // never to a queued future slot that could burst after a delayed wakeup.
+      for (;;) {
+        const wait = await reserveMassiveRequest();
+        if (!wait) return;
+        await new Promise((resolve) => setTimeout(resolve, wait));
+      }
+    },
     async recover() {
       const client = await pool.connect();
       let locked = false;
@@ -155,15 +181,59 @@ export function createMarketRepository(pool: pg.Pool) {
           return { ...existing, duplicate: true };
         }
         if (
-          provider.id === 'twelvedata' &&
+          (provider.id === 'twelvedata' || provider.id === 'massive') &&
           (request.kind === 'options' ||
-            (request.kind === 'quote' &&
+            (provider.id === 'twelvedata' &&
+              request.kind === 'quote' &&
               request.instrument.assetType === 'OPTION'))
         )
           throw new MarketError(
             'OPTIONS_UNAVAILABLE',
             'Licensed options data is unavailable in this adapter. Other feeds can still be refreshed.',
           );
+        if (provider.id === 'massive' && request.kind === 'fx')
+          throw new MarketError(
+            'FX_UNAVAILABLE',
+            'FX is not enabled for Massive Basic. Non-USD balances remain unconverted.',
+          );
+        // Completed-day evidence is reusable across refreshes and restarts.
+        // Historical versions stay immutable; new dates create new evidence.
+        if (provider.id === 'massive') {
+          const cached = (
+            await rdb
+              .select()
+              .from(observations)
+              .where(
+                and(
+                  eq(observations.provider, provider.id),
+                  eq(observations.kind, request.kind),
+                  eq(observations.subject, subject),
+                ),
+              )
+              .orderBy(desc(observations.asOf))
+              .limit(1)
+          )[0];
+          if (
+            cached &&
+            newYorkDate(Date.parse(cached.asOf)) ===
+              massiveCompletedDate(Date.now())
+          ) {
+            const saved = (
+              await rdb
+                .insert(refreshes)
+                .values({
+                  requestKey: key,
+                  fingerprint,
+                  provider: provider.id,
+                  subject,
+                  status: 'SUCCEEDED',
+                  observationId: cached.id,
+                })
+                .returning()
+            )[0]!;
+            return { ...saved, duplicate: false, cached: true };
+          }
+        }
         const recent = (
           await rdb
             .select()
@@ -176,7 +246,11 @@ export function createMarketRepository(pool: pg.Pool) {
           provider.id !== 'fixture' &&
           recent &&
           Date.now() - Date.parse(recent.startedAt) <
-            (recent.status === 'FAILED' ? 60000 : 8000)
+            (recent.status === 'FAILED'
+              ? 60000
+              : provider.id === 'massive'
+                ? 0
+                : 8000)
         )
           throw new MarketError(
             'MARKET_RATE_LIMIT',
@@ -306,6 +380,10 @@ export function createMarketRepository(pool: pg.Pool) {
         } catch (e) {
           const code =
             e instanceof MarketError ? e.code : 'INVALID_MARKET_DATA';
+          if (provider.id === 'massive')
+            await client.query(
+              "insert into market_provider_limits(provider,next_allowed_at) values('massive',clock_timestamp()+interval '60 seconds') on conflict(provider) do update set next_allowed_at=greatest(market_provider_limits.next_allowed_at,excluded.next_allowed_at)",
+            );
           await rdb
             .update(refreshes)
             .set({ status: 'FAILED', errorCode: code })

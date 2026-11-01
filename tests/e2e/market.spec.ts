@@ -1,4 +1,31 @@
 import { test, expect } from '@playwright/test';
+test('Massive Basic explains EOD coverage and disables unsupported chain refresh', async ({
+  page,
+}) => {
+  await page.route('**/api/v1/market/status', (route) =>
+    route.fulfill({
+      json: {
+        data: {
+          provider: 'massive',
+          configured: true,
+          session: 'CLOSED',
+          options:
+            'Basic: individual option end-of-day closes via portfolio refresh; no chain snapshots, bid/ask or Greeks.',
+          description: 'Massive Basic · end-of-day data, not live quotes.',
+        },
+      },
+    }),
+  );
+  await page.goto('/market');
+  const panel = page.getByRole('region', { name: 'Market data', exact: true });
+  await expect(panel).toContainText('end-of-day data, not live quotes');
+  await expect(
+    panel.getByRole('button', { name: 'Refresh options' }),
+  ).toBeDisabled();
+  await expect(
+    panel.getByRole('button', { name: 'Refresh quote', exact: true }),
+  ).toBeEnabled();
+});
 test('market fixtures show provenance, OHLCV, missing Greeks and valuation coverage', async ({
   page,
 }) => {

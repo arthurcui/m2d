@@ -32,7 +32,7 @@ export function createMarketService(
         (p) => p.quantity !== '0',
       ))
         requests.push(
-          p.instrument.assetType === 'OPTION'
+          p.instrument.assetType === 'OPTION' && provider.id !== 'massive'
             ? {
                 kind: 'options',
                 symbol: p.instrument.underlying!,
@@ -84,6 +84,7 @@ export function createMarketService(
         observationIds,
         requests: unique,
         provider: provider.id,
+        refreshIntervalMs: provider.id === 'twelvedata' ? 8100 : 0,
       };
     },
     async status() {
@@ -95,7 +96,19 @@ export function createMarketService(
         options:
           provider.id === 'fixture'
             ? 'Limited synthetic examples; Greeks unavailable'
-            : 'Unavailable in this adapter',
+            : provider.id === 'massive'
+              ? 'Basic: individual option end-of-day closes via portfolio refresh; no chain snapshots, bid/ask or Greeks.'
+              : 'Unavailable in this adapter',
+        description:
+          provider.id === 'massive'
+            ? provider.configured
+              ? 'Massive Basic · end-of-day data, not live quotes. Cached completed-day prices; requests are paced to the free allowance. Each new holding may take about 30 seconds.'
+              : 'Set MASSIVE_API_KEY in the backend .env and MARKET_PROVIDER=massive. Basic supplies end-of-day data, not live quotes.'
+            : provider.id === 'fixture'
+              ? 'Offline synthetic examples. These are not real market prices.'
+              : provider.configured
+                ? 'Configured provider. Refreshes use your data plan; allow 8 seconds between requests.'
+                : 'Set TWELVE_DATA_API_KEY in the backend environment to enable market requests.',
         refreshes: await repository.status(provider.id),
       };
     },
@@ -203,7 +216,7 @@ export async function marketRoutes(
     const { ticker } = z.object({ ticker: symbolSchema }).parse(req.params);
     const { exchange } = z
       .object({
-        exchange: z.enum(['NASDAQ', 'NYSE', 'AMEX']).default('NASDAQ'),
+        exchange: z.enum(['NASDAQ', 'NYSE', 'AMEX', 'ARCA']).default('NASDAQ'),
       })
       .parse(req.query);
     return envelope(

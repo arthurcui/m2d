@@ -10,6 +10,7 @@ Keep existing `.env` and database volumes. Defaults remain offline:
 MARKET_PROVIDER=fixture
 BASE_CURRENCY=USD
 TWELVE_DATA_API_KEY=
+MASSIVE_API_KEY=
 MARKET_DELAY_MINUTES=
 ```
 
@@ -20,6 +21,28 @@ docker compose up --build --detach --wait --wait-timeout 180
 Open `/market`. Refresh a quote, hourly chart, or the example TSLA 2026-12-18 option snapshot. The fixture uses fixed **synthetic** October 30, 2026 observations; refreshing does not move their as-of timestamps forward. Supported fixture equity symbols are TSLA, NVDA, AAPL, CRWV, SPY, IBIT, TSLL and OPEN, in USD. FX examples are CAD/USD and USD/CAD. Other instruments remain unavailable. Fixture Greeks and IV are intentionally absent.
 
 Portfolio and Dashboard include valuation coverage. **Refresh portfolio prices** explicitly refreshes up to 50 distinct source requests. It never changes holdings, cash or portfolio revision. **Save valuation snapshot** preserves the current valuation, source observation IDs and portfolio revision. Stored valuations are observations, not investment returns. Agent can read stored valuation without fetching paid data or replacing a user-reported trade price.
+
+## Free Massive Basic configuration
+
+For development, enable **Stocks Basic** and **Options Basic** in your Massive account. Put the key in the existing, ignored root `.env` (never in chat, source code, or the browser):
+
+```dotenv
+MARKET_PROVIDER=massive
+MASSIVE_API_KEY=your-server-side-key
+```
+
+Recreate the stack with the local operation command above. The app stays in fixture mode until you explicitly select `massive`; neither this adapter nor an absent key causes a fallback. The Massive key is independent of the OpenAI key. This implementation stays on Basic endpoints even if the account has a paid plan.
+
+- USD-denominated US stocks/ETFs: verified ticker identity, last completed trading day's **unadjusted close**, and up to 100 historical hourly bars. NASDAQ, NYSE, AMEX and ARCA listings are supported. Portfolio exchange `US` is accepted only after checking a supported US listing against provider reference data.
+- Standard 100-share US equity/ETF options: fetch the **individual contract close** when refreshing portfolio prices. Confirm underlying, expiry, right, strike, multiplier and absence of adjusted deliverables against contract reference data first. An unrepresentable strike is rejected without rounding. No trade on the requested date means unavailable, never zero or a fabricated mark. Expired recorded holdings are not automatically removed.
+- Basic does **not** enable live quotes, bid/ask, chain snapshots, Greeks or FX in this adapter. The chain-refresh button is disabled; option holdings use individual quote requests. Non-USD balances remain unconverted and can make total NAV incomplete.
+- Daily close `asOf` represents the **end of the reported New York calendar day**, not an exact last-trade timestamp. It is labeled `EOD_CLOSE`, `CLOSED`, `DELAYED`, `WATCH_ONLY`; numeric minute delay remains unknown. The UI says “Daily period ending.” Extended-hours fields are not substituted for the close. Historical hourly bars retain their actual interval boundaries; bars crossing session boundaries have session `UNKNOWN`.
+- Basic access is capped at five requests/minute. Every HTTP request, including reference lookups, passes a PostgreSQL-backed **13-second gate**. A new holding needs two requests and may take about 30 seconds during a batch. Successful completed-day evidence is reused across refreshes/restarts until a new trading date becomes eligible. Multiple holdings/accounts sharing an exact instrument need only one refresh. Provider failures impose a one-minute durable cooldown; no automatic retry, pagination, upgrade or fallback occurs. Stopping a batch prevents subsequent holdings from being dispatched; an in-flight refresh may still finish.
+- Only prior completed New York trading dates are requested, including weekend/holiday handling. Calendar coverage remains 2026–2027. No same-day entitlement is assumed. Evidence remains append-only and last-good values survive provider failures.
+
+Additive migration **0009** creates `market_provider_limits`; **0010** extends the market-evidence provider constraint to accept Massive. Generated snapshots and the ERD accompany them. No portfolio schema or financial state changes are required. The HTTP proxy allows a bounded 120 seconds for paced market refreshes.
+
+Provider references: [stock daily summaries](https://massive.com/docs/rest/stocks/aggregates/daily-ticker-summary), [historical bars](https://massive.com/docs/rest/stocks/aggregates/custom-bars), [option daily summaries](https://massive.com/docs/rest/options/aggregates/daily-ticker-summary), [contract reference](https://massive.com/docs/rest/options/contracts/contract-overview), and [Basic pricing/access](https://massive.com/pricing?product=options). Key/account entitlements still require a real request to verify; offline tests do not establish account access.
 
 ## Optional Twelve Data configuration
 
@@ -96,3 +119,9 @@ Live provider verification is optional and was not performed for M3; mocked tran
 - The full browser suite ran against fresh isolated fixture databases. Desktop/browser flows and a narrow-screen screenshot were checked, including Agent valuation, quote/chart/options provenance, snapshot saving and existing portfolio confirmations.
 - Integration verification exposed and fixed a pre-existing chat completion race: terminal status and the final event now commit atomically. Interrupted market refresh recovery and zero foreign-currency cash balances also have regression coverage.
 - The local app was updated using the tested images and additive migration. Its confirmed portfolio revision remained 8 before and after deployment. No real portfolio changes, live market-provider calls or paid inference were performed by this work.
+
+### Massive Basic extension verification — 2026-10-31
+
+- 126 offline unit tests, 31 PostgreSQL integration tests and 20 browser tests passed. The new checks cover source precision, ticker/contract matching, missing data/keys, EOD labels, free-tier pacing, cache/idempotency and durable rate reservations across repository instances.
+- Strict typecheck, lint, formatting, ERD freshness, Compose validation and production image builds passed. The disposable stack also started in `massive` mode with an empty key and returned `MARKET_NOT_CONFIGURED` on refresh without a provider request.
+- Real Massive account access was **not verified**: `MASSIVE_API_KEY` is still blank. An empty placeholder was added to the existing ignored `.env`; existing OpenAI settings and fixture market mode were preserved. No paid market data or inference calls were made.

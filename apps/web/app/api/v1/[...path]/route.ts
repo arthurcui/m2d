@@ -92,7 +92,9 @@ async function proxy(
             ? 320000
             : path.endsWith('/parse')
               ? 135000
-              : 15000,
+              : path === 'market/refresh'
+                ? 120000
+                : 15000,
         ),
       ]),
       ...(post

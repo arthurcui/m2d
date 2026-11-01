@@ -2,7 +2,7 @@
 
 **See the Move. Understand the Motive. Make the Decision.**
 
-**Status:** M3 — Market evidence, optional Twelve Data integration, indicative NAV/P&L, OHLCV charts and saved valuations implemented on the M1/M2 portfolio Agent. See [M3 market setup and limits](docs/M3_MARKET.md). See [M2 implementation notes](docs/M2_CHAT.md) for usage, limits and verification. The design specification (revision 1.2) below also describes future milestones. See [M1 implementation notes](docs/M1_PORTFOLIO.md) for accounting rules, Excel templates, confirmation contracts, verification, and limitations; [M0 notes](docs/M0_FOUNDATION.md) retain foundation details.
+**Status:** M3 — Market evidence, optional Massive Basic (free end-of-day) and Twelve Data integration, indicative NAV/P&L, OHLCV charts and saved valuations implemented on the M1/M2 portfolio Agent. See [M3 market setup and limits](docs/M3_MARKET.md). See [M2 implementation notes](docs/M2_CHAT.md) for usage, limits and verification. The design specification (revision 1.2) below also describes future milestones. See [M1 implementation notes](docs/M1_PORTFOLIO.md) for accounting rules, Excel templates, confirmation contracts, verification, and limitations; [M0 notes](docs/M0_FOUNDATION.md) retain foundation details.
 
 ## Run locally
 

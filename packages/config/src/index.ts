@@ -81,7 +81,9 @@ const configSchema = z.object({
     (v) => (v === '' ? undefined : v),
     z.string().min(1).optional(),
   ),
-  MARKET_PROVIDER: z.enum(['fixture', 'twelvedata']).default('fixture'),
+  MARKET_PROVIDER: z
+    .enum(['fixture', 'twelvedata', 'massive'])
+    .default('fixture'),
   BASE_CURRENCY: z
     .string()
     .regex(/^[A-Z]{3}$/)

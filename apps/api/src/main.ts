@@ -2,17 +2,25 @@ import { readConfig } from '@m2d/config';
 import { createDatabase } from '@m2d/db';
 import { buildApp } from './app.js';
 import { createMarketService } from './market.js';
-import { FixtureMarketProvider, TwelveDataProvider } from '@m2d/market';
+import {
+  FixtureMarketProvider,
+  TwelveDataProvider,
+  MassiveBasicProvider,
+} from '@m2d/market';
 
 const config = readConfig(process.env);
 const database = createDatabase(config.DATABASE_URL);
 const marketProvider =
   config.MARKET_PROVIDER === 'fixture'
     ? new FixtureMarketProvider()
-    : new TwelveDataProvider(
-        process.env.TWELVE_DATA_API_KEY ?? '',
-        config.MARKET_DELAY_MINUTES,
-      );
+    : config.MARKET_PROVIDER === 'massive'
+      ? new MassiveBasicProvider(process.env.MASSIVE_API_KEY ?? '', () =>
+          database.market.waitForMassiveRequest(),
+        )
+      : new TwelveDataProvider(
+          process.env.TWELVE_DATA_API_KEY ?? '',
+          config.MARKET_DELAY_MINUTES,
+        );
 const app = buildApp(
   database.repository,
   config,

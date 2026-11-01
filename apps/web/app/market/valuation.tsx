@@ -9,6 +9,7 @@ export type ValuationView = Valuation & {
   portfolioRevision: number;
   requests: FeedRequest[];
   provider: string;
+  refreshIntervalMs: number;
 };
 export function marketTime(value: string | null) {
   return value
@@ -78,18 +79,22 @@ export function ValuationPanel() {
     try {
       // Explicit user-triggered bounded refresh; navigation never starts paid calls.
       const eligible = value.requests.filter(
-        (r) => value.provider === 'fixture' || r.kind !== 'options',
+        (r) =>
+          (value.provider === 'fixture' || r.kind !== 'options') &&
+          (value.provider !== 'massive' || r.kind !== 'fx'),
       );
       if (eligible.length !== value.requests.length)
         failures.push(
-          'Licensed option prices unavailable; stock and FX feeds refreshed separately.',
+          value.provider === 'massive'
+            ? 'FX unavailable on this configuration; non-USD balances remain unconverted.'
+            : 'Licensed option prices unavailable; stock and FX feeds refreshed separately.',
         );
       const requests = eligible.slice(0, 50);
       for (const [i, request] of requests.entries()) {
         if (stop.current) break;
         const label =
           request.kind === 'quote'
-            ? `${request.instrument.symbol} (${request.instrument.exchange})`
+            ? `${request.instrument.symbol}${request.instrument.assetType === 'OPTION' ? ` ${request.instrument.expiry} ${request.instrument.strike} ${request.instrument.optionRight}` : ''} (${request.instrument.exchange})`
             : request.kind === 'options'
               ? `${request.symbol} ${request.expiry}`
               : `${request.base}/${request.quote}`;
@@ -108,7 +113,8 @@ export function ValuationPanel() {
           failures.push(`${label}: ${result.errorCode ?? result.status}`);
         if (value.provider !== 'fixture' && i < requests.length - 1) {
           if (result.status === 'FAILED') break;
-          await new Promise((r) => setTimeout(r, 8100));
+          if (value.refreshIntervalMs)
+            await new Promise((r) => setTimeout(r, value.refreshIntervalMs));
         }
       }
       await load();
@@ -167,7 +173,9 @@ export function ValuationPanel() {
       <p className="card-note">
         {value?.provider === 'fixture'
           ? 'Synthetic fixture prices — not actual portfolio value.'
-          : 'Indicative valuation from stored market evidence.'}{' '}
+          : value?.provider === 'massive'
+            ? 'Massive Basic: end-of-day valuation, not live prices. New holdings refresh gradually within the free allowance.'
+            : 'Indicative valuation from stored market evidence.'}{' '}
         Prices are never substituted for a reported trade price.
       </p>
       {value && (
@@ -231,6 +239,9 @@ export function ValuationPanel() {
                           ? `${p.quote.provider} · ${p.quote.session} · ${p.quality?.freshness} · ${p.quote.quality}`
                           : 'No matching quote'}
                         <small>
+                          {p.quote?.kind === 'EOD_CLOSE'
+                            ? 'Daily period ending '
+                            : ''}
                           {marketTime(p.quote?.asOf ?? null)} · delay{' '}
                           {p.quote?.delayedMinutes ?? 'unknown'} min
                         </small>
