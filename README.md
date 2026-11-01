@@ -4,6 +4,8 @@
 
 **Status:** M4 research is implemented: SEC filing/XBRL retrieval, PDF/text uploads, immutable source history, full-text search, report comparison and cited Agent discussion. See [M4 setup and limits](docs/M4_RESEARCH.md). M3 — Market evidence, optional Massive Basic (free end-of-day), Twelve Data and [IBKR hosted MCP](docs/IBKR_MCP.md) integration, indicative NAV/P&L, OHLCV charts and saved valuations implemented on the M1/M2 portfolio Agent. See [M3 market setup and limits](docs/M3_MARKET.md). See [M2 implementation notes](docs/M2_CHAT.md) for usage, limits and verification. The design specification (revision 1.2) below also describes future milestones. See [M1 implementation notes](docs/M1_PORTFOLIO.md) for accounting rules, Excel templates, confirmation contracts, verification, and limitations; [M0 notes](docs/M0_FOUNDATION.md) retain foundation details.
 
+M4 also includes a [public research source library](docs/RESEARCH_SOURCES.md) for issuer reports, fund documents, options notices, economic releases and news summaries. Set `RESEARCH_SOURCE_MODE=live` for user-triggered public retrieval; the default is offline fixture mode.
+
 ## Run locally
 
 Prerequisites: Docker Engine with Compose v2 or later (Docker Desktop on Windows). Initial image/dependency downloads require network access; the running fixture stack needs no API keys or paid services.

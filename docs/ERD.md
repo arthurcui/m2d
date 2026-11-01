@@ -314,6 +314,14 @@ erDiagram
         timestamp_with_time_zone started_at
         timestamp_with_time_zone finished_at "nullable"
     }
+    research_source_links {
+        uuid id PK
+        text symbol
+        text kind
+        text name
+        text url
+        timestamp_with_time_zone created_at
+    }
     source_documents {
         uuid id PK
         uuid company_id FK

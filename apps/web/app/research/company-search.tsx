@@ -246,6 +246,11 @@ export function CompanySearch({
                 <option value="">All sources</option>
                 <option value="sec">SEC</option>
                 <option value="upload">Uploaded documents</option>
+                <option value="ir">Company / investor relations</option>
+                <option value="fund">ETF / fund documents</option>
+                <option value="occ">Options notices</option>
+                <option value="macro">Economic releases</option>
+                <option value="news">Financial news</option>
                 <option value="fixture">Synthetic fixtures</option>
               </select>
             </label>

@@ -85,6 +85,7 @@ const configSchema = z.object({
     .enum(['none', 'fixture', 'massive', 'ibkr'])
     .default('none'),
   RESEARCH_PROVIDER: z.enum(['fixture', 'sec']).default('fixture'),
+  RESEARCH_SOURCE_MODE: z.enum(['fixture', 'live']).default('fixture'),
   RESEARCH_EMBEDDING_DAILY_BYTES: z.coerce
     .number()
     .int()

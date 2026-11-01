@@ -1,7 +1,11 @@
 import { createResearchSearchService } from './research-search.js';
 import { createLlmProvider } from '@m2d/llm';
 import { createResearchService } from './research.js';
-import { FixtureResearchProvider, SecResearchProvider } from '@m2d/research';
+import {
+  FixtureResearchProvider,
+  SecResearchProvider,
+  PublicResearchSources,
+} from '@m2d/research';
 import { readConfig } from '@m2d/config';
 import { fileURLToPath } from 'node:url';
 import { createDatabase } from '@m2d/db';
@@ -68,6 +72,10 @@ const research = createResearchService(
     ? new SecResearchProvider(config.SEC_USER_AGENT)
     : new FixtureResearchProvider(),
   researchSearch,
+  new PublicResearchSources(
+    config.RESEARCH_SOURCE_MODE,
+    process.env.MASSIVE_API_KEY ?? '',
+  ),
 );
 const app = buildApp(
   database.repository,

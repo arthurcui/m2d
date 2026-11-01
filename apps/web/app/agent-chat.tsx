@@ -572,8 +572,11 @@ export function AgentChat({
       <div className="agent-conversation-actions">
         <button
           type="button"
-          disabled={busy || running || savingMode}
+          disabled={busy || running || savingMode || !session}
           onClick={() => {
+            if (inFlight.current || running || !session) return;
+            inFlight.current = true;
+            setBusy(true);
             void api<Session>(`chat/sessions/${context}/reset`, 'POST', {})
               .then((s) => {
                 followLatest.current = true;
@@ -591,7 +594,11 @@ export function AgentChat({
                 pending.current = null;
                 draftEdited.current = false;
               })
-              .catch((e) => setError(String(e)));
+              .catch((e) => setError(String(e)))
+              .finally(() => {
+                inFlight.current = false;
+                setBusy(false);
+              });
           }}
         >
           New conversation

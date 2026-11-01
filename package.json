@@ -22,7 +22,8 @@
     "db:migrate": "pnpm --filter @m2d/db migrate",
     "dev": "pnpm -r --parallel --filter './apps/*' dev",
     "docs:erd": "pnpm --filter @m2d/db... --if-present build:types && node packages/db/dist/erd.js",
-    "docs:erd:check": "pnpm --filter @m2d/db... --if-present build:types && node packages/db/dist/erd.js --check"
+    "docs:erd:check": "pnpm --filter @m2d/db... --if-present build:types && node packages/db/dist/erd.js --check",
+    "eval:research-sources": "pnpm --filter @m2d/api... build && node --env-file-if-exists=.env scripts/evaluate-research-sources.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",

@@ -2364,3 +2364,76 @@ footer {
     grid-template-columns: 1fr;
   }
 }
+
+.research-sources {
+  margin: 1.25rem 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 1rem;
+}
+.research-sources summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.research-source-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 0.8rem;
+}
+.research-source-card {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.85rem;
+  min-width: 0;
+}
+.research-source-card h3 {
+  margin: 0.35rem 0;
+  font-size: 1rem;
+}
+.research-source-card p {
+  font-size: 0.85rem;
+}
+.research-source-card a,
+.research-discovered a {
+  overflow-wrap: anywhere;
+}
+.research-source-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.research-source-actions button {
+  font-size: 0.8rem;
+}
+.research-discovered {
+  margin: 1rem 0;
+}
+.research-discovered > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--line);
+}
+.research-discovered button {
+  flex-shrink: 0;
+}
+.research-add-source {
+  margin: 1rem 0;
+}
+.research-add-source form {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.8rem 0;
+}
+.research-add-source label {
+  display: grid;
+  gap: 0.25rem;
+}
+@media (max-width: 600px) {
+  .research-discovered > div {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

@@ -81,3 +81,7 @@ Integration tests require `TEST_DATABASE_URL` pointing to disposable PostgreSQL 
 The offline suite passed 163 unit tests, 38 database/API integration tests and 30 Playwright browser tests. Formatting, lint, strict typecheck, generated ERD checks, Compose validation and Docker builds/startup passed. A separate Docker PDF upload verified extracted page anchors, exact original SHA-256, desktop/mobile rendering and no browser errors. Historical-context tests also prevent later conversation evidence from being replayed into an earlier research boundary.
 
 Live SEC retrieval has not been exercised with a configured contact identity in this delivery. The initial delivery used fixture inference only. Subsequent live OpenAI embedding and Agent evaluation passed after fixing inferred search filters; see [the measured results and remaining limits](COMPANY_SEARCH.md#live-evaluation-and-agent-grounding). Live inference on synthetic reports does not establish live SEC ingestion or broad real-filing accuracy.
+
+## Public-source extension
+
+Company IR, ETF/fund documents, OCC notices, official economic releases and financial-news summaries can now be saved and imported from the Research source library. Source settings persist by company; originals, revisions and citations share the existing research pipeline. See [supported inputs, API contracts, limits and live checks](RESEARCH_SOURCES.md). Retrieval remains user-triggered in M4.

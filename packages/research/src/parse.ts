@@ -1,6 +1,7 @@
 import { fork } from 'node:child_process';
 import { z } from 'zod';
 import { convert } from 'html-to-text';
+import { feedText } from './sources.js';
 import { ResearchError, type Chunk, type Source } from './contracts.js';
 export async function chunks(source: Source): Promise<Chunk[]> {
   if (source.raw.byteLength > 12 * 1024 * 1024)
@@ -73,14 +74,16 @@ export async function chunks(source: Source): Promise<Chunk[]> {
               { selector: 'img', format: 'skip' },
             ],
           })
-        : source.mime === 'application/json'
-          ? (source.facts ?? [])
-              .map(
-                (f) =>
-                  `${f.metric}: ${f.value} ${f.unit}; period ${f.start ?? 'instant'} to ${f.end}; accession ${f.accession}; filed ${f.filed}`,
-              )
-              .join('\n')
-          : raw;
+        : source.mime === 'application/xml'
+          ? feedText(raw)
+          : source.mime === 'application/json'
+            ? (source.facts ?? [])
+                .map(
+                  (f) =>
+                    `${f.metric}: ${f.value} ${f.unit}; period ${f.start ?? 'instant'} to ${f.end}; accession ${f.accession}; filed ${f.filed}`,
+                )
+                .join('\n')
+            : raw;
     pages = [{ page: null, text }];
   }
   const result: Chunk[] = [];

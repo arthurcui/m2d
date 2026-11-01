@@ -71,3 +71,7 @@ Use PostgreSQL 17 with pgvector for integration tests. Cover shared UI/Agent con
 
 
 Run `pnpm eval:company-search` for the repeatable offline harness, or add `--live` for real embeddings and cited Agent answers using the existing backend key. Set `TEST_DATABASE_URL` to a separate pgvector server first. The harness uses isolated synthetic reports, fixed expected sources, predefined top-1/top-3 thresholds, exact facts, historical isolation, cache reuse, a no-match question and an unsupported-answer check. Reports include model, measured relevance, usage/cost, failures and tool traces; fixture success is not a live relevance result. See [the setup, recorded live results and limits](COMPANY_SEARCH.md#live-evaluation-and-agent-grounding). CI never invokes the live check.
+
+### Public research source extension
+
+`research-sources.test.ts`, `public-research-fetch.test.ts`, `research-sources.integration.test.ts` and `e2e/research-sources.spec.ts` cover URL/DNS/redirect boundaries, immutable evidence, feed/news parsing, source CRUD and filtering, legacy idempotency, local errors and responsive navigation. All normal tests are offline. `pnpm eval:research-sources [--live]` is opt-in and uses a disposable database; see [live constraints and reported limitations](RESEARCH_SOURCES.md).

@@ -12,6 +12,10 @@ import {
   passageSchema,
   factQuerySchema,
   symbolSchema,
+  sourceLinkSchema,
+  sourcePresets,
+  PublicResearchSources,
+  type SourceLink,
   ResearchError,
   type ResearchProvider,
   type Source,
@@ -27,6 +31,7 @@ export type ResearchComparison = {
 };
 export interface ResearchService {
   repository: ResearchRepository;
+  sources: PublicResearchSources;
   discovery?: ResearchSearchService;
   status(): { provider: 'fixture' | 'sec'; configured: boolean };
   close(): Promise<void>;
@@ -34,6 +39,8 @@ export interface ResearchService {
     idempotencyKey: string;
     symbol: string;
     upload?: Source;
+    link?: SourceLink;
+    news?: boolean;
   }): Promise<{ id: string; status: string }>;
   compare(
     before: string,
@@ -51,10 +58,12 @@ export function createResearchService(
   repository: ResearchRepository,
   provider: ResearchProvider,
   discovery?: ResearchSearchService,
+  sources = new PublicResearchSources('fixture'),
 ): ResearchService {
   const running = new Map<string, Promise<void>>();
   return {
     repository,
+    sources,
     ...(discovery ? { discovery } : {}),
     status: () => ({ provider: provider.id, configured: provider.configured }),
     async close() {
@@ -65,13 +74,24 @@ export function createResearchService(
       idempotencyKey: string;
       symbol: string;
       upload?: Source;
+      link?: SourceLink;
+      news?: boolean;
     }) {
-      const p = input.upload ? 'upload' : provider.id;
+      const p = input.link
+        ? sources.mode === 'fixture'
+          ? 'fixture'
+          : input.link.kind
+        : input.upload
+          ? 'upload'
+          : provider.id;
       const fingerprint = createHash('sha256')
         .update(
           JSON.stringify({
             symbol: input.symbol,
             provider: p,
+            ...(input.link
+              ? { link: input.link, news: input.news ?? false }
+              : {}),
             upload: input.upload
               ? {
                   ...input.upload,
@@ -97,9 +117,15 @@ export function createResearchService(
         return { id: input.idempotencyKey, status: previous.status };
       const task = (async () => {
         try {
-          const result = input.upload
-            ? { name: input.symbol, cik: null, sources: [input.upload] }
-            : await provider.fetch(input.symbol);
+          const result = input.link
+            ? {
+                name: input.symbol,
+                cik: null,
+                sources: await sources.fetch(input.link, input.news),
+              }
+            : input.upload
+              ? { name: input.symbol, cik: null, sources: [input.upload] }
+              : await provider.fetch(input.symbol);
           const prepared = [];
           for (const source of result.sources)
             prepared.push({
@@ -277,6 +303,105 @@ export async function researchRoutes(
         });
       }
     }
+  });
+  const sourceEnvelope = (data: unknown) => ({
+    data,
+    meta: {
+      version: 1,
+      asOf: new Date().toISOString(),
+      source: s.sources.mode === 'fixture' ? 'fixture' : 'public-sources',
+    },
+  });
+  const sourceRequest = z
+    .object({
+      version: z.literal(1),
+      symbol: symbolSchema,
+      preset: z.string().max(80).optional(),
+      link: sourceLinkSchema.optional(),
+    })
+    .strict();
+  function resolveSource(input: z.infer<typeof sourceRequest>) {
+    if (Boolean(input.preset) === Boolean(input.link))
+      throw new ResearchError(
+        'INVALID_SOURCE',
+        'Choose one source or public document link.',
+      );
+    if (input.link) {
+      if (input.link.symbol !== input.symbol)
+        throw new ResearchError(
+          'SOURCE_COMPANY_MISMATCH',
+          'The source belongs to a different selected company.',
+        );
+      return { link: input.link, news: false };
+    }
+    const preset = sourcePresets(input.symbol, s.sources.newsConfigured).find(
+      (p) => p.id === input.preset,
+    );
+    if (!preset)
+      throw new ResearchError(
+        'SOURCE_NOT_FOUND',
+        'This source is not available for the selected company.',
+        404,
+      );
+    if (!preset.configured)
+      throw new ResearchError(
+        'SOURCE_NOT_CONFIGURED',
+        'Configure the backend Massive key to retrieve news.',
+        503,
+      );
+    const { symbol, kind, name, url } = preset;
+    return {
+      link: { symbol, kind, name, url },
+      news: preset.id === 'massive-news',
+    };
+  }
+  app.get('/api/v1/research/sources', async (req) => {
+    const { symbol } = lookupSchema.parse(req.query);
+    return sourceEnvelope({
+      mode: s.sources.mode,
+      saved: await s.repository.sourceLinks(symbol),
+      presets: sourcePresets(symbol, s.sources.newsConfigured),
+    });
+  });
+  app.post('/api/v1/research/sources', async (req) => {
+    const { version: _version, ...input } = sourceLinkSchema
+      .extend({ version: z.literal(1) })
+      .parse(req.body);
+    void _version;
+    return sourceEnvelope(await s.repository.saveSourceLink(input));
+  });
+  app.post('/api/v1/research/sources/remove', async (req) => {
+    const input = z
+      .object({ version: z.literal(1), id: z.uuid() })
+      .strict()
+      .parse(req.body);
+    await s.repository.removeSourceLink(input.id);
+    return sourceEnvelope({ removed: true });
+  });
+  app.post('/api/v1/research/sources/discover', async (req) => {
+    const input = sourceRequest.parse(req.body),
+      source = resolveSource(input);
+    if (source.news)
+      throw new ResearchError(
+        'SOURCE_NOT_BROWSABLE',
+        'Retrieve news summaries directly.',
+      );
+    return sourceEnvelope({ links: await s.sources.discover(source.link) });
+  });
+  app.post('/api/v1/research/sources/import', async (req, reply) => {
+    const input = sourceRequest
+      .extend({ idempotencyKey: z.uuid() })
+      .parse(req.body);
+    const source = resolveSource(input);
+    return reply.code(202).send(
+      sourceEnvelope(
+        await s.start({
+          idempotencyKey: input.idempotencyKey,
+          symbol: input.symbol,
+          ...source,
+        }),
+      ),
+    );
   });
   app.get('/api/v1/research', async () =>
     envelope({

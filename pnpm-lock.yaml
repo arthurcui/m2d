@@ -271,6 +271,12 @@ importers:
       html-to-text:
         specifier: ^9.0.5
         version: 9.0.5
+      htmlparser2:
+        specifier: 8.0.2
+        version: 8.0.2
+      ipaddr.js:
+        specifier: 2.5.0
+        version: 2.5.0
       pdf-parse:
         specifier: ^2.4.5
         version: 2.4.5

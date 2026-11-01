@@ -25,7 +25,12 @@ export type Source = {
   url: string | null;
   publishedAt: string | null;
   raw: Uint8Array;
-  mime: 'text/plain' | 'text/html' | 'application/json' | 'application/pdf';
+  mime:
+    | 'text/plain'
+    | 'text/html'
+    | 'application/json'
+    | 'application/pdf'
+    | 'application/xml';
   facts?: Fact[];
 };
 export type ResearchProvider = {

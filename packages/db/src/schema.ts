@@ -540,7 +540,10 @@ export const sourceDocuments = pgTable(
       t.upstreamKey,
       t.revision,
     ),
-    check('source_provider', sql`${t.provider} in ('fixture','sec','upload')`),
+    check(
+      'source_provider',
+      sql`${t.provider} in ('fixture','sec','upload','ir','fund','occ','macro','news')`,
+    ),
     check('source_revision', sql`${t.revision}>0`),
     check(
       'source_available',
@@ -630,6 +633,31 @@ export const researchImports = pgTable(
       sql`${t.status} in ('running','completed','failed','interrupted')`,
     ),
     index('research_import_symbol').on(t.symbol, t.startedAt),
+  ],
+);
+
+export const researchSourceLinks = pgTable(
+  'research_source_links',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    symbol: text('symbol').notNull(),
+    kind: text('kind').notNull(),
+    name: text('name').notNull(),
+    url: text('url').notNull(),
+    createdAt: utc('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('research_source_link_unique').on(t.symbol, t.kind, t.url),
+    check(
+      'research_link_kind',
+      sql`${t.kind} in ('ir','fund','occ','macro','news')`,
+    ),
+    check('research_link_symbol', sql`${t.symbol} ~ '^[A-Z0-9.-]{1,24}$'`),
+    check('research_link_name', sql`length(${t.name}) between 1 and 150`),
+    check(
+      'research_link_url',
+      sql`${t.url} like 'https://%' and length(${t.url})<=2000`,
+    ),
   ],
 );
 

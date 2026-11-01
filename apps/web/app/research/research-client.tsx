@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState, useRef } from 'react';
 import { CompanySearch } from './company-search';
+import { SourceLibrary } from './source-library';
 import { useSearchParams } from 'next/navigation';
 export type ResearchContext = { symbol: string; at?: string };
 type Doc = {
@@ -351,14 +352,22 @@ export function ResearchClient({
       </section>
       <p className="muted-label">
         {overview?.provider === 'fixture'
-          ? 'Fixture source · synthetic reports and figures, not company financial data.'
+          ? 'Demo report importer · synthetic reports and figures. Public sources below have a separate live/offline setting.'
           : 'SEC source · latest two supported company reports and financial history.'}{' '}
         {overview && !overview.configured
           ? 'Configure SEC_USER_AGENT in the backend to enable SEC retrieval.'
           : ''}{' '}
-        Options use their underlying company. For ETFs, upload fund reports;
+        Options use their underlying company. For ETFs, use fund documents;
         corporate ratios are not fund analysis.
       </p>
+      {symbol && (
+        <SourceLibrary
+          symbol={symbol}
+          blocked={busy || !!job}
+          historical={!!cutoff}
+          onImport={setJob}
+        />
+      )}
       <section className="research-upload">
         <label>
           Upload a company or fund document

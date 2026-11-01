@@ -19,7 +19,7 @@ export const evidenceSearchSchema = lookupSchema
         'Omit/null includes all forms, including uploaded REPORT documents. Filter only on explicitly requested forms.',
       ),
     source: z
-      .enum(['sec', 'upload', 'fixture'])
+      .enum(['sec', 'upload', 'fixture', 'ir', 'fund', 'occ', 'macro', 'news'])
       .optional()
       .describe(
         'Omit/null includes all sources. A financial question does not imply SEC-only; uploaded reports are also evidence.',

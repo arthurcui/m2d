@@ -1,6 +1,12 @@
 import type pg from 'pg';
 import { createHash } from 'node:crypto';
-import { ResearchError, type Source, type Chunk } from '@m2d/research';
+import {
+  ResearchError,
+  type Source,
+  type Chunk,
+  type SourceLink,
+  type SavedSourceLink,
+} from '@m2d/research';
 export type PreparedSource = Source & { chunks: Chunk[] };
 export type ResearchDocument = {
   id: string;
@@ -22,6 +28,24 @@ const columns = `d.id,d.company_id,c.symbol,d.title,d.form,d.provider,d.url,d.pu
 const date = (at?: string) => at ?? new Date().toISOString();
 export function createResearchRepository(pool: pg.Pool) {
   return {
+    async sourceLinks(symbol: string) {
+      return (
+        await pool.query<SavedSourceLink>(
+          'select * from research_source_links where symbol=$1 order by created_at,id',
+          [symbol],
+        )
+      ).rows;
+    },
+    async saveSourceLink(input: SourceLink) {
+      const result = await pool.query<SavedSourceLink>(
+        'insert into research_source_links(symbol,kind,name,url) values($1,$2,$3,$4) on conflict(symbol,kind,url) do update set name=excluded.name returning *',
+        [input.symbol, input.kind, input.name, input.url],
+      );
+      return result.rows[0]!;
+    },
+    async removeSourceLink(id: string) {
+      await pool.query('delete from research_source_links where id=$1', [id]);
+    },
     async begin(
       id: string,
       symbol: string,
