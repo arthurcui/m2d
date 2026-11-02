@@ -11,7 +11,7 @@ const sections: Record<
       'Manually recorded accounts, positions, cash, and confirmed full-state Excel imports.',
   },
   risk: {
-    title: 'Options & Risk',
+    title: 'Trade Planner',
     milestone: 'M5',
     description:
       'Option obligations, exposure, coverage, and deterministic risk scenarios.',

@@ -26,7 +26,7 @@ User-authorized M3 extension: optional IBKR hosted MCP for allowlisted market da
 **Deliver:** SEC company filings/XBRL importer, upload PDF and plain text, document version/hash, extract claims and citations, company timeline, compare filings, full-text search first; optional pgvector later.
 **Accept:** new filing changes appear with before/after and source links; older historical view preserves old data.
 
-## M5 — Risk and trade planner
+## M5 — Trade Planner
 **Deliver:** exposures, option coverage, expiration review, stress scenarios, supported option payoff calculators, strategy analysis tool, structured trade plans and validation rules, basic chart for payoff-at-expiry.
 **Accept:** covered vs uncovered tests; correct signs/fees, no recommendation actionable with stale or incomplete data; exit/invalidation and main risk mandatory.
 
@@ -49,6 +49,6 @@ For each milestone Codex must: (1) make short implementation plan, (2) implement
 
 The global Agent panel now remains mounted across navigation and preserves unfinished portfolio import work. Unfamiliar account-bearing tabs require new-account/rename selection; rename retains stable account IDs and historical baselines. Optional transactionDate is holding metadata only. These user-requested M1 extensions do not enable M2 general trade-language chat or later research/analysis functions. See M1_PORTFOLIO.md and ADR-031.
 
-M2 implementation: see [M2_CHAT.md](M2_CHAT.md) for the shipped boundaries and cost-accounting limitation of the separate M1 workbook path. M3 implementation: see [M3_MARKET.md](M3_MARKET.md) for market evidence, valuation, fixtures, provider configuration and limits. M4 implementation: see [M4_RESEARCH.md](M4_RESEARCH.md) for document imports, SEC configuration, citations, historical correctness and limitations, and [COMPANY_SEARCH.md](COMPANY_SEARCH.md) for shared keyword/semantic retrieval. M5 and later remain unimplemented.
+M2 implementation: see [M2_CHAT.md](M2_CHAT.md) for the shipped boundaries and cost-accounting limitation of the separate M1 workbook path. M3 implementation: see [M3_MARKET.md](M3_MARKET.md) for market evidence, valuation, fixtures, provider configuration and limits. M4 implementation: see [M4_RESEARCH.md](M4_RESEARCH.md) for document imports, SEC configuration, citations, historical correctness and limitations, and [COMPANY_SEARCH.md](COMPANY_SEARCH.md) for shared keyword/semantic retrieval. M5 implementation: see [M5_RISK.md](M5_RISK.md) for stock/ETF and option calculations, hypothetical plans and validation limits. M6 and later remain unimplemented.
 
 User-authorized M4 source extension: saved public IR/fund/OCC/macro/news links and bounded manual imports; see [RESEARCH_SOURCES.md](RESEARCH_SOURCES.md). This does not add M6 scheduling.

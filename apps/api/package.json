@@ -22,6 +22,7 @@
     "@m2d/agent": "workspace:*",
     "@m2d/llm": "workspace:*",
     "decimal.js": "10.6.0",
-    "@m2d/research": "workspace:*"
+    "@m2d/research": "workspace:*",
+    "@m2d/risk": "workspace:*"
   }
 }

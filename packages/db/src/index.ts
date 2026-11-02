@@ -1,3 +1,5 @@
+import { createRiskRepository } from './risk.js';
+export type { RiskRepository } from './risk.js';
 import { createResearchRepository } from './research.js';
 import { createResearchSearchRepository } from './research-search.js';
 export type { ResearchSearchRepository } from './research-search.js';
@@ -43,6 +45,7 @@ export function createDatabase(connectionString: string) {
     async checkReady() {
       // Checking application tables distinguishes a reachable DB from a migrated DB.
       await pool.query('select id from agent_sessions limit 1');
+      await pool.query('select id from trade_plans limit 1');
       await pool.query('select id from market_observations limit 1');
       await pool.query('select provider from market_provider_limits limit 1');
       await db.select().from(workerHeartbeats).limit(1);
@@ -95,6 +98,7 @@ export function createDatabase(connectionString: string) {
     chat: createChatRepository(pool),
     market: createMarketRepository(pool),
     research: createResearchRepository(pool),
+    risk: createRiskRepository(pool),
     researchSearch: createResearchSearchRepository(pool),
     close: () => pool.end(),
   };

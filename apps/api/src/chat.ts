@@ -1,3 +1,4 @@
+import type { RiskService } from './risk.js';
 import type { ResearchService } from './research.js';
 import type { FastifyInstance } from 'fastify';
 import type { MarketService } from './market.js';
@@ -31,6 +32,7 @@ export async function chatRoutes(
     provider: override,
     market,
     research,
+    risk,
   }: {
     repository: ChatRepository;
     portfolio: PortfolioRepository;
@@ -39,6 +41,7 @@ export async function chatRoutes(
     provider?: LlmProvider;
     market?: MarketService;
     research?: ResearchService;
+    risk?: RiskService;
   },
 ) {
   const running = new Map<
@@ -312,6 +315,7 @@ export async function chatRoutes(
             outputLanguage: run.outputLanguage === 'zh-CN' ? 'zh-CN' : 'en',
             limits,
             signal: controller.signal,
+            riskOnly: ctx === 'risk',
             ...(ctx === 'research'
               ? {
                   researchScope: {
@@ -367,6 +371,9 @@ export async function chatRoutes(
                 }
               : {}),
             ...(market ? { valuation: () => market.valuation() } : {}),
+            ...(risk
+              ? { risk: (name: string, args: unknown) => risk.tool(name, args) }
+              : {}),
             preview: async (data) => {
               const preview = await portfolio.preview(data);
               staged.push(preview.id);

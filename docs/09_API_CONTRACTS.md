@@ -88,3 +88,8 @@ See [M4 HTTP/tool table](M4_RESEARCH.md#http-and-tools) for research import, upl
 ### Company evidence search
 
 `POST /api/v1/research/search` accepts body `version: 2` with the shared `EvidenceSearch` schema. GET `/research/search` remains v1 compatible. Typed Agent tools `research_search_evidence_v2`, `research_read_passage_v1`, `research_query_facts_v2` and `research_find_company_v1` use the same source/cutoff gates. Index updates are explicit version-1 POST requests with UUID idempotency keys and durable progress. Full request fields, response provenance and index-status routes: [company search contracts](COMPANY_SEARCH.md#contracts-and-database).
+
+
+## M5 risk contracts
+
+See [M5 risk API and Advisor tools](M5_RISK.md#contracts-and-storage) for versioned hypothetical calculations, revision-guarded previews and idempotent immutable plan storage. These endpoints never commit portfolio changes.

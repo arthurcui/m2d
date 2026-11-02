@@ -103,17 +103,17 @@ export function AgentChat({
   researchContext?: ResearchContext | null;
 }) {
   useEffect(() => {
-    if (context !== 'research') return;
+    if (!['research', 'risk'].includes(context)) return;
     const receive = (e: Event) => {
       const message = (e as CustomEvent<unknown>).detail;
       if (typeof message === 'string') {
         setDraft(message);
         draftEdited.current = true;
-        localStorage.setItem('m2d:chat-draft:research', message);
+        localStorage.setItem(`m2d:chat-draft:${context}`, message);
       }
     };
-    window.addEventListener('m2d:research-discuss', receive);
-    return () => window.removeEventListener('m2d:research-discuss', receive);
+    window.addEventListener(`m2d:${context}-discuss`, receive);
+    return () => window.removeEventListener(`m2d:${context}-discuss`, receive);
   }, [context]);
   const [session, setSession] = useState<Session | null>(null),
     [draft, setDraft] = useState(''),
@@ -406,8 +406,9 @@ export function AgentChat({
           <div className="agent-message">
             <strong>Advisor</strong>
             <p>
-              Ask a question or describe a portfolio change. I’ll show any
-              changes for your confirmation.
+              {context === 'risk'
+                ? 'Ask about stock, ETF or option risk, or prepare a hypothetical trade plan. This conversation cannot change holdings.'
+                : 'Ask a question or describe a portfolio change. I’ll show any changes for your confirmation.'}
             </p>
           </div>
           {session?.history
@@ -696,17 +697,19 @@ export function AgentChat({
               </strong>
               {selectedHolding.label}
             </span>
-            <button
-              type="button"
-              aria-label={
-                selectedHolding.instrumentKey
-                  ? 'Clear selected holding'
-                  : 'Clear selected account'
-              }
-              onClick={onClearHolding}
-            >
-              ×
-            </button>
+            {onClearHolding && (
+              <button
+                type="button"
+                aria-label={
+                  selectedHolding.instrumentKey
+                    ? 'Clear selected holding'
+                    : 'Clear selected account'
+                }
+                onClick={onClearHolding}
+              >
+                ×
+              </button>
+            )}
           </div>
         )}
         <label>
@@ -722,9 +725,11 @@ export function AgentChat({
             }}
             onKeyDown={submitAgentOnEnter}
             placeholder={
-              selectedHolding
-                ? 'e.g. Sold 3 shares at $200, no fees'
-                : 'Message Advisor…'
+              context === 'risk'
+                ? 'e.g. What would selling 3 shares change?'
+                : selectedHolding
+                  ? 'e.g. Sold 3 shares at $200, no fees'
+                  : 'Message Advisor…'
             }
           />
         </label>

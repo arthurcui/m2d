@@ -5,7 +5,7 @@ const navigation = [
   ['Dashboard', '/', 'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z'],
   ['Portfolio', '/portfolio', 'M4 21V12h4v9 M10 21V7h4v14 M16 21V3h4v18'],
   [
-    'Options & Risk',
+    'Trade Planner',
     '/risk',
     'M12 3 3 7v6c0 5 9 9 9 9s9-4 9-9V7z M12 8v6 M12 17h.01',
   ],
@@ -26,7 +26,7 @@ const navigation = [
 const shortNames = [
   'Overview',
   'Portfolio',
-  'Risk',
+  'Trade Planner',
   'Market',
   'Ideas',
   'Research',

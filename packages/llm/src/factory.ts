@@ -67,6 +67,17 @@ export class ChatFixtureProvider implements LlmProvider {
     const researchQuestion =
       user?.kind === 'text' &&
       /Research context:|stored research|research documents/i.test(user.text);
+    if (
+      user?.kind === 'text' &&
+      /review (?:my |portfolio )?risk|risk summary|portfolio concentration/i.test(
+        user.text,
+      )
+    ) {
+      if (!result) return call('risk_summary_read_v1', {});
+      return reply(
+        'Synthetic fixture risk review: inspect the deterministic exposure, stock/ETF scenarios and short-option obligations in Options & Risk. WATCH_ONLY. Main risk: concentration and price gaps. Exit/invalidation: review the position if your loss budget or investment thesis is breached. Missing market evidence prevents an actionable recommendation.',
+      );
+    }
     if (researchQuestion) {
       const symbol = (
         /Research context: ([A-Z0-9.-]+)/.exec(user.text)?.[1] ?? 'TSLA'
