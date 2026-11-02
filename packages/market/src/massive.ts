@@ -8,6 +8,7 @@ import {
 } from '@m2d/portfolio';
 import {
   MarketError,
+  listingCandidateSchema,
   payloadSchema,
   type MarketProvider,
   type FeedResult,
@@ -305,6 +306,43 @@ export class MassiveBasicProvider implements MarketProvider {
       raw: response.raw,
       exchange: parsed.data.results.primary_exchange,
       details: parsed.data.results,
+    };
+  }
+  async resolveListing(symbol: string): Promise<FeedResult> {
+    const ref = await this.equity(
+      symbol,
+      'UNKNOWN',
+      massiveCompletedDate(this.clock()),
+    );
+    const exchange = Object.entries(exchanges).find(
+      ([, mic]) => mic === ref.exchange,
+    )?.[0];
+    if (!['CS', 'ADRC', 'ETF'].includes(ref.details.type))
+      throw new MarketError(
+        'UNSUPPORTED_INSTRUMENT',
+        'Only supported stock and ETF listings can be charted.',
+      );
+    const candidate = listingCandidateSchema.parse({
+      id: `${symbol}:${exchange}`,
+      symbol,
+      name: ref.details.name ?? `${symbol} (name unavailable)`,
+      exchange,
+      currency: 'USD',
+    });
+    return {
+      raw: ref.raw,
+      payload: {
+        kind: 'resolution',
+        value: {
+          ...this.evidence(
+            `resolve:${symbol}`,
+            new Date(this.clock()).toISOString(),
+            'UNKNOWN',
+          ),
+          symbol,
+          candidates: [candidate],
+        },
+      },
     };
   }
   async fetchListing(input: ListingLookup): Promise<FeedResult> {

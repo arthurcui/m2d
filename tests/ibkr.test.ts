@@ -551,3 +551,103 @@ describe('IBKR hosted MCP authorization and allowlist', () => {
     expect(again.connected).toBe(false);
   });
 });
+it('resolves distinct IBKR contracts, deduplicates identical IDs and excludes foreign/fuzzy matches', async () => {
+  const base = listing.results[0]!;
+  const { p } = provider({
+    search_contracts: {
+      results: [
+        base,
+        base,
+        { ...base, underlying_contract_id: 456 },
+        { ...base, underlying_contract_id: 789, country_code: 'CA' },
+        { ...base, symbol: 'TSLAX' },
+      ],
+    },
+  });
+  const result = await p.resolveListing('TSLA');
+  expect(result.payload.kind).toBe('resolution');
+  if (result.payload.kind === 'resolution')
+    expect(result.payload.value.candidates.map((c) => c.id)).toEqual([
+      '123',
+      '456',
+    ]);
+});
+it('uses the chosen IBKR contract when two exact listings share an exchange', async () => {
+  const { p, call } = provider({
+    search_contracts: {
+      results: [
+        listing.results[0],
+        { ...listing.results[0], underlying_contract_id: 456 },
+      ],
+    },
+    get_price_history: {
+      chart_step: 3600,
+      source: 'Last',
+      time: ['2026-10-30T15:00:00Z'],
+      open: ['1'],
+      high: ['2'],
+      low: ['1'],
+      close: ['2'],
+      volume: ['100'],
+    },
+  });
+  await p.bars('TSLA', 'NASDAQ', '456');
+  expect(call).toHaveBeenCalledWith(
+    'get_price_history',
+    expect.objectContaining({ contract_id: 456 }),
+  );
+  await expect(p.bars('TSLA', 'NASDAQ', '999')).rejects.toMatchObject({
+    code: 'INSTRUMENT_MISMATCH',
+  });
+});
+it('accepts a bounded IBKR history response larger than requested and retains the latest 100 completed bars', async () => {
+  const time = Array.from({ length: 108 }, (_, i) =>
+    new Date(now - (120 - i) * 3600000).toISOString(),
+  );
+  const data = {
+    chart_step: '3600',
+    source: 'Last',
+    time,
+    open: time.map(() => '1'),
+    high: time.map(() => '2'),
+    low: time.map(() => '1'),
+    close: time.map(() => '2'),
+    volume: time.map(() => '1.0787197E7'),
+  };
+  const { p } = provider({ get_price_history: data });
+  const r = await p.bars('TSLA', 'NASDAQ');
+  expect(r.payload.kind).toBe('bars');
+  if (r.payload.kind === 'bars') {
+    expect(r.payload.value).toHaveLength(100);
+    expect(r.payload.value[0]!.start).toBe(time[8]);
+    expect(r.payload.value.at(-1)!.start).toBe(time[107]);
+    expect(r.payload.value.at(-1)!.volume).toBe('10787197');
+  }
+  const oversized = provider({
+    get_price_history: { ...data, time: Array(501).fill(time[0]) },
+  }).p;
+  await expect(oversized.bars('TSLA', 'NASDAQ')).rejects.toMatchObject({
+    code: 'INVALID_MARKET_DATA',
+  });
+});
+
+it.each(['1e999', '-1e7', 'NaN'])(
+  'rejects invalid IBKR historical volume %s',
+  async (volume) => {
+    const { p } = provider({
+      get_price_history: {
+        chart_step: 3600,
+        source: 'Last',
+        time: ['2026-10-30T15:00:00Z'],
+        open: ['1'],
+        high: ['2'],
+        low: ['1'],
+        close: ['2'],
+        volume: [volume],
+      },
+    });
+    await expect(p.bars('TSLA', 'NASDAQ')).rejects.toMatchObject({
+      code: 'INVALID_MARKET_DATA',
+    });
+  },
+);

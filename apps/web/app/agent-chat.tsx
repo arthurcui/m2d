@@ -1,8 +1,11 @@
 'use client';
+import { ChatMarkdown } from './chat-markdown';
+import type { ResearchContext } from './research/research-client';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Change } from '@m2d/portfolio';
 import type { HoldingSelection } from './portfolio/holdings-table';
 import { submitAgentOnEnter } from './agent-contexts';
+type Language = 'en' | 'zh-CN';
 type Mode = 'quick' | 'standard' | 'extensive';
 type Run = {
   id: string;
@@ -10,6 +13,7 @@ type Run = {
   provider: string;
   model: string;
   analysisMode: Mode;
+  outputLanguage?: Language | null;
   policyVersion: string;
   startedAt: string;
   completeness: string;
@@ -31,6 +35,12 @@ type Run = {
   events: { type: string; delta?: string; message?: string }[];
 };
 type Session = {
+  dailyUsage?: {
+    budgetedCost: string;
+    replies: number;
+    unpricedReplies: number;
+  };
+  dailyBudget?: string | null;
   revision: number;
   draft: string;
   history: {
@@ -82,6 +92,7 @@ export function AgentChat({
   disabled = false,
   selectedHolding = null,
   onClearHolding,
+  researchContext = null,
 }: {
   context: string;
   label: string;
@@ -89,10 +100,25 @@ export function AgentChat({
   disabled?: boolean;
   selectedHolding?: HoldingSelection | null;
   onClearHolding?: () => void;
+  researchContext?: ResearchContext | null;
 }) {
+  useEffect(() => {
+    if (context !== 'research') return;
+    const receive = (e: Event) => {
+      const message = (e as CustomEvent<unknown>).detail;
+      if (typeof message === 'string') {
+        setDraft(message);
+        draftEdited.current = true;
+        localStorage.setItem('m2d:chat-draft:research', message);
+      }
+    };
+    window.addEventListener('m2d:research-discuss', receive);
+    return () => window.removeEventListener('m2d:research-discuss', receive);
+  }, [context]);
   const [session, setSession] = useState<Session | null>(null),
     [draft, setDraft] = useState(''),
     [mode, setMode] = useState<Mode>('standard'),
+    [language, setLanguage] = useState<Language>('en'),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false),
     [savingMode, setSavingMode] = useState(false),
@@ -121,6 +147,8 @@ export function AgentChat({
       idempotencyKey: string;
       message: string;
       analysisMode: Mode;
+      outputLanguage?: Language;
+      researchContext?: ResearchContext;
       holdingContext?: { accountKey: string; instrumentKey?: string };
     } | null>(null),
     source = useRef<EventSource | null>(null);
@@ -143,13 +171,16 @@ export function AgentChat({
     let gone = false;
     void Promise.all([
       api<Session>(`chat/sessions/${context}`),
-      api<{ effectiveDefault: Mode }>('settings/analysis'),
+      api<{ effectiveDefault: Mode; outputLanguage: Language }>(
+        'settings/analysis',
+      ),
     ])
       .then(([s, settings]) => {
         if (gone) return;
         setSession(s);
         revision.current = s.revision;
         setMode(settings.effectiveDefault);
+        setLanguage(settings.outputLanguage ?? 'en');
         const savedRequest = localStorage.getItem(storage + ':pending');
         if (savedRequest) {
           try {
@@ -242,6 +273,9 @@ export function AgentChat({
       const request =
         pending.current?.message === message.trim() &&
         pending.current.analysisMode === mode &&
+        (pending.current.outputLanguage ?? 'en') === language &&
+        JSON.stringify(pending.current.researchContext) ===
+          JSON.stringify(researchContext ?? undefined) &&
         JSON.stringify(pending.current.holdingContext) ===
           JSON.stringify(
             selectedHolding
@@ -257,7 +291,9 @@ export function AgentChat({
           : {
               idempotencyKey: crypto.randomUUID(),
               message: message.trim(),
+              ...(researchContext ? { researchContext } : {}),
               analysisMode: mode,
+              outputLanguage: language,
               ...(selectedHolding
                 ? {
                     holdingContext: {
@@ -293,8 +329,9 @@ export function AgentChat({
       setBusy(false);
     }
   }
-  async function saveDefault(next: Mode) {
+  async function saveDefault(next: Mode, outputLanguage: Language = language) {
     setMode(next);
+    setLanguage(outputLanguage);
     setSavingMode(true);
     setError('');
     try {
@@ -303,8 +340,9 @@ export function AgentChat({
         version: 1,
         expectedRevision: settings.revision,
         defaultAnalysisMode: next,
+        outputLanguage,
       });
-      setProgress(`Default saved: ${next}.`);
+      // Preferences apply to future sends; the running reply keeps its snapshot.
     } catch (e) {
       setError(String(e));
     } finally {
@@ -357,14 +395,19 @@ export function AgentChat({
         }}
       >
         <div role="log" aria-label={`${label} conversation`}>
+          {researchContext && (
+            <p className="message-holding-context">
+              Research · {researchContext.symbol}
+              {researchContext.at
+                ? ` · available by ${researchContext.at}`
+                : ''}
+            </p>
+          )}
           <div className="agent-message">
-            <strong>Agent</strong>
+            <strong>Advisor</strong>
             <p>
-              Ask about your recorded portfolio or describe a change. I will ask
-              for missing details and show a preview before you confirm. Market
-              research is not available yet. Stored market valuation is
-              available with source and freshness labels; it is not an execution
-              quote.
+              Ask a question or describe a portfolio change. I’ll show any
+              changes for your confirmation.
             </p>
           </div>
           {session?.history
@@ -374,7 +417,7 @@ export function AgentChat({
                 key={item.id}
                 className={`agent-message ${item.role === 'user' ? 'from-user' : ''}`}
               >
-                <strong>{item.role === 'user' ? 'You' : 'Agent'}</strong>
+                <strong>{item.role === 'user' ? 'You' : 'Advisor'}</strong>
                 {item.holdingContext && (
                   <small className="message-holding-context">
                     {item.holdingContext.instrumentKey
@@ -385,28 +428,33 @@ export function AgentChat({
                     · {item.holdingContext.accountKey}
                   </small>
                 )}
-                <p>{item.text}</p>
+                <ChatMarkdown text={item.text ?? ''} />
               </div>
             ))}
           {live && (
             <div className="agent-message">
-              <strong>Agent · in progress</strong>
-              <p>{live}</p>
+              <strong>Advisor · in progress</strong>
+              <ChatMarkdown text={live} />
             </div>
           )}
         </div>
         {latest && (
           <details className="muted-label">
             <summary>
-              {latest.analysisMode} · {latest.status} · {latest.provider} /{' '}
-              {latest.model}
+              Usage for this reply · {latest.analysisMode} · {latest.status} ·{' '}
+              {latest.provider} / {latest.model}
             </summary>
             <p>
               {latest.policyVersion} · {latest.completeness} ·{' '}
               {new Date(latest.startedAt).toLocaleString('en-CA', {
                 timeZone: 'America/Vancouver',
               })}{' '}
-              Vancouver
+              Vancouver ·{' '}
+              {latest.outputLanguage === 'zh-CN'
+                ? '简体中文'
+                : latest.outputLanguage === 'en'
+                  ? 'English'
+                  : 'Language not recorded'}
             </p>
             <p>
               Up to {latest.effectiveLimits.modelCalls} model attempts,{' '}
@@ -428,6 +476,26 @@ export function AgentChat({
             </p>
             {latest.limitReasons.length > 0 && (
               <p>{latest.limitReasons.join(', ')}</p>
+            )}
+          </details>
+        )}
+        {session?.dailyUsage && (
+          <details className="agent-run">
+            <summary>Daily usage (UTC)</summary>
+            <p>
+              {session.dailyUsage.replies} replies across conversations · USD{' '}
+              {session.dailyUsage.budgetedCost} budgeted
+              {session.dailyBudget ? ' / USD ' + session.dailyBudget : ''}.
+            </p>
+            <p>
+              Includes recorded reply and research embedding costs plus pending
+              reservations.
+            </p>
+            {session.dailyUsage.unpricedReplies > 0 && (
+              <p>
+                Some reply costs are unavailable; the dollar total is
+                incomplete.
+              </p>
             )}
           </details>
         )}
@@ -546,8 +614,12 @@ export function AgentChat({
       <div className="agent-conversation-actions">
         <button
           type="button"
-          disabled={busy || running || savingMode}
+          disabled={busy || running || savingMode || !session}
+          title="Reset this conversation and its unsent draft"
           onClick={() => {
+            if (inFlight.current || running || !session) return;
+            inFlight.current = true;
+            setBusy(true);
             void api<Session>(`chat/sessions/${context}/reset`, 'POST', {})
               .then((s) => {
                 followLatest.current = true;
@@ -565,11 +637,47 @@ export function AgentChat({
                 pending.current = null;
                 draftEdited.current = false;
               })
-              .catch((e) => setError(String(e)));
+              .catch((e) => setError(String(e)))
+              .finally(() => {
+                inFlight.current = false;
+                setBusy(false);
+              });
           }}
         >
-          New conversation
+          Reset conversation
         </button>
+        <div className="agent-mode-settings">
+          <label className="agent-mode-field">
+            Analysis mode · next send
+            <select
+              aria-label={`${label} analysis mode`}
+              value={mode}
+              disabled={savingMode || !session}
+              onChange={(e) => void saveDefault(e.target.value as Mode)}
+            >
+              <option value="quick">Quick</option>
+              <option value="standard">Standard</option>
+              <option value="extensive">Extensive</option>
+            </select>
+          </label>
+          <label className="agent-mode-field">
+            Reply language
+            <select
+              aria-label={`${label} reply language`}
+              value={language}
+              disabled={savingMode || !session}
+              onChange={(e) =>
+                void saveDefault(mode, e.target.value as Language)
+              }
+            >
+              <option value="en">English</option>
+              <option value="zh-CN">简体中文</option>
+            </select>
+          </label>
+          <small className="agent-next-send-note">
+            Settings apply to the next send. Conversation context is kept.
+          </small>
+        </div>
       </div>
       <form
         className="agent-composer"
@@ -601,21 +709,6 @@ export function AgentChat({
             </button>
           </div>
         )}
-        <div className="agent-mode-settings">
-          <label className="agent-mode-field">
-            Analysis mode
-            <select
-              aria-label={`${label} analysis mode`}
-              value={mode}
-              disabled={busy || running || savingMode}
-              onChange={(e) => void saveDefault(e.target.value as Mode)}
-            >
-              <option value="quick">Quick</option>
-              <option value="standard">Standard</option>
-              <option value="extensive">Extensive</option>
-            </select>
-          </label>
-        </div>
         <label>
           {label} message
           <textarea
@@ -631,13 +724,12 @@ export function AgentChat({
             placeholder={
               selectedHolding
                 ? 'e.g. Sold 3 shares at $200, no fees'
-                : 'Message Agent…'
+                : 'Message Advisor…'
             }
           />
         </label>
         <p className="muted-label">
-          Enter to send · Shift+Enter for a new line. Modes change work limits;
-          all changes require confirmation.
+          Enter to send · Shift+Enter for a new line
         </p>
         <div className="agent-send-actions">
           {running ? (

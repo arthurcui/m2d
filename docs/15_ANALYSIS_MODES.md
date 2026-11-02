@@ -69,3 +69,25 @@ M2 implements selection, saved defaults, policy resolution, metadata, cancellati
 Verify default/override precedence, invalid modes, preference persistence, scheduled-mode independence and immutable active runs. All three profiles must pass the same freshness, financial validation and portfolio-confirmation cases. Test that deployment/cost caps cannot be raised by request fields, that retries consume the original allowance, and that Quick's exhausted budget yields limited/unfinished analysis without automatic escalation. Fixture runs exercise each mode without real API keys or timing claims.
 
 M2 implementation notes and the separate M1 workbook accounting limitation: [M2_CHAT.md](M2_CHAT.md).
+
+### Search retrieval accounting
+
+An uncached semantic search query made by Advisor consumes one model attempt and records embedding usage/cost in that run; cached query vectors do not. Query embeddings respect the existing run deadline/cancellation, request timeout and run/daily cost ceilings. Explicit indexing from Research is separately bounded by durable daily input-byte reservations and the same configured daily inference cost gate. Indexing is never an automatic analysis-mode escalation. The search UI exposes partial coverage and unavailable/error states rather than silently changing retrieval/provider behavior.
+
+
+## Chat presentation
+
+The conversation toolbar groups **Reset conversation** with the automatically saved analysis-mode selector. Reset starts a fresh conversation for the current function and clears its unsent draft, using the existing reset API. The composer retains Enter to send, Shift+Enter for a newline, busy-state guards and confirmation previews.
+
+Chat, streaming text and workbook conversations share a Markdown renderer (`react-markdown` with `remark-gfm`) for headings, emphasis, lists, code, quotes, tables and links. These libraries replace the narrow citation-only formatter with a standard parser. Raw HTML is disabled, default unsafe-URL filtering remains enabled, and Markdown images display their alt text without fetching remote content. Internal research links retain client-side navigation and citation fragments. Long tables and code blocks scroll within the message rather than widening the panel. This is a display change; canonical messages, inference policies, financial gates and API contracts are unchanged.
+
+Presentation verification: 198 unit tests and 38 browser tests passed, with three targeted desktop/mobile and panel tests repeated after the final visual refinements. Typecheck, lint, formatting and the web Docker build passed. The web service was redeployed; read-only health/navigation checks confirmed portfolio and saved preferences were unchanged. No new inference call was needed for this rendering-only change.
+
+
+## Per-send Advisor settings
+
+Each send starts a separate run with an immutable selected mode, output language and effective limits. Model attempts, tool calls, elapsed time and run cost begin afresh for that send; retries within it consume the same allowance. Daily chat/research inference accounting remains cumulative across conversations under the existing UTC ledger and deployment caps. **Usage for this reply** shows the latest run only; **Daily usage (UTC)** is separate and includes reservations. Unpriced usage is marked incomplete. Earlier history still counts toward model input usage.
+
+Mode and **Reply language** controls can change during a reply: they affect the next send and never alter the active run. Selections automatically persist as workspace preferences; they are not conversation settings. English is the initial language; 简体中文 is also supported. Language applies to new Advisor replies; UI controls, source quotations, tickers, numbers and citation URLs retain their original representation. Deterministic share-count replies honor language without inference; other fixture replies remain canned offline examples.
+
+Canonical conversation history and compatible provider continuation are retained between sends and when settings change. **Reset conversation** explicitly archives the old conversation and starts a new one. Migration 0020 adds the workspace language preference and per-run language snapshot; older runs have unknown/null language rather than an invented label. Request fingerprints include explicitly requested language, so changing it on a reused request key is rejected.

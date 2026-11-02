@@ -5,7 +5,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:17.6-bookworm
+        image: pgvector/pgvector:0.8.7-pg17-bookworm
         env:
           POSTGRES_DB: m2d_test
           POSTGRES_USER: m2d
@@ -17,6 +17,7 @@ jobs:
     env:
       MARKET_PROVIDER: fixture
       LISTING_PROVIDER: fixture
+      RESEARCH_PROVIDER: fixture
       LLM_PROVIDER: fixture
       LLM_MODEL: fixture-v1
       TEST_DATABASE_URL: postgresql://m2d:test-only@localhost:5432/m2d_test

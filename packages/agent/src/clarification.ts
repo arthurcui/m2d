@@ -65,7 +65,7 @@ const answerSchema = z
   })
   .strict();
 export function scopedAnswer(question: string, answer: string) {
-  // Keep source identity, never copy example values from an Agent question.
+  // Keep source identity, never copy example values from an Advisor question.
   const location = question.match(/(?:Tab|tab) "([^"]+)"(?:,? row (\d+))?/);
   if (
     !location ||

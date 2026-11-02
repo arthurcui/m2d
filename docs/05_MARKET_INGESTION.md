@@ -31,7 +31,7 @@ Each observation: `source`, `source_record_id`, `instrument_id`, `as_of_utc`, `r
 - Parse PDFs, SEC HTML/JSON, transcript text and manual uploads; preserve source page/section and quote length limits for citations.
 - Extract facts into structured typed schema with period, units, currency and dimension. Keep original source separate from AI-extracted interpretation.
 - Compare `as_reported` and `revised`; detect guidance changes, earnings surprises, material capital raises, M&A, splits, lockups and regulatory changes only when supported by source.
-- RAG: start with Postgres full-text/trigram + source-filtered search, add pgvector embeddings for semantic search when warranted. Retrieval must return citations/page anchors and publication time.
+- RAG: M4 combines PostgreSQL full-text and opt-in pgvector semantic search behind shared company/source/date filters. Results retain citations/page anchors, publication and availability times; exact financial values use structured fact queries. See [company search](COMPANY_SEARCH.md) for caching, budgets and limits.
 
 ## 5. Point-in-time correctness
 Each datum has at least `event_period`, `published_at`, `available_at`, `observed_at`, `revision`; backtests must only use records with `available_at <= simulated decision timestamp`. A report later revised cannot overwrite the earlier historical view for a backtest.
@@ -42,4 +42,4 @@ Each datum has at least `event_period`, `published_at`, `available_at`, `observe
 - Persist raw and parsed results; failed parsing never replaces last-good records.
 - News is untrusted content: cannot instruct agent to mutate portfolios, change tools or reveal configuration.
 
-M3 implementation and provider limitations: [M3_MARKET.md](M3_MARKET.md). The research-ingestion portions of this design remain M4 and later.
+M3 implementation and provider limitations: [M3_MARKET.md](M3_MARKET.md). M4 research implementation and bounded manual-ingestion behavior: [M4_RESEARCH.md](M4_RESEARCH.md). Scheduled monitoring remains M6.

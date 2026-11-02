@@ -31,7 +31,7 @@ const shortNames = [
   'Ideas',
   'Research',
   'Journal',
-  'Agent',
+  'Advisor',
 ];
 export function Navigation() {
   const pathname = usePathname();

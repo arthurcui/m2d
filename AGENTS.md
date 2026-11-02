@@ -36,6 +36,7 @@ You are implementing **M²D (Move · Motive · Decision)**, a local-first, **sin
 - Preserve existing user code/data; do not wipe volumes or rewrite history for convenience.
 - For each milestone provide runnable commands, implementation summary, test results, known constraints and TODOs.
 - If a test cannot be executed, report exactly why; never claim it passed.
+- When a provider-backed feature is close to ready, run a bounded live check with the configured provider in addition to offline tests. Use synthetic/public inputs and isolated test state; preserve existing user data and cost ceilings. The user has requested live verification for this project; reuse the configured backend credentials without repeatedly asking for the same authorization. Keep CI offline, and report the live provider/model, measured results, usage/cost estimate and any remaining limitations. Do not call a provider integration ready based only on fixture tests.
 - Keep docs and ADRs synchronized with the code; document deviations from the design.
 - After changing the Drizzle schema, run `pnpm docs:erd` and commit the updated `docs/ERD.md`; CI checks it with `pnpm docs:erd:check`.
 

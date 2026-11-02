@@ -84,6 +84,15 @@ const configSchema = z.object({
   LISTING_PROVIDER: z
     .enum(['none', 'fixture', 'massive', 'ibkr'])
     .default('none'),
+  RESEARCH_PROVIDER: z.enum(['fixture', 'sec']).default('fixture'),
+  RESEARCH_SOURCE_MODE: z.enum(['fixture', 'live']).default('fixture'),
+  RESEARCH_EMBEDDING_DAILY_BYTES: z.coerce
+    .number()
+    .int()
+    .min(8000)
+    .max(10000000)
+    .default(1000000),
+  SEC_USER_AGENT: z.string().max(250).default(''),
   MARKET_PROVIDER: z
     .enum(['fixture', 'twelvedata', 'massive', 'ibkr'])
     .default('fixture'),
@@ -135,6 +144,6 @@ export function aiStatus(config: Pick<Config, 'LLM_PROVIDER' | 'LLM_MODEL'>) {
           ? ('unconfigured' as const)
           : ('not_implemented' as const),
     message:
-      'AI workbook parsing requires a configured backend parser. Agent chat uses the separately configured chat service.',
+      'AI workbook parsing requires a configured backend parser. Advisor chat uses the separately configured chat service.',
   };
 }

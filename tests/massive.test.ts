@@ -355,3 +355,39 @@ describe('Massive Basic end-of-day adapter', () => {
     }
   });
 });
+it('resolves supported US symbols automatically without requesting a logo or price', async () => {
+  const { p, transport } = setup([
+    {
+      ...reference,
+      results: {
+        ...reference.results,
+        name: 'Example NYSE company',
+        primary_exchange: 'XNYS',
+      },
+    },
+  ]);
+  const result = await p.resolveListing('TSLA');
+  expect(result.payload).toMatchObject({
+    kind: 'resolution',
+    value: {
+      symbol: 'TSLA',
+      candidates: [
+        {
+          id: 'TSLA:NYSE',
+          exchange: 'NYSE',
+          currency: 'USD',
+          name: 'Example NYSE company',
+        },
+      ],
+    },
+  });
+  expect(transport).toHaveBeenCalledTimes(1);
+});
+it('does not resolve unsupported equity types as ordinary shares', async () => {
+  const { p } = setup([
+    { ...reference, results: { ...reference.results, type: 'WARRANT' } },
+  ]);
+  await expect(p.resolveListing('TSLA')).rejects.toMatchObject({
+    code: 'UNSUPPORTED_INSTRUMENT',
+  });
+});

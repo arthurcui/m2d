@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-test('Agent persists a streamed conversation, mode preference and draft across reloads', async ({
+test('Advisor persists a streamed conversation, mode preference and draft across reloads', async ({
   page,
 }) => {
   if (process.env.E2E_ALLOW_PORTFOLIO_WRITES !== '1')
@@ -8,10 +8,10 @@ test('Agent persists a streamed conversation, mode preference and draft across r
   const chat = page.getByRole('region', { name: 'General chat', exact: true });
   await expect(chat.getByLabel('General message')).toBeEnabled();
   await chat
-    .getByRole('button', { name: 'New conversation', exact: true })
+    .getByRole('button', { name: 'Reset conversation', exact: true })
     .click();
   await chat.getByLabel('General analysis mode').selectOption('quick');
-  await expect(chat.getByRole('status')).toHaveText('Default saved: quick.');
+  await expect(chat.getByLabel('General analysis mode')).toBeEnabled();
   await chat
     .getByLabel('General message')
     .fill('Summarize my recorded portfolio');
@@ -29,14 +29,14 @@ test('Agent persists a streamed conversation, mode preference and draft across r
   await expect(chat.getByLabel('General analysis mode')).toHaveValue('quick');
   await page.getByRole('link', { name: 'Research', exact: true }).click();
   await expect(
-    page.getByRole('heading', { name: 'Agent · Research' }),
+    page.getByRole('heading', { name: 'Advisor · Research' }),
   ).toBeVisible();
   await page.getByRole('link', { name: 'Chat', exact: false }).click();
   await expect(chat.getByLabel('General message')).toHaveValue(
     'Unsent follow-up',
   );
   await chat.getByLabel('General analysis mode').selectOption('standard');
-  await expect(chat.getByRole('status')).toHaveText('Default saved: standard.');
+  await expect(chat.getByLabel('General analysis mode')).toBeEnabled();
   await page.setViewportSize({ width: 390, height: 844 });
   expect(
     await page.evaluate(

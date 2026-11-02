@@ -1,0 +1,4 @@
+ALTER TABLE "research_imports" ADD COLUMN "added_count" integer;--> statement-breakpoint
+ALTER TABLE "research_imports" ADD COLUMN "reused_count" integer;--> statement-breakpoint
+ALTER TABLE "research_imports" ADD COLUMN "passage_count" integer;--> statement-breakpoint
+ALTER TABLE "research_imports" ADD CONSTRAINT "research_import_counts" CHECK (("research_imports"."added_count" is null and "research_imports"."reused_count" is null and "research_imports"."passage_count" is null) or ("research_imports"."added_count" is not null and "research_imports"."reused_count" is not null and "research_imports"."passage_count" is not null and "research_imports"."added_count" >= 0 and "research_imports"."reused_count" >= 0 and "research_imports"."passage_count" >= 0 and "research_imports"."status" = 'completed' and "research_imports"."added_count" + "research_imports"."reused_count" = jsonb_array_length("research_imports"."document_ids")));

@@ -7,6 +7,8 @@ import {
   type ModelResponse,
   type ModelEvent,
   type CanonicalItem,
+  type EmbeddingRequest,
+  type EmbeddingResponse,
 } from './contracts.js';
 export const supportedModels = ['gpt-5.4-mini', 'gpt-5.4-mini-2026-03-17'];
 export class OpenAiProvider implements LlmProvider {
@@ -34,6 +36,60 @@ export class OpenAiProvider implements LlmProvider {
       tools: supported,
       streaming: supported,
     };
+  }
+  async embed(
+    request: EmbeddingRequest,
+    signal?: AbortSignal,
+  ): Promise<EmbeddingResponse> {
+    if (
+      request.model !== 'text-embedding-3-small' ||
+      request.dimensions !== 1536 ||
+      !request.input.length ||
+      request.input.length > 32 ||
+      request.input.some(
+        (text) => !text.trim() || Buffer.byteLength(text, 'utf8') > 8000,
+      )
+    )
+      throw new LlmError(
+        'LLM_INVALID_REQUEST',
+        'Unsupported embedding model, dimensions or input limits.',
+      );
+    try {
+      const result = await this.client.embeddings.create(
+        {
+          model: request.model,
+          input: request.input,
+          dimensions: request.dimensions,
+          encoding_format: 'float',
+        },
+        { timeout: request.timeoutMs, ...(signal ? { signal } : {}) },
+      );
+      const ordered = [...result.data].sort((a, b) => a.index - b.index);
+      if (
+        result.model !== request.model ||
+        ordered.length !== request.input.length ||
+        ordered.some(
+          (row, i) =>
+            row.index !== i ||
+            row.embedding.length !== request.dimensions ||
+            row.embedding.some((v) => !Number.isFinite(v)) ||
+            !row.embedding.some((v) => v !== 0),
+        ) ||
+        !Number.isSafeInteger(result.usage.prompt_tokens) ||
+        result.usage.prompt_tokens < 0
+      )
+        throw new LlmError(
+          'LLM_INVALID_RESPONSE',
+          'Embedding response shape does not match the requested index.',
+        );
+      return {
+        vectors: ordered.map((row) => row.embedding),
+        inputTokens: result.usage.prompt_tokens,
+        providerRequestId: result._request_id ?? null,
+      };
+    } catch (error) {
+      return this.failure(error, signal);
+    }
   }
   private input(request: ModelRequest): OpenAI.Responses.ResponseInput {
     const caps = this.capabilities(request.model);
@@ -239,8 +295,8 @@ export class OpenAiProvider implements LlmProvider {
           ? 'OpenAI API quota is exhausted. Check API billing before retrying.'
           : code === 'LLM_INVALID_REQUEST'
             ? error.code === 'invalid_function_parameters'
-              ? 'Agent’s tool definition was rejected by the provider. This is an application error; changing your answer or work allowance will not fix it.'
-              : 'The provider rejected Agent’s request format. This is an application error; changing your answer or work allowance will not fix it.'
+              ? 'Advisor’s tool definition was rejected by the provider. This is an application error; changing your answer or work allowance will not fix it.'
+              : 'The provider rejected Advisor’s request format. This is an application error; changing your answer or work allowance will not fix it.'
             : `Provider request failed (${code}). No financial changes were committed.`,
         {
           ...(typeof error.code === 'string' &&

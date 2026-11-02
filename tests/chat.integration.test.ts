@@ -541,3 +541,114 @@ it('accepts account-only context and reads quantities without a preview or model
   expect(session.json().data.history.at(-1).text).toContain('99 AAPL shares');
   expect((await r.overview()).revision).toBe(before.revision);
 });
+
+it('captures language and mode per reply, preserves history, and keeps daily accounting cumulative', async () => {
+  await chat.reset('general');
+  const before = await r.overview();
+  const sends = [];
+  for (const [analysisMode, outputLanguage] of [
+    ['quick', 'en'],
+    ['extensive', 'zh-CN'],
+  ] as const) {
+    const payload = {
+      version: 1,
+      idempotencyKey: randomUUID(),
+      message: sends.length ? 'Continue the previous question' : 'hello',
+      analysisMode,
+      outputLanguage,
+    };
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/chat/sessions/general/runs',
+      payload,
+    });
+    expect(response.statusCode, response.body).toBe(202);
+    const run = await terminal(response.json().data.id);
+    expect(run.status).toBe('completed');
+    expect(run.analysisMode).toBe(analysisMode);
+    expect(run.outputLanguage).toBe(outputLanguage);
+    sends.push(run);
+    const repeated = await app.inject({
+      method: 'POST',
+      url: '/api/v1/chat/sessions/general/runs',
+      payload,
+    });
+    expect(repeated.json().data.id).toBe(run.id);
+    const conflict = await app.inject({
+      method: 'POST',
+      url: '/api/v1/chat/sessions/general/runs',
+      payload: {
+        ...payload,
+        outputLanguage: outputLanguage === 'en' ? 'zh-CN' : 'en',
+      },
+    });
+    expect(conflict.statusCode).toBe(409);
+  }
+  const session = (await app.inject('/api/v1/chat/sessions/general')).json()
+    .data;
+  expect(
+    session.history.filter((i: { role?: string }) => i.role === 'user'),
+  ).toHaveLength(2);
+  expect(session.dailyUsage.replies).toBeGreaterThanOrEqual(2);
+  expect(
+    session.runs.map((r: { outputLanguage: string }) => r.outputLanguage),
+  ).toEqual(['zh-CN', 'en']);
+  const settings = await chat.settings();
+  const changed = await app.inject({
+    method: 'PATCH',
+    url: '/api/v1/settings/analysis',
+    payload: {
+      version: 1,
+      expectedRevision: settings.revision,
+      outputLanguage: 'zh-CN',
+    },
+  });
+  expect(changed.statusCode).toBe(200);
+  expect((await chat.settings()).defaultAnalysisMode).toBe(
+    settings.defaultAnalysisMode,
+  );
+  expect((await chat.getRun(sends[0]!.id)).outputLanguage).toBe('en');
+  await chat.updateSettings(settings.revision + 1, undefined, 'en');
+  // Preferences are restored for following tests; revisions remain monotonic.
+  expect(await r.overview()).toEqual(before);
+});
+
+it('allows a fresh run cost ceiling on the next send while retaining daily usage after reset', async () => {
+  const ids: string[] = [];
+  for (let i = 0; i < 2; i++) {
+    const claimed = await chat.claim({
+      context: 'risk',
+      requestKey: randomUUID(),
+      message: 'Synthetic cost test',
+      provider: 'fixture',
+      model: 'fixture-v1',
+      analysisMode: 'quick',
+      policyVersion: 'test',
+      promptVersion: 'test',
+      adapterVersion: 'test',
+      effectiveLimits: {},
+      portfolioRevision: (await r.overview()).revision,
+      priceVersion: 'synthetic-test',
+    });
+    try {
+      await chat.reserve(claimed.run.id, '0.30', '0.30', null);
+      expect((await chat.getRun(claimed.run.id)).reservedCost).toBe(
+        '0.300000000000',
+      );
+      ids.push(claimed.run.id);
+      await chat.finish(claimed.run.id, 'completed', null, null);
+    } finally {
+      await claimed.lease?.release();
+    }
+  }
+  const usage = await chat.dailyUsage();
+  await expect(
+    chat.reserve(ids[1]!, '0.01', null, usage.budgetedCost),
+  ).rejects.toMatchObject({ code: 'DAILY_COST_LIMIT' });
+  const reset = await app.inject({
+    method: 'POST',
+    url: '/api/v1/chat/sessions/risk/reset',
+    payload: {},
+  });
+  expect(reset.json().data.dailyUsage).toEqual(usage);
+});

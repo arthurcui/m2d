@@ -3,6 +3,7 @@ import { Decimal } from 'decimal.js';
 import { instrumentSchema, type Instrument } from '@m2d/portfolio';
 import {
   MarketError,
+  listingCandidateSchema,
   payloadSchema,
   type FeedResult,
   type MarketProvider,
@@ -31,6 +32,16 @@ const numberText = z.preprocess(
   (v) => (typeof v === 'number' ? String(v) : v),
   z.string().regex(/^-?\d+(?:\.\d+)?$/),
 );
+// IBKR history may encode large volumes as scientific-notation strings.
+const historyVolumeText = z
+  .preprocess(
+    (v) => (typeof v === 'number' ? String(v) : v),
+    z
+      .string()
+      .max(100)
+      .regex(/^-?\d+(?:\.\d+)?(?:[eE][+-]?\d{1,2})?$/),
+  )
+  .transform((v) => new Decimal(v).toFixed());
 const positiveText = numberText.refine((v) => new Decimal(v).gt(0));
 const id = z.coerce.number().int().positive().safe();
 const listingSchema = z.object({
@@ -224,10 +235,60 @@ export class IbkrMcpMarketDataProvider implements MarketProvider {
       await session.close();
     }
   }
+  async resolveListing(symbol: string): Promise<FeedResult> {
+    return this.run(async (call) => {
+      const data = listingSchema.parse(
+        (await call('search_contracts', { query: symbol, language: 'en_US' }))
+          .data,
+      );
+      const rows = data.results.filter(
+        (r) =>
+          r.symbol === symbol &&
+          r.country_code === 'US' &&
+          r.exchange &&
+          usExchanges.includes(r.exchange) &&
+          r.sections?.some((s) => s.security_type === 'STK') &&
+          r.underlying_contract_id,
+      );
+      const candidates = [
+        ...new Map(
+          rows.map((r) => [
+            String(r.underlying_contract_id),
+            listingCandidateSchema.parse({
+              id: String(r.underlying_contract_id),
+              symbol,
+              name: r.description ?? symbol,
+              exchange: r.exchange,
+              currency: 'USD',
+            }),
+          ]),
+        ).values(),
+      ];
+      const now = new Date(this.clock()).toISOString();
+      return {
+        kind: 'resolution',
+        value: {
+          provider: this.id,
+          sourceRecordId: `resolve:${symbol}`,
+          asOf: now,
+          receivedAt: now,
+          availableAt: now,
+          session: 'UNKNOWN',
+          quality: 'VALID',
+          delayedMinutes: null,
+          entitlement:
+            'US stock/ETF listing identities only; not price evidence.',
+          symbol,
+          candidates,
+        },
+      };
+    });
+  }
   private async listing(
     call: IbkrSession['call'],
     symbol: string,
     exchange = 'UNKNOWN',
+    listingId?: string,
   ) {
     const data = listingSchema.parse(
       (await call('search_contracts', { query: symbol, language: 'en_US' }))
@@ -235,6 +296,7 @@ export class IbkrMcpMarketDataProvider implements MarketProvider {
     );
     const matches = data.results.filter(
       (r) =>
+        (!listingId || String(r.underlying_contract_id) === listingId) &&
         r.symbol === symbol &&
         r.country_code === 'US' &&
         r.exchange &&
@@ -429,20 +491,20 @@ export class IbkrMcpMarketDataProvider implements MarketProvider {
       };
     });
   }
-  async bars(symbol: string, exchange = 'NASDAQ') {
+  async bars(symbol: string, exchange = 'NASDAQ', listingId?: string) {
     return this.run(async (call) => {
-      const listing = await this.listing(call, symbol, exchange);
+      const listing = await this.listing(call, symbol, exchange, listingId);
       const data = z
         .object({
           chart_step: z.coerce.number().refine((n) => n === 3600),
           source: z.literal('Last'),
           delayed: z.coerce.number().optional(),
-          time: z.array(z.iso.datetime()).max(100),
-          open: z.array(positiveText).max(100),
-          high: z.array(positiveText).max(100),
-          low: z.array(positiveText).max(100),
-          close: z.array(positiveText).max(100),
-          volume: z.array(numberText).max(100).optional(),
+          time: z.array(z.iso.datetime()).max(500),
+          open: z.array(positiveText).max(500),
+          high: z.array(positiveText).max(500),
+          low: z.array(positiveText).max(500),
+          close: z.array(positiveText).max(500),
+          volume: z.array(historyVolumeText).max(500).optional(),
         })
         .parse(
           (
@@ -506,7 +568,10 @@ export class IbkrMcpMarketDataProvider implements MarketProvider {
         ];
       });
       if (!value.length) throw noCoverage();
-      return { kind: 'bars', value };
+      return {
+        kind: 'bars',
+        value: value.sort((a, b) => a.start.localeCompare(b.start)).slice(-100),
+      };
     });
   }
   async options(symbol: string, expiry: string) {

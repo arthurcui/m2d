@@ -8,6 +8,7 @@ import {
 } from '@m2d/portfolio';
 import {
   MarketError,
+  listingCandidateSchema,
   type MarketProvider,
   type FeedResult,
   type Evidence,
@@ -213,6 +214,70 @@ export class TwelveDataProvider implements MarketProvider {
           ask: null,
           last: q.close,
           kind: q.is_market_open ? 'LAST' : 'REGULAR_CLOSE',
+        },
+      },
+    };
+  }
+  async resolveListing(symbol: string): Promise<FeedResult> {
+    const { body, raw } = await this.request('symbol_search', {
+      symbol,
+      outputsize: '120',
+    });
+    const rows = z
+      .object({
+        data: z
+          .array(
+            z.object({
+              symbol: z.string(),
+              instrument_name: z.string(),
+              exchange: z.string(),
+              currency: z.string(),
+              country: z.string(),
+              instrument_type: z.string(),
+            }),
+          )
+          .max(120),
+      })
+      .parse(body).data;
+    // A full result window may hide other exact matches. Never silently truncate ambiguity.
+    if (rows.length === 120)
+      throw new MarketError(
+        'LISTING_SEARCH_LIMIT',
+        'Listing search was incomplete. Try a more specific supported symbol.',
+      );
+    const candidates = [
+      ...new Map(
+        rows
+          .filter(
+            (r) =>
+              r.symbol === symbol &&
+              r.currency === 'USD' &&
+              r.country === 'United States' &&
+              ['NASDAQ', 'NYSE', 'AMEX', 'ARCA'].includes(r.exchange) &&
+              ['Common Stock', 'ETF', 'American Depositary Receipt'].includes(
+                r.instrument_type,
+              ),
+          )
+          .map((r) => [
+            `${r.symbol}:${r.exchange}`,
+            listingCandidateSchema.parse({
+              id: `${r.symbol}:${r.exchange}`,
+              symbol,
+              name: r.instrument_name,
+              exchange: r.exchange,
+              currency: 'USD',
+            }),
+          ]),
+      ).values(),
+    ];
+    return {
+      raw,
+      payload: {
+        kind: 'resolution',
+        value: {
+          ...this.evidence(`resolve:${symbol}`, this.clock() / 1000, 'UNKNOWN'),
+          symbol,
+          candidates,
         },
       },
     };

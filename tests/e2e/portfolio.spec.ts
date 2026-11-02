@@ -58,11 +58,11 @@ test('interprets existing multi-tab Excel layouts before creating a confirmation
   );
   await uploadSection.getByRole('button', { name: 'Preview workbook' }).click();
   await expect(
-    page.getByRole('complementary', { name: 'Agent' }).getByRole('alert'),
+    page.getByRole('complementary', { name: 'Advisor' }).getByRole('alert'),
   ).toContainText('Parsing temporarily unavailable');
   await page
     .getByRole('region', { name: 'Workbook clarification' })
-    .getByRole('button', { name: 'Send to Agent' })
+    .getByRole('button', { name: 'Send to Advisor' })
     .click();
   await page
     .getByRole('button', {
@@ -72,7 +72,7 @@ test('interprets existing multi-tab Excel layouts before creating a confirmation
     .click();
   await page.getByRole('link', { name: 'Opportunities', exact: true }).click();
   await expect(
-    page.getByRole('complementary', { name: 'Agent' }),
+    page.getByRole('complementary', { name: 'Advisor' }),
   ).toBeVisible();
   await expect(
     page.getByRole('button', {
@@ -191,33 +191,35 @@ test('Excel full replacement requires acknowledgement and preserves history with
   });
   expect(blocked.status()).toBe(403);
 });
-test('Agent docks responsively and remembers its closed state', async ({
+test('Advisor docks responsively and remembers its closed state', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1600, height: 1000 });
   await page.goto('/portfolio');
-  const agent = page.getByRole('complementary', { name: 'Agent' });
+  const agent = page.getByRole('complementary', { name: 'Advisor' });
   await expect(agent).toBeVisible();
   const panel = await agent.boundingBox(),
     records = await page
       .getByRole('heading', { name: 'Accounts & holdings' })
       .boundingBox();
   expect(panel!.x).toBeGreaterThan(records!.x);
-  await agent.getByRole('button', { name: 'Close Agent' }).click();
+  await agent.getByRole('button', { name: 'Close Advisor' }).click();
   await expect(agent).toHaveCount(0);
   await page.reload();
-  await expect(page.getByRole('button', { name: 'Open Agent' })).toBeVisible();
-  await page.getByRole('button', { name: 'Open Agent' }).click();
+  await expect(
+    page.getByRole('button', { name: 'Open Advisor' }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Open Advisor' }).click();
   await expect(agent).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   const mobile = await agent.boundingBox();
   expect(Math.round(mobile!.y + mobile!.height)).toBe(844);
   expect(mobile!.width).toBeLessThanOrEqual(390);
-  await agent.getByRole('button', { name: 'Close Agent' }).click();
-  await page.getByRole('button', { name: 'Open Agent' }).click();
+  await agent.getByRole('button', { name: 'Close Advisor' }).click();
+  await page.getByRole('button', { name: 'Open Advisor' }).click();
   await expect(agent).toBeVisible();
 });
-test('Agent retains clarification context across replies and a lost request', async ({
+test('Advisor retains clarification context across replies and a lost request', async ({
   page,
 }) => {
   await page.goto('/portfolio');
@@ -265,35 +267,35 @@ test('Agent retains clarification context across replies and a lost request', as
     buffer: await arbitraryWorkbook('307'),
   });
   await page.getByRole('button', { name: 'Preview workbook' }).click();
-  const agent = page.getByRole('complementary', { name: 'Agent' }),
-    composer = agent.getByLabel('Message Agent');
+  const agent = page.getByRole('complementary', { name: 'Advisor' }),
+    composer = agent.getByLabel('Message Advisor');
   await expect(composer).toBeVisible();
   await composer.fill('Broker is Example Broker');
   await page.getByRole('link', { name: 'Research', exact: true }).click();
   await expect(composer).toBeHidden();
   await page.getByRole('link', { name: 'Portfolio', exact: true }).click();
   await expect(composer).toHaveValue('Broker is Example Broker');
-  await agent.getByRole('button', { name: 'Send to Agent' }).click();
+  await agent.getByRole('button', { name: 'Send to Advisor' }).click();
   await expect(agent.getByRole('alert')).toHaveText('Connection interrupted');
-  await agent.getByRole('button', { name: 'Send to Agent' }).click();
+  await agent.getByRole('button', { name: 'Send to Advisor' }).click();
   await expect(composer).toBeEnabled();
   expect(sent[2]?.clarification).toBe(sent[1]?.clarification);
   expect(sent[2]?.idempotencyKey).toBe(sent[1]?.idempotencyKey);
   expect(sent[2]?.dialogue).toEqual(sent[1]?.dialogue);
   await composer.fill('Account name is Retirement');
-  await agent.getByRole('button', { name: 'Send to Agent' }).click();
+  await agent.getByRole('button', { name: 'Send to Advisor' }).click();
   await expect.poll(() => sent.length).toBe(4);
   expect(sent[3]?.clarification).toBe('Broker is Example Broker');
   expect(sent[3]?.dialogue?.message).toBe('Account name is Retirement');
   expect(sent[3]?.dialogue?.question).toBe('What is the account name?');
-  await agent.getByRole('button', { name: 'Close Agent' }).click();
-  await page.getByRole('button', { name: 'Open Agent' }).click();
+  await agent.getByRole('button', { name: 'Close Advisor' }).click();
+  await page.getByRole('button', { name: 'Open Advisor' }).click();
   await expect(agent.getByRole('log')).toContainText(
     'Broker is Example Broker',
   );
   await agent.getByRole('button', { name: 'Cancel import' }).click();
 });
-test('Agent explains follow-up questions without advancing or adding them to workbook facts', async ({
+test('Advisor explains follow-up questions without advancing or adding them to workbook facts', async ({
   page,
 }) => {
   const sent: {
@@ -341,8 +343,8 @@ test('Agent explains follow-up questions without advancing or adding them to wor
     buffer: await arbitraryWorkbook('519'),
   });
   await page.getByRole('button', { name: 'Preview workbook' }).click();
-  const agent = page.getByRole('complementary', { name: 'Agent' });
-  const composer = agent.getByLabel('Message Agent');
+  const agent = page.getByRole('complementary', { name: 'Advisor' });
+  const composer = agent.getByLabel('Message Advisor');
   await expect(agent.getByRole('log')).toContainText(question);
   await expect(agent).not.toContainText('Bulk question');
   await composer.fill('whats AccountType for?');
@@ -428,7 +430,7 @@ test('explicit interpretation retry preserves already accepted row answers', asy
   await page.getByRole('button', { name: 'Cancel import' }).click();
 });
 
-test('selected workbook survives navigation before upload and Agent is available everywhere', async ({
+test('selected workbook survives navigation before upload and Advisor is available everywhere', async ({
   page,
 }) => {
   await page.goto('/portfolio');
@@ -442,7 +444,7 @@ test('selected workbook survives navigation before upload and Agent is available
   for (const section of ['Research', 'Opportunities', 'Dashboard']) {
     await page.getByRole('link', { name: section, exact: true }).click();
     await expect(
-      page.getByRole('complementary', { name: 'Agent' }),
+      page.getByRole('complementary', { name: 'Advisor' }),
     ).toBeVisible();
   }
   await page.getByRole('link', { name: 'Portfolio', exact: true }).click();
@@ -451,16 +453,16 @@ test('selected workbook survives navigation before upload and Agent is available
   ).toBe('unfinished-upload.xlsx');
 });
 
-test('Agent restores independent function conversations and drafts', async ({
+test('Advisor restores independent function conversations and drafts', async ({
   page,
 }) => {
   await page.goto('/research');
-  const agent = page.getByRole('complementary', { name: 'Agent' });
+  const agent = page.getByRole('complementary', { name: 'Advisor' });
   await expect(
-    agent.getByRole('heading', { name: 'Agent · Research', exact: true }),
+    agent.getByRole('heading', { name: 'Advisor · Research', exact: true }),
   ).toBeVisible();
   await agent
-    .getByRole('button', { name: 'New conversation', exact: true })
+    .getByRole('button', { name: 'Reset conversation', exact: true })
     .click();
   await expect(agent.getByRole('log')).not.toContainText(
     'Review company filings',
@@ -475,7 +477,10 @@ test('Agent restores independent function conversations and drafts', async ({
   await agent.getByLabel('Research message').fill('Unsent research question');
   await page.getByRole('link', { name: 'Opportunities', exact: true }).click();
   await expect(
-    agent.getByRole('heading', { name: 'Agent · Opportunities', exact: true }),
+    agent.getByRole('heading', {
+      name: 'Advisor · Opportunities',
+      exact: true,
+    }),
   ).toBeVisible();
   await expect(agent.getByRole('log')).not.toContainText(
     'Review company filings',
@@ -493,8 +498,8 @@ test('Agent restores independent function conversations and drafts', async ({
   await expect(agent.getByLabel('Research message')).toHaveValue(
     'Unsent research question',
   );
-  await agent.getByRole('button', { name: 'Close Agent' }).click();
-  await page.getByRole('button', { name: 'Open Agent' }).click();
+  await agent.getByRole('button', { name: 'Close Advisor' }).click();
+  await page.getByRole('button', { name: 'Open Advisor' }).click();
   await expect(agent.getByLabel('Research message')).toHaveValue(
     'Unsent research question',
   );
@@ -504,7 +509,7 @@ test('Agent restores independent function conversations and drafts', async ({
   );
   await page.getByRole('link', { name: 'Portfolio', exact: true }).click();
   await expect(
-    agent.getByRole('heading', { name: 'Agent · Portfolio', exact: true }),
+    agent.getByRole('heading', { name: 'Advisor · Portfolio', exact: true }),
   ).toBeVisible();
   await expect(agent.getByRole('log')).not.toContainText(
     'Review company filings',
@@ -552,7 +557,7 @@ test('background portfolio replies stay in Portfolio after switching context', a
     page.getByRole('heading', { name: 'Processing your workbook…' }),
   ).toBeVisible();
   await page.getByRole('link', { name: 'Research', exact: true }).click();
-  const agent = page.getByRole('complementary', { name: 'Agent' });
+  const agent = page.getByRole('complementary', { name: 'Advisor' });
   await agent.getByLabel('Research message').fill('Keep this research draft');
   const response = page.waitForResponse('**/api/v1/portfolio/imports/*/parse');
   finish();
@@ -564,13 +569,13 @@ test('background portfolio replies stay in Portfolio after switching context', a
     'Keep this research draft',
   );
   await expect(
-    agent.getByRole('heading', { name: 'Agent · Research', exact: true }),
+    agent.getByRole('heading', { name: 'Advisor · Research', exact: true }),
   ).toBeVisible();
   await agent.getByRole('link', { name: 'Return to Portfolio' }).click();
   await expect(agent.getByRole('log')).toContainText(
     'Portfolio-only background question',
   );
-  await expect(agent.getByLabel('Message Agent')).toBeVisible();
+  await expect(agent.getByLabel('Message Advisor')).toBeVisible();
   await agent.getByRole('button', { name: 'Cancel import' }).click();
 });
 

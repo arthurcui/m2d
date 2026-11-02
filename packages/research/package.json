@@ -1,0 +1,25 @@
+{
+  "name": "@m2d/research",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "build:types": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "decimal.js": "10.6.0",
+    "html-to-text": "^9.0.5",
+    "htmlparser2": "8.0.2",
+    "ipaddr.js": "2.5.0",
+    "pdf-parse": "^2.4.5",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/html-to-text": "^9.0.4",
+    "@types/node": "^24.10.0"
+  }
+}

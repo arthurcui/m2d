@@ -9,8 +9,12 @@ async function proxy(
 ) {
   const path = (await context.params).path.join('/');
   const post = request.method !== 'GET';
+  const researchRead =
+    /^research(?:\/(?:sources|imports\/[0-9a-f-]{36}|companies(?:\/[A-Z0-9.-]{1,24})?|documents\/[0-9a-f-]{36}(?:\/raw)?|search(?:\/(?:status|jobs\/[0-9a-f-]{36}))?))?$/;
+  const researchWrite =
+    /^research\/(?:import|upload|compare|companies\/selection|sources(?:\/(?:remove|discover|import))?|search(?:\/index)?)$/;
   const marketRead =
-    /^(portfolio\/(?:valuation|listings)|market\/(?:settings|status|quotes|fx|snapshots|listings\/[0-9a-f-]{36}\/logo|ibkr\/status|(?:bars|options)\/[A-Z0-9.^-]{1,24}))$/;
+    /^(portfolio\/(?:valuation|listings)|market\/(?:settings|status|quotes|fx|snapshots|listings\/[0-9a-f-]{36}\/logo|ibkr\/status|(?:bars|options|resolutions)\/[A-Z0-9.^-]{1,24}))$/;
   const marketWrite =
     /^market\/(?:settings|refresh|snapshots|ibkr\/disconnect)$/;
   const chatRead =
@@ -20,7 +24,8 @@ async function proxy(
   if (
     !(post ? writes : reads).test(path) &&
     !(post ? chatWrite : chatRead).test(path) &&
-    !(post ? marketWrite : marketRead).test(path)
+    !(post ? marketWrite : marketRead).test(path) &&
+    !(post ? researchWrite : researchRead).test(path)
   )
     return Response.json(
       { error: { code: 'NOT_FOUND', message: 'Route unavailable.' } },
@@ -55,13 +60,21 @@ async function proxy(
           const next = await reader.read();
           if (next.done) break;
           size += next.value.length;
-          if (size > 2 * 1024 * 1024 + 16384) {
+          if (
+            size >
+            (path === 'research/upload'
+              ? 17 * 1024 * 1024
+              : 2 * 1024 * 1024 + 16384)
+          ) {
             await reader.cancel();
             return Response.json(
               {
                 error: {
                   code: 'UPLOAD_TOO_LARGE',
-                  message: 'Workbook limit is 2 MiB.',
+                  message:
+                    path === 'research/upload'
+                      ? 'Document limit is 12 MiB.'
+                      : 'Workbook limit is 2 MiB.',
                 },
               },
               { status: 413 },
@@ -117,7 +130,7 @@ async function proxy(
           path.endsWith('/logo') && response.ok
             ? 'private, max-age=86400, immutable'
             : 'no-store',
-        ...(path.endsWith('/logo')
+        ...(path.endsWith('/logo') || path.endsWith('/raw')
           ? {
               'X-Content-Type-Options': 'nosniff',
               'Content-Security-Policy': "default-src 'none'; sandbox",

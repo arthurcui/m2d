@@ -2,7 +2,9 @@
 
 **See the Move. Understand the Motive. Make the Decision.**
 
-**Status:** M3 — Market evidence, optional Massive Basic (free end-of-day), Twelve Data and [IBKR hosted MCP](docs/IBKR_MCP.md) integration, indicative NAV/P&L, OHLCV charts and saved valuations implemented on the M1/M2 portfolio Agent. See [M3 market setup and limits](docs/M3_MARKET.md). See [M2 implementation notes](docs/M2_CHAT.md) for usage, limits and verification. The design specification (revision 1.2) below also describes future milestones. See [M1 implementation notes](docs/M1_PORTFOLIO.md) for accounting rules, Excel templates, confirmation contracts, verification, and limitations; [M0 notes](docs/M0_FOUNDATION.md) retain foundation details.
+**Status:** M4 research is implemented: SEC filing/XBRL retrieval, PDF/text uploads, immutable source history, full-text search, report comparison and cited Advisor discussion. See [M4 setup and limits](docs/M4_RESEARCH.md). M3 — Market evidence, optional Massive Basic (free end-of-day), Twelve Data and [IBKR hosted MCP](docs/IBKR_MCP.md) integration, indicative NAV/P&L, OHLCV charts and saved valuations implemented on the M1/M2 portfolio Advisor. See [M3 market setup and limits](docs/M3_MARKET.md). See [M2 implementation notes](docs/M2_CHAT.md) for usage, limits and verification. The design specification (revision 1.2) below also describes future milestones. See [M1 implementation notes](docs/M1_PORTFOLIO.md) for accounting rules, Excel templates, confirmation contracts, verification, and limitations; [M0 notes](docs/M0_FOUNDATION.md) retain foundation details.
+
+M4 also includes a [public research source library](docs/RESEARCH_SOURCES.md) for issuer reports, fund documents, options notices, economic releases and news summaries. Set `RESEARCH_SOURCE_MODE=live` for user-triggered public retrieval; the default is offline fixture mode.
 
 ## Run locally
 
@@ -44,7 +46,7 @@ pnpm test:e2e
 
 Portfolio E2E writes fictional records: run it only in a fresh disposable Compose project with E2E_ALLOW_PORTFOLIO_WRITES=1. See [M1 verification instructions](docs/M1_PORTFOLIO.md#verification). Unit tests are offline and need no database or API key. CI also runs PostgreSQL integration tests and the full browser suite.
 
-The Portfolio page now supports multi-tab Excel import with inferred column mappings and confirmed full-state replacement, revision-guarded preview/confirmation, and immutable change history. Upload an existing workbook and review its interpreted portfolio; the replacement takes effect when confirmed. Individual changes use the persistent Agent chat and explicit preview confirmation. AI workbook interpretation is implemented in M1 through a provider-neutral OpenAI/fixture boundary. It creates a validated replacement preview and asks plain-language questions for missing facts; no column mapping is required. M3 adds fixture and optional Twelve Data market evidence, FX, indicative valuation and charts. M2 adds general chat, incremental natural-language updates, tool continuity, and Quick/Standard/Extensive work allowances. Research, risk planning and automated monitoring remain later milestones.
+The Portfolio page now supports multi-tab Excel import with inferred column mappings and confirmed full-state replacement, revision-guarded preview/confirmation, and immutable change history. Upload an existing workbook and review its interpreted portfolio; the replacement takes effect when confirmed. Individual changes use the persistent Advisor chat and explicit preview confirmation. AI workbook interpretation is implemented in M1 through a provider-neutral OpenAI/fixture boundary. It creates a validated replacement preview and asks plain-language questions for missing facts; no column mapping is required. M3 adds fixture and optional Twelve Data market evidence, FX, indicative valuation and charts. M2 adds general chat, incremental natural-language updates, tool continuity, and Quick/Standard/Extensive work allowances. M4 adds SEC filings/XBRL, PDF/text research uploads, immutable evidence, shared keyword/semantic company search, report comparisons and cited Advisor discussion. Risk planning and automated monitoring remain later milestones. See [M4 research setup and limits](docs/M4_RESEARCH.md) and [company search](docs/COMPANY_SEARCH.md).
 
 ## Current AI access decision
 
@@ -126,10 +128,12 @@ m2d/
 
 Each milestone must end with runnable code, tests, sample data, reproducible commands, known limitations and screenshots or route/UI verification. Brokerage connections are limited to the explicitly authorized IBKR market-data MCP adapter. No account synchronization, order execution, financial claims without evidence, or invented history.
 
-### Current M1 account and Agent behavior
+### Current M1 account and Advisor behavior
 
-Many broker/platform accounts each own cash and holdings. Holding imports require asset class, equity symbol and quantity; description and unit cost are optional. Currency defaults to USD when absent. Missing cost stays unknown; option groups retain individual signed legs. Agent appears at the right on wide screens and at the bottom on narrow screens, can be closed/reopened, asks import questions and contains explicit replacement confirmation. Confirmed safe format mappings are stored in PostgreSQL for matching later uploads. See [M1 portfolio behavior](docs/M1_PORTFOLIO.md) for reuse boundaries and supported option contracts.
+Many broker/platform accounts each own cash and holdings. Holding imports require asset class, equity symbol and quantity; description and unit cost are optional. Currency defaults to USD when absent. Missing cost stays unknown; option groups retain individual signed legs. Advisor appears at the right on wide screens and at the bottom on narrow screens, can be closed/reopened, asks import questions and contains explicit replacement confirmation. Confirmed safe format mappings are stored in PostgreSQL for matching later uploads. See [M1 portfolio behavior](docs/M1_PORTFOLIO.md) for reuse boundaries and supported option contracts.
 
-### Shared Agent and schema documentation
+### Shared Advisor and schema documentation
 
-Agent is available throughout the app; M1 handles portfolio imports and clarification. Navigation preserves unfinished portfolio work. New account tabs require a new-account or rename choice; renames preserve stable IDs and history. Holdings optionally include an ISO transaction date. See [the generated database ERD](docs/ERD.md) and [M1 behavior](docs/M1_PORTFOLIO.md). Run `pnpm docs:erd` after schema edits; CI checks the diagram for drift.
+Advisor is available throughout the app; M1 handles portfolio imports and clarification. Navigation preserves unfinished portfolio work. New account tabs require a new-account or rename choice; renames preserve stable IDs and history. Holdings optionally include an ISO transaction date. See [the generated database ERD](docs/ERD.md) and [M1 behavior](docs/M1_PORTFOLIO.md). Run `pnpm docs:erd` after schema edits; CI checks the diagram for drift.
+
+See [Analyst Research](docs/ANALYST_RESEARCH.md) for public bank sources, categorized uploads, cited fields and Advisor comparisons.

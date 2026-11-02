@@ -121,3 +121,63 @@ The user requested separate UI source selectors, per-holding market prices and a
 Capture one concrete provider per request and keep provider-scoped cache/evidence reads. The expectedProvider request guard prevents an old browser batch from dispatching against a newly selected source. Saved valuations use their captured provider, not a mutable current selection. Late responses must not appear under a new source's labels. Price freshness is computed at display time; recorded quantity, unit cost, transaction price and portfolio revision remain unchanged.
 
 Manual is the default. An explicit saved interval enables bounded, sequential price batches only while Portfolio or Market is visible. Count down after completion, serialize within the browser, retain server gates, pause on source failures, and reset to Manual when switching price provider. Stop/navigation prevents subsequent dispatches; already running calls may finish. Metadata refresh is excluded from automatic batches. This user-requested browser convenience does not start M6 monitoring, scheduling services, alerts or automatic trades. Fixture/mock tests exercise all paths without keys or paid inference.
+
+## ADR-041 — Immutable, bounded manual research before scheduled monitoring
+
+M4 introduces a research package and immutable PostgreSQL source/chunk/fact/claim records. Each import commits its originals, extracted evidence and completion status atomically. Original bytes use base64 text within PostgreSQL under a 12-MiB source limit; this incurs storage overhead but avoids file/database orphan states and makes existing backups sufficient. The planned file-store abstraction can replace this representation later without changing source IDs or hashes.
+
+The long-term architecture assigns ingestion to the worker. For this manual-only M4 implementation, bounded API background tasks follow the existing manual market/chat pattern and persist request IDs, fingerprints and statuses. Failures do not replace good research; startup marks interrupted requests for explicit retry instead of silently repeating external downloads. PDF parsing is isolated in a capped child process. The independent pg-boss worker continues its existing jobs. Moving manual imports into the process worker and adding scheduled retrieval are deferred; no M6 monitor is implied by this delivery.
+
+Availability uses first observation (or later declared publication), so a current SEC XBRL download cannot rewrite a historical simulation. Financial rows retain reported accessions, periods and units without inventing comparable growth ratios. Claims are exact, topic-selected issuer quotations with an extractor version; Agent interpretation stays in canonical, budgeted chat history. The initial M4 delivery used PostgreSQL full-text search without embeddings. ADR-042 extends retrieval at the user’s request; document import still does not automatically trigger paid inference.
+
+## ADR-042 — Shared company search with bounded, explicit semantic indexing
+
+The user requested effective company research for both humans and Agent. Add one versioned search contract/service with full-text and pgvector cosine retrieval, reciprocal rank fusion, source diversity, company/source/publication/availability filters, latest eligible revisions, exact passage context and filtered financial facts. Keep legacy v1 APIs compatible. UI and Agent consume identical evidence; no paid reranking or model-generated facts are introduced.
+
+Embeddings use the existing provider-neutral LlmProvider and selected backend provider/key. OpenAI uses text-embedding-3-small at 1536 dimensions; fixture vectors are explicitly synthetic and never a fallback. Indexing is an explicit resumable operation, capped at 256 missing passages, 32 inputs per request and one active job. Cache keys include provider/model/dimensions/adapter/preparation version. Persist byte/cost reservations before dispatch; keep uncertain reservations after failures. Agent query embeddings count against the selected model-attempt and cost budgets. Non-Agent search expenses also participate in the configured daily inference gate.
+
+Use pgvector in PostgreSQL 17 without introducing another service or changing the database major version. The additive migration and Compose image preserve existing volumes. Exact distance computation occurs after eligibility filtering; this favors historical correctness and avoids ANN post-filter recall loss at the present personal-corpus size. Large-scale ANN/reranker tuning and broad real-filing relevance evaluation remain future work. An initial live synthetic-corpus evaluation is recorded in the company-search guide; fixture tests alone do not establish model relevance. Full details and limits: [company search](COMPANY_SEARCH.md).
+
+
+## ADR-043 — Ground selected-company Agent questions before model-selected filters
+
+Authorized live evaluation exposed two retrieval failures that fixture-only tests did not establish: the model inferred a midnight evidence cutoff and unrequested filing/source filters, hiding valid same-day uploads. Prompt guidance alone did not reliably prevent this. For a selected-company research question, the orchestrator now performs one initial shared search with the selected symbol, up to 500 characters of the actual question, a five-passage limit and the explicit UI availability cutoff, without invented source/form/publication filters. The full message remains saved. This read is recorded in canonical history before inference; model refinements and exact-fact/context tools remain available. An initial broad read provides context, not permission to disregard requested restrictions. Strict historical availability remains enforced by the selected UI cutoff.
+
+Initial retrieval uses the same idempotent tool repository, cancellation/deadline and tool/model-attempt/cost gates as other Agent reads. Provider failures are surfaced rather than silently replaced with fixture data. The integration adds no financial mutations, crawler, automatic indexing or later-milestone signals. Live checks use isolated synthetic/public inputs, real configured adapters, explicit test ceilings and saved usage/results; CI remains offline. See [live results, the repeatable command and limitations](COMPANY_SEARCH.md#live-evaluation-and-agent-grounding).
+
+## ADR-044 — Public source library with immutable manual imports
+
+At the user’s request, extend M4 beyond SEC and uploads with company/IR, fund, OCC, macro and news source categories. Persist company-scoped public URL preferences and use a bounded backend HTTPS reader with public DNS pinning, redirect validation and no arbitrary credential forwarding. Reuse the original-document/chunk/revision pipeline and shared user/Agent search instead of introducing a crawler or separate research service.
+
+Massive supplies a bounded set of publisher news summaries with original links using the existing backend key. Preserve the source JSON; do not scrape licensed full articles or elevate sentiment to facts. Public feeds are snapshots with conservative observation-based availability, not historical completeness. Publisher categories are not authentication and source pages are never executable instructions. The Agent treats exact OCC memo applicability separately from directory context and cannot alter contract/portfolio state.
+
+Public source fixture/live selection is independent of SEC configuration. Network and inference costs remain distinct: imports/keyword search do not trigger embeddings or an LLM. Link removal retains imported history, old idempotency fingerprints remain compatible, and missing/blocked sources surface explicit errors. M6 scheduling/monitoring remains out of scope. Details and evidence: [public research sources](RESEARCH_SOURCES.md).
+
+## ADR-045 — Analyst opinions remain attributed research
+
+Add analyst source/upload classification to M4. Preserve originals and derive versioned labelled excerpts from stored chunks; absent or ambiguous values stay unknown. Flexible interpretation and comparison use the existing budgeted, cited Agent tools. No inferred target currency/horizon, market consensus or company facts are generated by the label extractor. Public bank directories are discovery aids; restricted reports require permitted uploads, with no new brokerage access. See [Analyst Research](ANALYST_RESEARCH.md).
+
+## ADR-046 — Source-linked company charts
+
+Research charts reuse cached M3 hourly bars and immutable M4 facts. An optional historical cutoff is added to the existing versioned bar-read contract; navigation stays read-only and provider refresh remains explicit. Financial series keep exact taxonomy/unit/provider and comparable durations separate, exclude cumulative periods, and withhold same-filing conflicts. No inferred cash flow, ratio, price causation or analyst consensus is introduced. See [Company charts](COMPANY_CHARTS.md).
+
+
+## ADR-047 — Resolve chart listings through saved provider evidence
+
+Research charts no longer default to NASDAQ or ask for an exchange. Versioned market refresh accepts listing-resolution evidence, stores originals and candidates, automatically selects a unique supported match and asks only for real alternatives. Bar requests bind to a verified candidate ID; IBKR contract IDs preserve same-exchange ambiguity. Cache, rate gates, idempotency and historical availability use the existing market repository. Migration 0018 is additive to the kind constraint. No LLM, financial mutation, account sync or provider fallback is introduced. See [Company charts](COMPANY_CHARTS.md#automatic-listing-resolution).
+
+
+## ADR-048 — Task-focused Research workspace and durable import outcomes
+
+Keep Overview, Documents and Search mounted to preserve in-progress Research state. Consolidate file, pasted text, public URL and preset retrieval in one Add research panel. Reuse versioned upload/source APIs with optional title/URL metadata and stable per-operation request IDs on uncertain retries. Persist import counts in the same transaction as documents (migration 0019) rather than deriving duplicate results from client snapshots or timestamps. Reuse identical renamed uploads within a company/category/attributed URL while retaining public-source provenance and changed-byte revisions. No automatic ingestion, indexing, inference or portfolio changes are introduced. See [M4 Research](M4_RESEARCH.md).
+
+
+## ADR-049 — Per-reply Advisor policy and explicit Research context
+
+Keep conversation history independent of per-run mode, language and budgets. Persist a workspace language preference and snapshot it on each new run, with null for historical runs. Expose daily reservation usage separately from per-reply usage without raising limits. Add an independent research_company_choices table for persistent additions/dismissals; do not delete research or modify holdings when removing suggestions. Typed company input only filters choices until explicit selection. Add research hides, but does not unmount, Research tabs; SEC refresh on Overview shares the existing import controller, idempotency and progress. See [Analysis modes](15_ANALYSIS_MODES.md) and [M4 Research](M4_RESEARCH.md).
+
+## ADR-050 — Revision observations and validated research citations
+
+Content hashes identify equal bytes, not equal observations. Reuse only the current source revision; a reversion to previously seen content must create a new immutable revision with its new availability time. Migration 0021 retains the content lookup index but removes its uniqueness; the source/revision unique constraint and serialized transactional imports remain. Cross-filename upload deduplication is limited to current matching evidence when the incoming filename has no history. Existing evidence is never rewritten to invent a missed observation.
+
+Advisor validates document and passage references against scoped research tool results before publishing research text. Structured financial facts provide document-level citation URLs, while passage anchors require a returned passage. Final answers following retrieved research require a citation or explicit NO_SIGNAL; this is a provenance gate, not a semantic truth checker. Live SEC and Advisor evaluation uses public inputs and disposable state with existing deployment/cost ceilings. See [M4 closeout](M4_RESEARCH.md#m4-closeout-verification--november-1-2026).

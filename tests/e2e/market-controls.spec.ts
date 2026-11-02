@@ -311,7 +311,7 @@ test('separate providers auto-save; market marks match full contracts and stay s
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth),
   ).toBeLessThanOrEqual(390);
-  await page.getByRole('button', { name: 'Close Agent' }).click();
+  await page.getByRole('button', { name: 'Close Advisor' }).click();
   await rows.first().scrollIntoViewIfNeeded();
   await page.screenshot({ path: testInfo.outputPath('mobile-holdings.png') });
 });

@@ -664,3 +664,93 @@ it('saves independent providers, fences stale requests and keeps an in-flight re
     await api.close();
   }
 });
+it('historical bar reads exclude observations recorded after the requested cutoff', async () => {
+  await db.market.refresh(
+    randomUUID(),
+    { kind: 'bars', symbol: 'NVDA', exchange: 'NASDAQ' },
+    provider,
+  );
+  const current = await app.inject('/api/v1/market/bars/NVDA?exchange=NASDAQ');
+  expect(current.statusCode).toBe(200);
+  expect(current.json().data.payload.value).toHaveLength(6);
+  const before = await app.inject(
+    '/api/v1/market/bars/NVDA?exchange=NASDAQ&at=2020-01-01T00:00:00Z',
+  );
+  expect(before.statusCode).toBe(200);
+  expect(before.json().data).toBeNull();
+  expect(
+    (await app.inject('/api/v1/market/bars/NVDA?at=invalid')).statusCode,
+  ).toBe(400);
+});
+it('persists listing resolution, validates explicit choices, reuses identities and gates historical reads', async () => {
+  const resolve = { kind: 'resolution' as const, symbol: 'SPY' };
+  const id = randomUUID();
+  const first = await db.market.refresh(id, resolve, provider);
+  expect(first.status).toBe('SUCCEEDED');
+  expect((await db.market.refresh(id, resolve, provider)).duplicate).toBe(true);
+  const read = await app.inject('/api/v1/market/resolutions/SPY');
+  expect(read.json().data.payload.value.candidates[0].exchange).toBe('ARCA');
+  expect(
+    (
+      await app.inject('/api/v1/market/resolutions/SPY?at=2020-01-01T00:00:00Z')
+    ).json().data,
+  ).toBeNull();
+  expect(
+    (
+      await db.market.refresh(
+        randomUUID(),
+        {
+          kind: 'bars',
+          symbol: 'SPY',
+          exchange: 'NASDAQ',
+          listingId: 'SPY:ARCA',
+        },
+        provider,
+      )
+    ).errorCode,
+  ).toBe('LISTING_CHANGED');
+  const ok = await db.market.refresh(
+    randomUUID(),
+    { kind: 'bars', symbol: 'SPY', exchange: 'ARCA', listingId: 'SPY:ARCA' },
+    provider,
+  );
+  expect(ok.status).toBe('SUCCEEDED');
+  expect(
+    (
+      await app.inject(
+        '/api/v1/market/bars/SPY?exchange=ARCA&listingId=SPY%3AARCA',
+      )
+    ).json().data.payload.value[0].exchange,
+  ).toBe('ARCA');
+  const spy = vi.spyOn(provider, 'resolveListing');
+  expect(
+    (await db.market.refresh(randomUUID(), resolve, provider)).status,
+  ).toBe('SUCCEEDED');
+  expect(spy).not.toHaveBeenCalled();
+  spy.mockRestore();
+});
+it('renews an expired listing resolution even when the provider returns identical reference bytes', async () => {
+  const request = { kind: 'resolution' as const, symbol: 'CRWV' };
+  const first = await db.market.refresh(randomUUID(), request, provider);
+  await db.pool.query(
+    "update market_observations set as_of=now()-interval '2 days', received_at=now()-interval '2 days', available_at=now()-interval '2 days' where id=$1",
+    [first.observationId],
+  );
+  const next = await db.market.refresh(randomUUID(), request, provider);
+  expect(next.status).toBe('SUCCEEDED');
+  expect(next.observationId).not.toBe(first.observationId);
+  expect(
+    (
+      await db.market.refresh(
+        randomUUID(),
+        {
+          kind: 'bars',
+          symbol: 'CRWV',
+          exchange: 'NASDAQ',
+          listingId: 'CRWV:NASDAQ',
+        },
+        provider,
+      )
+    ).status,
+  ).toBe('SUCCEEDED');
+});

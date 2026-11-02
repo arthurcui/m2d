@@ -203,7 +203,7 @@ export function HoldingsTable({
                 </button>
                 <button
                   className="account-context-action"
-                  aria-label={`Use ${a.displayName} as Agent context`}
+                  aria-label={`Use ${a.displayName} as Advisor context`}
                   aria-pressed={
                     selected?.accountKey === a.accountKey &&
                     !selected.instrumentKey
@@ -215,7 +215,7 @@ export function HoldingsTable({
                   {selected?.accountKey === a.accountKey &&
                   !selected.instrumentKey
                     ? 'Selected account'
-                    : 'Ask Agent'}{' '}
+                    : 'Ask Advisor'}{' '}
                   ↗
                 </button>
               </div>
@@ -308,7 +308,7 @@ export function HoldingsTable({
                                 <button
                                   className="holding-context-action"
                                   aria-pressed={chosen}
-                                  aria-label={`Discuss ${p.instrument.symbol} in ${a.displayName} with Agent`}
+                                  aria-label={`Discuss ${p.instrument.symbol} in ${a.displayName} with Advisor`}
                                   onClick={() =>
                                     onSelect({
                                       accountKey: a.accountKey,
@@ -317,7 +317,7 @@ export function HoldingsTable({
                                     })
                                   }
                                 >
-                                  {chosen ? 'Selected' : 'Ask Agent'}
+                                  {chosen ? 'Selected' : 'Ask Advisor'}
                                   <span aria-hidden="true"> ↗</span>
                                 </button>
                               </td>

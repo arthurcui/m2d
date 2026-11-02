@@ -11,6 +11,9 @@ import {
   date,
   primaryKey,
   index,
+  uniqueIndex,
+  vector,
+  foreignKey,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import type {
@@ -51,7 +54,7 @@ export const marketObservations = pgTable(
     ),
     check(
       'market_kind',
-      sql`${t.kind} in ('quote','bars','fx','options','listing')`,
+      sql`${t.kind} in ('quote','bars','fx','options','listing','resolution')`,
     ),
     check(
       'market_observation_time',
@@ -387,12 +390,14 @@ export const appSettings = pgTable(
     id: integer('id').primaryKey().default(1),
     revision: integer('revision').notNull().default(0),
     defaultAnalysisMode: text('default_analysis_mode'),
+    outputLanguage: text('output_language').notNull().default('en'),
     marketProvider: text('market_provider'),
     listingProvider: text('listing_provider'),
     priceRefreshSeconds: integer('price_refresh_seconds').notNull().default(0),
   },
   (t) => [
     check('settings_singleton', sql`${t.id} = 1`),
+    check('settings_language', sql`${t.outputLanguage} in ('en','zh-CN')`),
     check(
       'settings_market_provider',
       sql`${t.marketProvider} in ('fixture','massive','ibkr','twelvedata')`,
@@ -409,6 +414,17 @@ export const appSettings = pgTable(
       'settings_mode',
       sql`${t.defaultAnalysisMode} in ('quick','standard','extensive')`,
     ),
+  ],
+);
+export const researchCompanyChoices = pgTable(
+  'research_company_choices',
+  {
+    symbol: text('symbol').primaryKey(),
+    hidden: boolean('hidden').notNull().default(false),
+    updatedAt: utc('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    check('research_choice_symbol', sql`${t.symbol} ~ '^[A-Z0-9.-]{1,24}$'`),
   ],
 );
 export const agentSessions = pgTable('agent_sessions', {
@@ -434,6 +450,7 @@ export const agentRuns = pgTable(
     provider: text('provider').notNull(),
     model: text('model').notNull(),
     analysisMode: text('analysis_mode').notNull(),
+    outputLanguage: text('output_language'),
     policyVersion: text('policy_version').notNull(),
     promptVersion: text('prompt_version').notNull(),
     adapterVersion: text('adapter_version').notNull(),
@@ -460,6 +477,7 @@ export const agentRuns = pgTable(
       'agent_run_mode',
       sql`${t.analysisMode} in ('quick','standard','extensive')`,
     ),
+    check('agent_run_language', sql`${t.outputLanguage} in ('en','zh-CN')`),
     check(
       'agent_run_status',
       sql`${t.status} in ('running','completed','failed','cancelled','interrupted')`,
@@ -494,5 +512,256 @@ export const marketProviderLimits = pgTable(
   },
   (t) => [
     check('market_limit_provider', sql`${t.provider} in ('massive','ibkr')`),
+  ],
+);
+
+export const researchCompanies = pgTable('research_companies', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  symbol: text('symbol').notNull().unique(),
+  name: text('name').notNull(),
+  cik: text('cik'),
+  createdAt: utc('created_at').notNull().defaultNow(),
+});
+export const sourceDocuments = pgTable(
+  'source_documents',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    companyId: uuid('company_id')
+      .notNull()
+      .references(() => researchCompanies.id),
+    provider: text('provider').notNull(),
+    upstreamKey: text('upstream_key').notNull(),
+    title: text('title').notNull(),
+    form: text('form').notNull(),
+    url: text('url'),
+    publishedAt: utc('published_at'),
+    observedAt: utc('observed_at').notNull(),
+    availableAt: utc('available_at').notNull(),
+    hash: text('hash').notNull(),
+    revision: integer('revision').notNull(),
+    mime: text('mime').notNull(),
+    rawBase64: text('raw_base64').notNull(),
+  },
+  (t) => [
+    index('source_document_content').on(
+      t.companyId,
+      t.provider,
+      t.upstreamKey,
+      t.hash,
+    ),
+    uniqueIndex('source_document_revision').on(
+      t.companyId,
+      t.provider,
+      t.upstreamKey,
+      t.revision,
+    ),
+    check(
+      'source_provider',
+      sql`${t.provider} in ('fixture','sec','upload','ir','fund','occ','macro','news','analyst')`,
+    ),
+    check('source_revision', sql`${t.revision}>0`),
+    check(
+      'source_available',
+      sql`${t.availableAt}>=${t.observedAt} and (${t.publishedAt} is null or ${t.availableAt}>=${t.publishedAt})`,
+    ),
+    index('source_company_available').on(t.companyId, t.availableAt),
+  ],
+);
+export const documentChunks = pgTable(
+  'document_chunks',
+  {
+    documentId: uuid('document_id')
+      .notNull()
+      .references(() => sourceDocuments.id),
+    chunkIndex: integer('chunk_index').notNull(),
+    page: integer('page'),
+    text: text('text').notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.documentId, t.chunkIndex] }),
+    index('document_search').using(
+      'gin',
+      sql`to_tsvector('english',${t.text})`,
+    ),
+    check('chunk_index_nonnegative', sql`${t.chunkIndex}>=0`),
+    check('chunk_page_positive', sql`${t.page} is null or ${t.page}>0`),
+  ],
+);
+export const companyFacts = pgTable(
+  'company_facts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    documentId: uuid('document_id')
+      .notNull()
+      .references(() => sourceDocuments.id),
+    metric: text('metric').notNull(),
+    unit: text('unit').notNull(),
+    periodStart: date('period_start'),
+    periodEnd: date('period_end').notNull(),
+    value: numeric('value').notNull(),
+    accession: text('accession').notNull(),
+    filed: date('filed').notNull(),
+  },
+  (t) => [
+    index('fact_document_metric').on(t.documentId, t.metric),
+    check(
+      'fact_period',
+      sql`${t.periodStart} is null or ${t.periodStart}<=${t.periodEnd}`,
+    ),
+  ],
+);
+export const researchFindings = pgTable(
+  'research_findings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    documentId: uuid('document_id')
+      .notNull()
+      .references(() => sourceDocuments.id),
+    chunkIndex: integer('chunk_index').notNull(),
+    claim: text('claim').notNull(),
+    category: text('category').notNull(),
+    extractorVersion: text('extractor_version').notNull(),
+  },
+  (t) => [
+    check(
+      'finding_category',
+      sql`${t.category} in ('guidance','risk','business','financial')`,
+    ),
+  ],
+);
+export const researchImports = pgTable(
+  'research_imports',
+  {
+    id: uuid('id').primaryKey(),
+    symbol: text('symbol').notNull(),
+    provider: text('provider').notNull(),
+    fingerprint: text('fingerprint').notNull(),
+    status: text('status').notNull(),
+    startedAt: utc('started_at').notNull().defaultNow(),
+    finishedAt: utc('finished_at'),
+    documentIds: jsonb('document_ids').$type<string[]>().notNull().default([]),
+    error: text('error'),
+    addedCount: integer('added_count'),
+    reusedCount: integer('reused_count'),
+    passageCount: integer('passage_count'),
+  },
+  (t) => [
+    check(
+      'research_import_status',
+      sql`${t.status} in ('running','completed','failed','interrupted')`,
+    ),
+    check(
+      'research_import_counts',
+      sql`(${t.addedCount} is null and ${t.reusedCount} is null and ${t.passageCount} is null) or (${t.addedCount} is not null and ${t.reusedCount} is not null and ${t.passageCount} is not null and ${t.addedCount} >= 0 and ${t.reusedCount} >= 0 and ${t.passageCount} >= 0 and ${t.status} = 'completed' and ${t.addedCount} + ${t.reusedCount} = jsonb_array_length(${t.documentIds}))`,
+    ),
+    index('research_import_symbol').on(t.symbol, t.startedAt),
+  ],
+);
+
+export const researchSourceLinks = pgTable(
+  'research_source_links',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    symbol: text('symbol').notNull(),
+    kind: text('kind').notNull(),
+    name: text('name').notNull(),
+    url: text('url').notNull(),
+    createdAt: utc('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('research_source_link_unique').on(t.symbol, t.kind, t.url),
+    check(
+      'research_link_kind',
+      sql`${t.kind} in ('ir','fund','occ','macro','news','analyst')`,
+    ),
+    check('research_link_symbol', sql`${t.symbol} ~ '^[A-Z0-9.-]{1,24}$'`),
+    check('research_link_name', sql`length(${t.name}) between 1 and 150`),
+    check(
+      'research_link_url',
+      sql`${t.url} like 'https://%' and length(${t.url})<=2000`,
+    ),
+  ],
+);
+
+export const researchEmbeddings = pgTable(
+  'research_embeddings',
+  {
+    id: text('id').primaryKey(),
+    profile: text('profile').notNull(),
+    purpose: text('purpose').notNull(),
+    embedding: vector('embedding', { dimensions: 1536 }).notNull(),
+    createdAt: utc('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    check('embedding_id_sha256', sql`${t.id} ~ '^[a-f0-9]{64}$'`),
+    check('embedding_purpose', sql`${t.purpose} in ('query','passage')`),
+  ],
+);
+export const researchChunkEmbeddings = pgTable(
+  'research_chunk_embeddings',
+  {
+    documentId: uuid('document_id').notNull(),
+    chunkIndex: integer('chunk_index').notNull(),
+    profile: text('profile').notNull(),
+    embeddingId: text('embedding_id')
+      .notNull()
+      .references(() => researchEmbeddings.id),
+  },
+  (t) => [
+    primaryKey({ columns: [t.documentId, t.chunkIndex, t.profile] }),
+    foreignKey({
+      columns: [t.documentId, t.chunkIndex],
+      foreignColumns: [documentChunks.documentId, documentChunks.chunkIndex],
+    }),
+  ],
+);
+export const researchEmbeddingUsage = pgTable(
+  'research_embedding_usage',
+  {
+    id: uuid('id').primaryKey(),
+    profile: text('profile').notNull(),
+    purpose: text('purpose').notNull(),
+    agentRunId: uuid('agent_run_id').references(() => agentRuns.id),
+    inputBytes: integer('input_bytes').notNull(),
+    inputTokens: integer('input_tokens'),
+    cost: numeric('cost').notNull(),
+    priceVersion: text('price_version').notNull(),
+    status: text('status').notNull(),
+    createdAt: utc('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    check(
+      'embedding_usage_positive',
+      sql`${t.inputBytes}>0 and (${t.inputTokens} is null or ${t.inputTokens}>=0) and ${t.cost}>=0`,
+    ),
+    check(
+      'embedding_usage_status',
+      sql`${t.status} in ('reserved','completed','uncertain')`,
+    ),
+    check('embedding_usage_purpose', sql`${t.purpose} in ('query','passage')`),
+    index('embedding_usage_date').on(t.createdAt),
+  ],
+);
+export const researchSearchJobs = pgTable(
+  'research_search_jobs',
+  {
+    id: uuid('id').primaryKey(),
+    symbol: text('symbol').notNull(),
+    profile: text('profile').notNull(),
+    status: text('status').notNull(),
+    processed: integer('processed').notNull().default(0),
+    error: text('error'),
+    startedAt: utc('started_at').notNull().defaultNow(),
+    finishedAt: utc('finished_at'),
+  },
+  (t) => [
+    check(
+      'search_job_status',
+      sql`${t.status} in ('running','completed','failed','interrupted')`,
+    ),
+    check('search_job_progress', sql`${t.processed}>=0`),
+    uniqueIndex('one_search_index_job')
+      .on(t.status)
+      .where(sql`${t.status}='running'`),
   ],
 );

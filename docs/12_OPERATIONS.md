@@ -76,3 +76,11 @@ Same images and schema; environment switches DB endpoint, file storage adapter a
 - Outdated holdings or missed cash adjustments create incorrect recommendations; display portfolio last-updated timestamp and prompt to reconcile periodically.
 - Market data licenses and quote entitlements may not permit real-time displays without a paid tier.
 - Avoid direct trade execution even when cloud-hosted; this product is a decision-support journal.
+
+## M4 research operations
+
+`RESEARCH_PROVIDER=fixture` is offline; `sec` requires `SEC_USER_AGENT` with a real contact email. Original research files are stored in PostgreSQL in M4, so database backups include source evidence; the research bind mount is reserved for future file storage. Interrupted API imports remain visible and require an explicit retry. See [limits and setup](M4_RESEARCH.md).
+
+### Search extension upgrade
+
+Company search uses `pgvector/pgvector:0.8.7-pg17-bookworm` and additive migration 0015. Keep the existing PostgreSQL 17 volume; back it up before upgrading. `docker compose up -d --build --wait --wait-timeout 180` installs the extension through the normal migration gate. A native PostgreSQL installation must have pgvector available before migrating. Do not remove a volume or downgrade to a vanilla image lacking the extension. Semantic indexing is explicit in Research, uses the configured inference key, and is bounded by `RESEARCH_EMBEDDING_DAILY_BYTES` plus configured cost ceilings. See [company search](COMPANY_SEARCH.md).

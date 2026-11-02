@@ -69,7 +69,7 @@ export function createWorkbookAi(
       config.LLM_PROVIDER === 'fixture'
         ? 'Offline deterministic workbook demo; no model calls.'
         : available
-          ? 'AI workbook parsing is configured. Agent chat is available separately.'
+          ? 'AI workbook parsing is configured. Advisor chat is available separately.'
           : 'Workbook AI is unavailable. Configure a supported OpenAI model and a backend API key.',
   };
   return {
@@ -180,7 +180,7 @@ export function createWorkbookAi(
               questions: needsReview ? [] : [input.dialogue.question],
               intent: 'explain',
               reply: internal
-                ? 'That was an application error, not a question you need to answer. Agent produced an invalid mapping. Import is blocked until it passes validation; it is not merely a review notice. Select Retry interpretation to continue with your existing account choices and accepted answers. Nothing has been committed.'
+                ? 'That was an application error, not a question you need to answer. Advisor produced an invalid mapping. Import is blocked until it passes validation; it is not merely a review notice. Select Retry interpretation to continue with your existing account choices and accepted answers. Nothing has been committed.'
                 : workbookRowReply(
                     input.dialogue.question,
                     prepared.inspection,
@@ -269,7 +269,7 @@ export function createWorkbookAi(
           ...(memory ? { memory } : {}),
           warnings: [
             ...result.warnings,
-            'Agent reused a previously confirmed format. Current workbook values were read again; review before confirming.',
+            'Advisor reused a previously confirmed format. Current workbook values were read again; review before confirming.',
           ],
         });
         return {
@@ -288,7 +288,7 @@ export function createWorkbookAi(
             model: 'format-v2',
             asOf: saved.createdAt,
             message:
-              'Agent remembered this format. Please confirm the updated portfolio.',
+              'Advisor remembered this format. Please confirm the updated portfolio.',
           },
         };
       }
@@ -510,7 +510,7 @@ export function createWorkbookAi(
             ...result.warnings,
             ...(memory
               ? [
-                  `After confirmation, Agent will save this format and ${memory.rules?.length ?? 0} source-matched interpretation rules. Future quantities, costs and cash balances will be read from the new workbook.`,
+                  `After confirmation, Advisor will save this format and ${memory.rules?.length ?? 0} source-matched interpretation rules. Future quantities, costs and cash balances will be read from the new workbook.`,
                 ]
               : []),
           ],
@@ -543,7 +543,7 @@ export function createWorkbookAi(
             ...(incompleteMapping
               ? {
                   reply:
-                    'Agent left part of the workbook unmapped, so import is blocked. Select Retry interpretation to rebuild the complete mapping. Your accepted answers and account choices are retained; nothing has been committed.',
+                    'Advisor left part of the workbook unmapped, so import is blocked. Select Retry interpretation to rebuild the complete mapping. Your accepted answers and account choices are retained; nothing has been committed.',
                 }
               : {}),
             message:
@@ -601,7 +601,7 @@ export function createWorkbookAi(
             ...(internal
               ? {
                   reply:
-                    'Agent produced an invalid mapping, so import is blocked. This is an application interpretation error, not a question you need to answer. Select Retry interpretation; your account choices and accepted answers are retained and nothing has been committed.',
+                    'Advisor produced an invalid mapping, so import is blocked. This is an application interpretation error, not a question you need to answer. Select Retry interpretation; your account choices and accepted answers are retained and nothing has been committed.',
                 }
               : {}),
             message,

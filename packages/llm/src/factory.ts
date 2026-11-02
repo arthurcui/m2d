@@ -7,7 +7,11 @@ import {
   type ModelEvent,
 } from './contracts.js';
 import { OpenAiProvider } from './openai.js';
+import { fixtureEmbeddings } from './fixture-embeddings.js';
 export class ChatFixtureProvider implements LlmProvider {
+  async embed(...args: Parameters<typeof fixtureEmbeddings>) {
+    return fixtureEmbeddings(...args);
+  }
   readonly id = 'fixture' as const;
   readonly adapterVersion = 'fixture-chat-v1';
   capabilities(model: string) {
@@ -60,6 +64,64 @@ export class ChatFixtureProvider implements LlmProvider {
       user?.kind === 'text' &&
       /\b(nav|valuation|portfolio worth|unrealized)\b/i.test(user.text) &&
       !/\b(buy|bought|sell|sold)\b/i.test(user.text);
+    const researchQuestion =
+      user?.kind === 'text' &&
+      /Research context:|stored research|research documents/i.test(user.text);
+    if (researchQuestion) {
+      const symbol = (
+        /Research context: ([A-Z0-9.-]+)/.exec(user.text)?.[1] ?? 'TSLA'
+      ).replace(/\.$/, '');
+      if (!result)
+        return call('research_search_evidence_v2', {
+          symbol,
+          query: /Review the stored research/.test(user.text)
+            ? 'revenue OR risk OR outlook'
+            : user.text
+                .replace(/^Research context:[^\n]*\n/, '')
+                .split('\n')[0]!
+                .slice(0, 500),
+        });
+      const output = result.output as {
+        hits?: {
+          document_id: string;
+          title: string;
+          text: string;
+          chunk_index: number;
+          provider: string;
+          available_at: string;
+        }[];
+        error?: { message: string };
+      };
+      if (output.error) return reply(output.error.message);
+      const rows = output.hits ?? [];
+      // Simulate one refinement after the application's initial literal search.
+      // Generic fixture review still needs its documented example topics.
+      const reviewQuery = 'revenue OR risk OR outlook';
+      if (
+        !rows.length &&
+        /Review the stored research/i.test(user.text) &&
+        !tail.some(
+          (item) =>
+            item.kind === 'tool_call' &&
+            typeof item.arguments === 'object' &&
+            item.arguments !== null &&
+            'query' in item.arguments &&
+            item.arguments.query === reviewQuery,
+        )
+      )
+        return call('research_search_evidence_v2', {
+          symbol,
+          query: reviewQuery,
+        });
+      const source = rows[0];
+      return source
+        ? reply(
+            `Synthetic fixture research. The retrieved source states: ${source.text.slice(0, 220)} [${source.title}](/research?document=${source.document_id}#chunk-${source.chunk_index}). Available: ${source.available_at}. This quote is evidence, not a trading recommendation. Interpretation: inspect the changed outlook and concentration risks before deciding. NO_SIGNAL: no executable strategy is evaluated.`,
+          )
+        : reply(
+            'NO_SIGNAL: No matching stored research. Import reports on Research first.',
+          );
+    }
     if (!result)
       return call(
         valuationQuestion ? 'market_valuation_read_v1' : 'portfolio_read_v1',

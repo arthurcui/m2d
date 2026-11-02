@@ -159,7 +159,21 @@ export const optionSchema = z.object({
   volume: nonnegative.nullable(),
   openInterest: nonnegative.nullable(),
 });
+export const listingCandidateSchema = z.object({
+  id: z.string().min(1).max(100),
+  symbol: symbolSchema,
+  name: z.string().min(1).max(500),
+  exchange: z.enum(['NASDAQ', 'NYSE', 'AMEX', 'ARCA', 'BATS']),
+  currency: z.literal('USD'),
+});
+export type ListingCandidate = z.infer<typeof listingCandidateSchema>;
+export const resolutionSchema = evidenceSchema.extend({
+  symbol: symbolSchema,
+  candidates: z.array(listingCandidateSchema).max(100),
+});
+export type ListingResolution = z.infer<typeof resolutionSchema>;
 export const payloadSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('resolution'), value: resolutionSchema }),
   z.object({ kind: z.literal('listing'), value: listingSchema }),
   z.object({ kind: z.literal('quote'), value: quoteSchema }),
   z.object({ kind: z.literal('bars'), value: z.array(barSchema).max(100) }),
@@ -180,7 +194,11 @@ export interface QuoteProvider {
   quote(instrument: Instrument): Promise<FeedResult>;
 }
 export interface BarsProvider {
-  bars(symbol: string, exchange?: string): Promise<FeedResult>;
+  bars(
+    symbol: string,
+    exchange?: string,
+    listingId?: string,
+  ): Promise<FeedResult>;
 }
 export interface FxProvider {
   fx(base: string, quote: string): Promise<FeedResult>;
@@ -193,6 +211,7 @@ export interface MarketProvider
   id: 'fixture' | 'twelvedata' | 'massive' | 'ibkr';
   configured: boolean;
   fetchListing?(lookup: ListingLookup): Promise<FeedResult>;
+  resolveListing?(symbol: string): Promise<FeedResult>;
 }
 export class MarketError extends Error {
   constructor(

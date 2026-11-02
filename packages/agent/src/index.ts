@@ -731,7 +731,7 @@ export function groundedMapping(
       continue;
     mapping.tables.push(structuredClone(source));
     notes.push(
-      `Agent omitted the recognized table in "${source.sheet}"; restored its current source-column mapping for validation and review.`,
+      `Advisor omitted the recognized table in "${source.sheet}"; restored its current source-column mapping for validation and review.`,
     );
   }
   return { mapping, questions: parsed.questions, notes };

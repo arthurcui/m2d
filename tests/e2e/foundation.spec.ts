@@ -38,7 +38,7 @@ test('branded workspace, persisted operations, and honest navigation placeholder
   await page.getByRole('link', { name: 'Chat', exact: false }).click();
   await expect(page.getByText(/Quick \/ Standard \/ Extensive/)).toBeVisible();
   await expect(
-    page.getByRole('heading', { name: 'Agent · General', exact: true }),
+    page.getByRole('heading', { name: 'Advisor · General', exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole('button', { name: 'Send', exact: true }),

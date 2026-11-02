@@ -99,6 +99,62 @@
       "when": 1793503955219,
       "tag": "0013_market_ui_preferences",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1793506623500,
+      "tag": "0014_green_klaw",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1793509162031,
+      "tag": "0015_giant_microbe",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1793552834830,
+      "tag": "0016_research_sources",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1793555014455,
+      "tag": "0017_analyst_research",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1793557823256,
+      "tag": "0018_listing_resolution",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1793565134193,
+      "tag": "0019_research_import_outcomes",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1793567968068,
+      "tag": "0020_advisor_workspace",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1793576711797,
+      "tag": "0021_cultured_george_stacy",
+      "breakpoints": true
     }
   ]
 }
