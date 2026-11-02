@@ -117,6 +117,7 @@ export function createMarketService(
           requests.map((r) => [`${r.kind}:${marketSubject(r)}`, r]),
         ).values(),
       ];
+      const optionSnapshots: import('@m2d/market').OptionSnapshot[] = [];
       const quotes: Quote[] = [],
         fx: Fx[] = [],
         observationIds: string[] = [];
@@ -129,8 +130,10 @@ export function createMarketService(
         if (!row) continue;
         observationIds.push(row.id);
         if (row.payload.kind === 'quote') quotes.push(row.payload.value);
-        if (row.payload.kind === 'options')
+        if (row.payload.kind === 'options') {
           quotes.push(...row.payload.value.map((o) => o.quote));
+          optionSnapshots.push(...row.payload.value);
+        }
         if (row.payload.kind === 'fx') fx.push(row.payload.value);
       }
       return {
@@ -142,6 +145,7 @@ export function createMarketService(
           new Date().toISOString(),
         ),
         portfolioRevision: overview.revision,
+        optionSnapshots,
         observationIds,
         requests: unique,
         provider: provider.id,

@@ -2,6 +2,9 @@ import { z } from 'zod';
 
 const configSchema = z.object({
   DATABASE_URL: z.url().refine((value) => /^postgres(ql)?:\/\//.test(value)),
+  RISK_CONCENTRATION_PERCENT: z.coerce.number().positive().max(100).default(25),
+  RISK_MAX_SPREAD_PERCENT: z.coerce.number().positive().max(100).default(5),
+  RISK_NEAR_EXPIRY_DAYS: z.coerce.number().int().min(1).max(60).default(14),
   API_HOST: z.string().min(1).default('127.0.0.1'),
   API_PORT: z.coerce.number().int().min(1).max(65535).default(3001),
   APP_TIMEZONE: z

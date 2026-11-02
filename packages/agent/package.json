@@ -16,7 +16,8 @@
     "@m2d/portfolio": "workspace:*",
     "zod": "^4.1.12",
     "decimal.js": "10.6.0",
-    "@m2d/research": "workspace:*"
+    "@m2d/research": "workspace:*",
+    "@m2d/risk": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^24.10.0"

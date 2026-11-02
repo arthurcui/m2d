@@ -1,0 +1,19 @@
+{
+  "name": "@m2d/risk",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "build:types": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@m2d/portfolio": "workspace:*",
+    "@m2d/market": "workspace:*",
+    "decimal.js": "10.6.0",
+    "zod": "^4.1.12"
+  }
+}

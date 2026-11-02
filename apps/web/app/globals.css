@@ -3040,3 +3040,41 @@ footer {
     flex-direction: column;
   }
 }
+
+.risk-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+}
+.risk-fields label {
+  display: grid;
+  gap: 0.4rem;
+}
+.risk-workspace article {
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid var(--border, #d7e0e5);
+  border-radius: 12px;
+}
+.risk-workspace small {
+  display: block;
+}
+.risk-workspace svg {
+  max-width: 100%;
+}
+.risk-workspace [role='tablist'] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.risk-workspace table {
+  min-width: 650px;
+}
+.risk-workspace .table-scroll {
+  overflow: auto;
+}
+
+.risk-workspace h1 {
+  font-size: clamp(1.65rem, 3vw, 2.5rem);
+}

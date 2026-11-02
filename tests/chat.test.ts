@@ -1174,3 +1174,77 @@ it('holds research text until citation validation and never checkpoints an inven
     h.history().some((i) => i.kind === 'text' && i.role === 'assistant'),
   ).toBe(false);
 });
+
+it('risk-only sessions cannot preview portfolio changes even if a model calls the mutation tool', async () => {
+  const h = harness();
+  try {
+    await h.start({ riskOnly: true });
+  } catch {
+    /* Fixture may exhaust its allowance after a rejected operation. */
+  }
+  expect(h.changes).toHaveLength(0);
+  expect(
+    h
+      .history()
+      .some(
+        (i) =>
+          i.kind === 'tool_result' &&
+          JSON.stringify(i.output).includes('READ_ONLY_RISK'),
+      ),
+  ).toBe(true);
+});
+import { RiskError } from '../packages/risk/dist/index.js';
+it('normalizes nullable risk draft fields and returns async domain failures as tool feedback', async () => {
+  const provider = new ChatFixtureProvider();
+  let attempt = 0;
+  provider.stream = async function* () {
+    const items: CanonicalItem[] =
+      attempt++ === 0
+        ? [
+            {
+              id: randomUUID(),
+              kind: 'tool_call',
+              callId: 'risk-draft',
+              name: 'trade_plan_preview_v1',
+              arguments: {
+                stockAction: null,
+                analysis: { scenarioPrices: null },
+              },
+            },
+          ]
+        : [
+            {
+              id: randomUUID(),
+              kind: 'text',
+              role: 'assistant',
+              text: 'Please review the plan inputs.',
+            },
+          ];
+    yield {
+      type: 'result',
+      result: {
+        status: attempt === 1 ? 'tool_calls' : 'completed',
+        items,
+        structuredOutput: null,
+        usage: null,
+        providerRequestId: null,
+      },
+    };
+  };
+  const h = harness(provider, 'Prepare a hypothetical plan');
+  h.deps.risk = async (_name, args) => {
+    expect(args).toEqual({ analysis: {} });
+    throw new RiskError('INVALID_STRATEGY', 'Review the legs.');
+  };
+  await h.start({ riskOnly: true });
+  expect(
+    h
+      .history()
+      .some(
+        (i) =>
+          i.kind === 'tool_result' &&
+          JSON.stringify(i.output).includes('INVALID_STRATEGY'),
+      ),
+  ).toBe(true);
+  expect(h.changes).toHaveLength(0);
+});

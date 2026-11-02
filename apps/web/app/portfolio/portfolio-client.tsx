@@ -1,4 +1,5 @@
 'use client';
+import { RiskClient } from '../risk/risk-client';
 import { ChatMarkdown } from '../chat-markdown';
 import {
   ResearchClient,
@@ -522,6 +523,7 @@ export function PortfolioClient({ children }: { children?: ReactNode }) {
     <ResizablePanels open={agentOpen}>
       <div>
         <div>{children}</div>
+        <RiskClient active={context.path === '/risk'} />
         <Suspense fallback={null}>
           <ResearchClient
             active={context.path === '/research'}

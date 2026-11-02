@@ -765,3 +765,23 @@ export const researchSearchJobs = pgTable(
       .where(sql`${t.status}='running'`),
   ],
 );
+
+export const tradePlans = pgTable(
+  'trade_plans',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    idempotencyKey: uuid('idempotency_key').notNull().unique(),
+    fingerprint: text('fingerprint').notNull(),
+    portfolioRevision: integer('portfolio_revision').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    status: text('status').notNull(),
+    input: jsonb('input').notNull(),
+    assessment: jsonb('assessment').notNull(),
+  },
+  (t) => [
+    check('plan_revision', sql`${t.portfolioRevision}>=0`),
+    check('plan_watch_only', sql`${t.status}='WATCH_ONLY'`),
+  ],
+);

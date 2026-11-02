@@ -21,7 +21,8 @@
     "@m2d/domain": "workspace:*",
     "decimal.js": "10.6.0",
     "@m2d/llm": "workspace:*",
-    "@m2d/research": "workspace:*"
+    "@m2d/research": "workspace:*",
+    "@m2d/risk": "workspace:*"
   },
   "devDependencies": {
     "drizzle-kit": "0.31.11",

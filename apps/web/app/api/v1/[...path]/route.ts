@@ -9,6 +9,9 @@ async function proxy(
 ) {
   const path = (await context.params).path.join('/');
   const post = request.method !== 'GET';
+  const riskRead = /^risk\/(?:summary|plans)$/;
+  const riskWrite =
+    /^(?:risk\/(?:scenarios|stock-trade|plans(?:\/preview)?)|strategies\/evaluate)$/;
   const researchRead =
     /^research(?:\/(?:sources|imports\/[0-9a-f-]{36}|companies(?:\/[A-Z0-9.-]{1,24})?|documents\/[0-9a-f-]{36}(?:\/raw)?|search(?:\/(?:status|jobs\/[0-9a-f-]{36}))?))?$/;
   const researchWrite =
@@ -25,7 +28,8 @@ async function proxy(
     !(post ? writes : reads).test(path) &&
     !(post ? chatWrite : chatRead).test(path) &&
     !(post ? marketWrite : marketRead).test(path) &&
-    !(post ? researchWrite : researchRead).test(path)
+    !(post ? researchWrite : researchRead).test(path) &&
+    !(post ? riskWrite : riskRead).test(path)
   )
     return Response.json(
       { error: { code: 'NOT_FOUND', message: 'Route unavailable.' } },

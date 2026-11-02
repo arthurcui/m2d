@@ -1,3 +1,4 @@
+import { createRiskService } from './risk.js';
 import { createResearchSearchService } from './research-search.js';
 import { createLlmProvider } from '@m2d/llm';
 import { createResearchService } from './research.js';
@@ -77,6 +78,24 @@ const research = createResearchService(
     process.env.MASSIVE_API_KEY ?? '',
   ),
 );
+const marketService = createMarketService(
+  database.market,
+  database.portfolio,
+  marketProvider,
+  config.BASE_CURRENCY,
+  listingProvider,
+  selection,
+);
+const risk = createRiskService(
+  database.portfolio,
+  database.risk,
+  marketService,
+  {
+    concentrationPercent: config.RISK_CONCENTRATION_PERCENT,
+    maxSpreadPercent: config.RISK_MAX_SPREAD_PERCENT,
+    nearExpiryDays: config.RISK_NEAR_EXPIRY_DAYS,
+  },
+);
 const app = buildApp(
   database.repository,
   config,
@@ -86,6 +105,7 @@ const app = buildApp(
     key: process.env.OPENAI_API_KEY ?? '',
     chat: database.chat,
     research,
+    risk,
   },
   {
     repository: database.market,
@@ -93,14 +113,7 @@ const app = buildApp(
     ibkr,
     provider: marketProvider,
     listingProvider,
-    service: createMarketService(
-      database.market,
-      database.portfolio,
-      marketProvider,
-      config.BASE_CURRENCY,
-      listingProvider,
-      selection,
-    ),
+    service: marketService,
   },
 );
 app.addHook('onClose', async () => database.close());
