@@ -23,7 +23,7 @@ export function submitAgentOnEnter(event: KeyboardEvent<HTMLTextAreaElement>) {
 export const agentContexts = [
   { path: '/', label: 'Dashboard', milestone: 'later milestones' },
   { path: '/portfolio', label: 'Portfolio', milestone: 'M1' },
-  { path: '/risk', label: 'Options & Risk', milestone: 'M5' },
+  { path: '/risk', label: 'Trade Planner', milestone: 'M5' },
   { path: '/market', label: 'Market & Watchlist', milestone: 'M3–M6' },
   { path: '/opportunities', label: 'Opportunities', milestone: 'M6' },
   { path: '/research', label: 'Research', milestone: 'M4' },

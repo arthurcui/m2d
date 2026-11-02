@@ -233,6 +233,9 @@ export function PortfolioClient({ children }: { children?: ReactNode }) {
     agentContexts[7];
   const isPortfolio = context.path === '/portfolio';
   const [agentOpen, setAgentOpen] = useState(true);
+  const [plannerContext, setPlannerContext] = useState<HoldingSelection | null>(
+    null,
+  );
   const [selectedHolding, setSelectedHolding] =
     useState<HoldingSelection | null>(null);
   const selectHolding = (holding: HoldingSelection | null) => {
@@ -274,8 +277,12 @@ export function PortfolioClient({ children }: { children?: ReactNode }) {
       setAgentOpen(true);
       localStorage.setItem('m2d.agent.closed', 'false');
     };
+    window.addEventListener('m2d:risk-discuss', open);
     window.addEventListener('m2d:research-discuss', open);
-    return () => window.removeEventListener('m2d:research-discuss', open);
+    return () => {
+      window.removeEventListener('m2d:research-discuss', open);
+      window.removeEventListener('m2d:risk-discuss', open);
+    };
   }, []);
   const toggleAgent = (open: boolean) => {
     setAgentOpen(open);
@@ -523,7 +530,11 @@ export function PortfolioClient({ children }: { children?: ReactNode }) {
     <ResizablePanels open={agentOpen}>
       <div>
         <div>{children}</div>
-        <RiskClient active={context.path === '/risk'} />
+        <RiskClient
+          active={context.path === '/risk'}
+          portfolioSelection={selectedHolding}
+          onContext={setPlannerContext}
+        />
         <Suspense fallback={null}>
           <ResearchClient
             active={context.path === '/research'}
@@ -735,6 +746,7 @@ export function PortfolioClient({ children }: { children?: ReactNode }) {
                 researchContext={
                   item.path === '/research' ? researchContext : null
                 }
+                selectedHolding={item.path === '/risk' ? plannerContext : null}
                 label={item.label}
                 active={item.path === context.path}
               />

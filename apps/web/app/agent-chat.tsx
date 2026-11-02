@@ -697,17 +697,19 @@ export function AgentChat({
               </strong>
               {selectedHolding.label}
             </span>
-            <button
-              type="button"
-              aria-label={
-                selectedHolding.instrumentKey
-                  ? 'Clear selected holding'
-                  : 'Clear selected account'
-              }
-              onClick={onClearHolding}
-            >
-              ×
-            </button>
+            {onClearHolding && (
+              <button
+                type="button"
+                aria-label={
+                  selectedHolding.instrumentKey
+                    ? 'Clear selected holding'
+                    : 'Clear selected account'
+                }
+                onClick={onClearHolding}
+              >
+                ×
+              </button>
+            )}
           </div>
         )}
         <label>
@@ -723,9 +725,11 @@ export function AgentChat({
             }}
             onKeyDown={submitAgentOnEnter}
             placeholder={
-              selectedHolding
-                ? 'e.g. Sold 3 shares at $200, no fees'
-                : 'Message Advisor…'
+              context === 'risk'
+                ? 'e.g. What would selling 3 shares change?'
+                : selectedHolding
+                  ? 'e.g. Sold 3 shares at $200, no fees'
+                  : 'Message Advisor…'
             }
           />
         </label>

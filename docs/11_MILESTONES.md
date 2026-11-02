@@ -26,7 +26,7 @@ User-authorized M3 extension: optional IBKR hosted MCP for allowlisted market da
 **Deliver:** SEC company filings/XBRL importer, upload PDF and plain text, document version/hash, extract claims and citations, company timeline, compare filings, full-text search first; optional pgvector later.
 **Accept:** new filing changes appear with before/after and source links; older historical view preserves old data.
 
-## M5 — Risk and trade planner
+## M5 — Trade Planner
 **Deliver:** exposures, option coverage, expiration review, stress scenarios, supported option payoff calculators, strategy analysis tool, structured trade plans and validation rules, basic chart for payoff-at-expiry.
 **Accept:** covered vs uncovered tests; correct signs/fees, no recommendation actionable with stale or incomplete data; exit/invalidation and main risk mandatory.
 

@@ -1,14 +1,16 @@
 # M5 — Stocks, ETFs, options risk and trade planning
 
-M5 adds a deterministic risk package, an Options & Risk workspace, bounded Advisor tools and saved hypothetical plans. Stocks and ETFs are first-class: proposed purchases, sales of owned shares, stop-based sizing and before/after downside scenarios are available without an option position.
+M5 adds a deterministic risk package, a Trade Planner workspace, bounded Advisor tools and saved hypothetical plans. Stocks and ETFs are first-class: proposed purchases, sales of owned shares, stop-based sizing and before/after downside scenarios are available without an option position.
 
 ## User workflow
 
-- **Exposure** shows marked gross/net exposure, native-currency concentration, consolidated base-currency exposure using stored FX, per-position delta-equivalent shares, short-option strike notional and expiry days. Missing marks/FX/Greeks remain unknown. Cached market evidence retains provider, session, timestamp, delay and quality. Refresh risk reads cached evidence; use portfolio price refresh to fetch new prices.
-- **Stock / ETF trade** analyzes a hypothetical buy or sale in an account. A sale reduces recorded long shares and computes estimated proceeds and remaining exposure; it never silently opens a short. Enter price, fees, optional stop/target and risk budget. Stop-based sizing assumes a fill at the stop and can underestimate gap losses. Cost-based sale profit retains the recorded cost-quality limitation and is not tax accounting.
-- **Strategy payoff** supports stocks/ETFs, covered calls, cash-secured puts, long calls/puts and same-expiry vertical debit/credit spreads. Enter explicit prices, quantities and costs. The payoff chart is at option expiry, not a current option valuation; stock charts show hypothetical P&L by share price. Missing slippage is flagged and never silently regarded as known zero. Standard 100-share contracts only; calendars/diagonals, adjusted contracts, rolls and other Phase B strategies remain unsupported.
+- **Portfolio Risk** shows marked gross/net exposure, native-currency concentration, consolidated base-currency exposure using stored FX, per-position delta-equivalent shares, short-option strike notional and expiry days. Missing marks/FX/Greeks remain unknown. Cached market evidence retains provider, session, timestamp, delay and quality. Refresh risk reads cached evidence; use portfolio price refresh to fetch new prices.
+- **Plan a Trade → Stock / ETF** analyzes a hypothetical buy or sale in an account. A sale reduces recorded long shares and computes estimated proceeds and remaining exposure; it never silently opens a short. Enter price, fees, optional stop/target and risk budget. Stop-based sizing assumes a fill at the stop and can underestimate gap losses. Cost-based sale profit retains the recorded cost-quality limitation and is not tax accounting.
+- **Plan a Trade → Option strategies** supports stocks/ETFs, covered calls, cash-secured puts, long calls/puts and same-expiry vertical debit/credit spreads. Enter explicit prices, quantities and costs. The payoff chart is at option expiry, not a current option valuation; stock charts show hypothetical P&L by share price. Missing slippage is flagged and never silently regarded as known zero. Standard 100-share contracts only; calendars/diagonals, adjusted contracts, rolls and other Phase B strategies remain unsupported.
 - **Build a reviewable trade plan** requires entry, exit, invalidation and main risk. Preview against current portfolio revision, then explicitly save. Stock plans distinguish BUY from SELL; a sale plan assesses remaining exposure and reports proceeds separately. Saved plans retain immutable inputs, evidence and assessment timestamps. They do not reserve funds, execute orders or change portfolio holdings. Old plans are historical assessments, not current recommendations.
-- **Discuss risk with Advisor** prepares an editable question in the independent Risk conversation. Advisor calls the same deterministic calculators as the UI. Risk conversations cannot invoke portfolio-change previews, even if a model attempts it. Report actual trades through Portfolio.
+- **Discuss with Advisor** prepares an editable question in the independent Trade Planner conversation. Advisor calls the same deterministic calculators as the UI. Risk conversations cannot invoke portfolio-change previews, even if a model attempts it. Report actual trades through Portfolio.
+
+The workspace has three tabs: Portfolio Risk, Plan a Trade and Saved Plans. Plan a Trade starts from an existing holding or a new ticker, without requiring a watchlist entry. Use portfolio selection explicitly carries a selected account/holding into the draft; subsequent navigation preserves the draft. The Advisor receives the selected account/holding and Discuss with Advisor includes the proposed ticker, strategy and inputs. Changing inputs clears stale calculations and previews. `/risk` and its stored conversation ID remain unchanged for compatibility.
 
 ## Calculation and data boundaries
 
@@ -59,7 +61,6 @@ node --env-file=.env scripts/evaluate-risk.mjs --live
 
 The live script creates/drops its own database, checks hypothetical stock buying, selling existing shares and covered-call calculations, and asserts unchanged financial state. It is opt-in and never part of offline CI. Results and measured usage are saved under ignored `.tmp/`.
 
-
 ### Validation record (2026-11-01)
 
 Offline validation: 212 unit tests, 57 PostgreSQL integration tests and 44 browser tests (including desktop/mobile risk workflows). Typecheck, lint, formatting, ERD consistency, Compose validation and isolated Docker build/startup checks passed.
@@ -67,3 +68,7 @@ Offline validation: 212 unit tests, 57 PostgreSQL integration tests and 44 brows
 Live OpenAI `gpt-5.4-mini-2026-03-17` verified stock buying, sales of owned shares, covered-call payoff and an unsaved structured plan draft using fictional accounts. The final three calculator checks used approximately USD 0.04992; the successful standalone draft used 19,059 input / 432 output tokens, approximately USD 0.01624. Total measured development verification including earlier/rejected attempts was approximately USD 0.23143. Estimates use configured evaluation rates, not a billing invoice. A live-discovered nullable-field error was fixed; a combined conversation hit its unchanged cost ceiling. The evaluator starts a separate draft conversation to keep context bounded; `--live --draft-only` verifies it alone. Financial state stayed unchanged.
 
 Remaining limits: all plans are WATCH_ONLY; incomplete sector/correlation/events/Greeks remain explicit unknowns. Delta stress is a first-order estimate, not option repricing. Standard 100-share Phase A contracts only; no broker margin/permissions verification, order execution, Phase B strategies or M6 monitoring.
+
+### Trade Planner usability pass
+
+Renamed navigation and Advisor labels, combined planning into three tabs, and added explicit portfolio-selection handoff and unowned-ticker planning. Validation: 212 unit and 57 integration tests passed; all 45 browser cases were validated across the full suite and focused reruns after updating renamed control selectors. Strict types, lint, formatting, ERD and Docker checks passed. This pass changes the web workflow only; provider contracts and the previously live-verified inference path are unchanged.

@@ -1,7 +1,8 @@
 'use client';
 import { Decimal } from 'decimal.js';
 import { useEffect, useState } from 'react';
-import type { State, Instrument } from '@m2d/portfolio';
+import { instrumentKey, type State, type Instrument } from '@m2d/portfolio';
+import type { HoldingSelection } from '../portfolio/holdings-table';
 import type {
   riskSummary,
   evaluateStrategy,
@@ -47,8 +48,16 @@ const equity = (symbol: string): Instrument => ({
   underlying: null,
   deliverable: null,
 });
-export function RiskClient({ active }: { active: boolean }) {
-  const [tab, setTab] = useState('Exposure'),
+export function RiskClient({
+  active,
+  portfolioSelection,
+  onContext,
+}: {
+  active: boolean;
+  portfolioSelection: HoldingSelection | null;
+  onContext: (value: HoldingSelection | null) => void;
+}) {
+  const [tab, setTab] = useState('Portfolio Risk'),
     [summary, setSummary] = useState<Summary | null>(null),
     [state, setState] = useState<State | null>(null),
     [busy, setBusy] = useState(false),
@@ -121,6 +130,43 @@ export function RiskClient({ active }: { active: boolean }) {
   }, [active]); // Drafts remain mounted across navigation.
   const selected =
     selection !== '' ? state?.positions[Number(selection)] : undefined;
+  useEffect(() => {
+    onContext(
+      account
+        ? {
+            accountKey: account,
+            ...(selected
+              ? { instrumentKey: instrumentKey(selected.instrument) }
+              : {}),
+            label: selected
+              ? `${account} · ${selected.instrument.symbol}`
+              : account,
+          }
+        : null,
+    );
+  }, [account, selected, onContext]);
+  function chooseHolding(value: string) {
+    setSelection(value);
+    const p = value === '' ? undefined : state?.positions[Number(value)];
+    if (p) {
+      setAccount(p.accountKey);
+      setSymbol(p.instrument.underlying ?? p.instrument.symbol);
+      setNewCurrency(p.instrument.currency);
+      if (p.instrument.assetType === 'OPTION') {
+        setStrategy(
+          p.instrument.optionRight === 'CALL' ? 'LONG_CALL' : 'LONG_PUT',
+        );
+        setExpiry(p.instrument.expiry ?? '');
+        setStrike(p.instrument.strike ?? '');
+      } else {
+        setStrategy('STOCK');
+        setNewAsset(p.instrument.assetType);
+      }
+    }
+    setPreview(null);
+    setResult(null);
+    setStockResult(null);
+  }
   function instrument() {
     return selected?.instrument.assetType !== 'OPTION'
       ? (selected?.instrument ?? {
@@ -213,12 +259,16 @@ export function RiskClient({ active }: { active: boolean }) {
     <section
       hidden={!active}
       className="research-workspace risk-workspace"
-      onChangeCapture={() => setPreview(null)}
+      onChangeCapture={() => {
+        setPreview(null);
+        setStockResult(null);
+        setResult(null);
+      }}
     >
       <div className="section-heading">
         <div>
           <p className="eyebrow">Portfolio decisions</p>
-          <h1>Stocks, ETFs & options risk</h1>
+          <h1>Trade Planner</h1>
           <p>
             Review exposure, compare hypothetical trades, and save a plan. No
             orders or portfolio changes.
@@ -232,21 +282,18 @@ export function RiskClient({ active }: { active: boolean }) {
             window.dispatchEvent(
               new CustomEvent('m2d:risk-discuss', {
                 detail:
-                  'Review my portfolio risk. Include stocks and ETFs, concentration, downside scenarios and option obligations. State main risk and exit/invalidation. No portfolio changes.',
+                  tab === 'Plan a Trade'
+                    ? `Help plan a hypothetical ${strategy} trade for ${symbol || 'a ticker to choose'} in account ${account || 'to choose'}. Proposed action ${action}, quantity ${quantity}, price ${price || 'unknown'}. Ask for missing facts, explain risk and exit/invalidation. Do not record a trade.`
+                    : 'Review my portfolio risk, concentration, downside scenarios and option obligations. No portfolio changes.',
               }),
             )
           }
         >
-          Discuss risk with Advisor
+          Discuss with Advisor
         </button>
       </div>
-      <div role="tablist" aria-label="Risk views">
-        {[
-          'Exposure',
-          'Stock / ETF trade',
-          'Strategy payoff',
-          'Saved plans',
-        ].map((t) => (
+      <div role="tablist" aria-label="Trade Planner views">
+        {['Portfolio Risk', 'Plan a Trade', 'Saved Plans'].map((t) => (
           <button
             role="tab"
             aria-selected={tab === t}
@@ -264,7 +311,7 @@ export function RiskClient({ active }: { active: boolean }) {
         </p>
       )}
       {notice && <p role="status">{notice}</p>}
-      {tab === 'Exposure' && summary && (
+      {tab === 'Portfolio Risk' && summary && (
         <>
           <p>
             Portfolio revision {summary.portfolioRevision} · assessed{' '}
@@ -363,8 +410,75 @@ export function RiskClient({ active }: { active: boolean }) {
           </details>
         </>
       )}
-      {(tab === 'Stock / ETF trade' || tab === 'Strategy payoff') && state && (
+      {tab === 'Plan a Trade' && state && (
         <>
+          <p>
+            Start with an existing holding or any new ticker. No ownership or
+            watchlist membership is required.
+          </p>
+          {portfolioSelection && (
+            <button
+              onClick={() => {
+                setAccount(portfolioSelection.accountKey);
+                const index = state.positions.findIndex(
+                  (p) =>
+                    p.accountKey === portfolioSelection.accountKey &&
+                    instrumentKey(p.instrument) ===
+                      portfolioSelection.instrumentKey,
+                );
+                chooseHolding(index >= 0 ? String(index) : '');
+              }}
+            >
+              Use portfolio selection: {portfolioSelection.label}
+            </button>
+          )}
+          <label>
+            Start from
+            <select
+              aria-label="Start from"
+              value={selection === '' ? 'new' : 'holding'}
+              onChange={(e) => {
+                if (e.target.value === 'new') {
+                  chooseHolding('');
+                  setSymbol('');
+                  setAction('BUY');
+                } else {
+                  const i = state.positions.findIndex(
+                    (p) => p.accountKey === account,
+                  );
+                  if (i >= 0) chooseHolding(String(i));
+                }
+              }}
+            >
+              <option value="new">New ticker</option>
+              <option
+                value="holding"
+                disabled={
+                  !state.positions.some((p) => p.accountKey === account)
+                }
+              >
+                Existing holding
+              </option>
+            </select>
+          </label>
+          <label>
+            Strategy
+            <select
+              value={strategy}
+              onChange={(e) => {
+                setStrategy(e.target.value as StrategyInput['strategy']);
+                setResult(null);
+                setStockResult(null);
+              }}
+            >
+              <option value="STOCK">Stock / ETF</option>
+              <option value="COVERED_CALL">Covered call</option>
+              <option value="CASH_SECURED_PUT">Cash-secured put</option>
+              <option value="LONG_CALL">Long call</option>
+              <option value="LONG_PUT">Long put</option>
+              <option value="VERTICAL">Vertical spread</option>
+            </select>
+          </label>
           <div className="risk-fields">
             <label>
               Account
@@ -372,7 +486,7 @@ export function RiskClient({ active }: { active: boolean }) {
                 value={account}
                 onChange={(e) => {
                   setAccount(e.target.value);
-                  setPreview(null);
+                  chooseHolding('');
                 }}
               >
                 {state.accounts.map((a) => (
@@ -385,27 +499,26 @@ export function RiskClient({ active }: { active: boolean }) {
             <label>
               Existing holding
               <select
+                aria-label="Existing holding"
                 value={selection}
-                onChange={(e) => {
-                  setSelection(e.target.value);
-                  const p = state.positions[Number(e.target.value)];
-                  if (p) {
-                    setAccount(p.accountKey);
-                    setSymbol(p.instrument.underlying ?? p.instrument.symbol);
-                  }
-                  setPreview(null);
-                }}
+                onChange={(e) => chooseHolding(e.target.value)}
               >
-                <option value="">New symbol</option>
+                <option value="">Choose holding or use a new ticker</option>
                 {state.positions.map((p, i) => (
-                  <option value={i} key={i}>
+                  <option value={i} key={i} hidden={p.accountKey !== account}>
                     {p.accountKey} · {p.instrument.symbol} ·{' '}
                     {p.instrument.assetType}
                   </option>
                 ))}
               </select>
             </label>
-            {field('Symbol', symbol, setSymbol)}
+            {selection === '' ? (
+              field('Symbol', symbol, (v) => setSymbol(v.toUpperCase()))
+            ) : (
+              <p>
+                Selected ticker: <strong>{symbol}</strong>
+              </p>
+            )}
             {!selection && (
               <>
                 <label>
@@ -432,7 +545,7 @@ export function RiskClient({ active }: { active: boolean }) {
             {field('Target price', target, setTarget)}
             {field('Risk budget', budget, setBudget)}
           </div>
-          {tab === 'Stock / ETF trade' ? (
+          {strategy === 'STOCK' && (
             <>
               <label>
                 Proposed action
@@ -498,58 +611,43 @@ export function RiskClient({ active }: { active: boolean }) {
                 </article>
               )}
             </>
-          ) : (
-            <>
-              <div className="risk-fields">
-                <label>
-                  Strategy
-                  <select
-                    value={strategy}
-                    onChange={(e) => {
-                      setStrategy(e.target.value as StrategyInput['strategy']);
-                      setPreview(null);
-                    }}
-                  >
-                    {[
-                      'STOCK',
-                      'COVERED_CALL',
-                      'CASH_SECURED_PUT',
-                      'LONG_CALL',
-                      'LONG_PUT',
-                      'VERTICAL',
-                    ].map((s) => (
-                      <option key={s}>{s}</option>
-                    ))}
-                  </select>
-                </label>
-                {field('Estimated total slippage', slippage, setSlippage)}
-                {strategy !== 'STOCK' && (
-                  <>
-                    {field('Expiry', expiry, setExpiry, 'date')}
-                    {field('Strike', strike, setStrike)}
-                    {strategy === 'COVERED_CALL' &&
-                      field('Stock reference price', sharePrice, setSharePrice)}
-                    {strategy === 'VERTICAL' && (
-                      <>
-                        <label>
-                          Right
-                          <select
-                            value={right}
-                            onChange={(e) =>
-                              setRight(e.target.value as 'CALL' | 'PUT')
-                            }
-                          >
-                            <option>CALL</option>
-                            <option>PUT</option>
-                          </select>
-                        </label>
-                        {field('Second strike', secondStrike, setSecondStrike)}
-                        {field('Second leg price', secondPrice, setSecondPrice)}
-                      </>
-                    )}
-                  </>
-                )}
-              </div>
+          )}
+          <>
+            <div className="risk-fields">
+              {field('Estimated total slippage', slippage, setSlippage)}
+              {strategy !== 'STOCK' && (
+                <>
+                  {field('Expiry', expiry, setExpiry, 'date')}
+                  {field('Strike', strike, setStrike)}
+                  {strategy === 'COVERED_CALL' &&
+                    field('Stock reference price', sharePrice, setSharePrice)}
+                  {strategy === 'VERTICAL' && (
+                    <>
+                      <label>
+                        Right
+                        <select
+                          value={right}
+                          onChange={(e) =>
+                            setRight(e.target.value as 'CALL' | 'PUT')
+                          }
+                        >
+                          <option>CALL</option>
+                          <option>PUT</option>
+                        </select>
+                      </label>
+                      {field('Second strike', secondStrike, setSecondStrike)}
+                      {field('Second leg price', secondPrice, setSecondPrice)}
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+            {strategy === 'STOCK' && action === 'SELL' ? (
+              <p>
+                Use the sale analysis above to review proceeds and remaining
+                exposure. Review the plan below before saving.
+              </p>
+            ) : (
               <button
                 disabled={busy}
                 onClick={() =>
@@ -560,186 +658,165 @@ export function RiskClient({ active }: { active: boolean }) {
               >
                 Calculate payoff
               </button>
-              {result && (
-                <article className="card">
-                  <h2>
-                    {result.symbol} hypothetical payoff{' '}
-                    {result.expiry ? 'at expiry' : 'by share price'}
-                  </h2>
+            )}
+            {result && (
+              <article className="card">
+                <h2>
+                  {result.symbol} hypothetical payoff{' '}
+                  {result.expiry ? 'at expiry' : 'by share price'}
+                </h2>
+                <p>
+                  Max profit:{' '}
+                  {result.unboundedProfit ? 'Unbounded' : result.maxProfit} ·
+                  max loss:{' '}
+                  {result.unboundedLoss ? 'Unbounded' : result.maxLoss}{' '}
+                  {result.currency} · break-even:{' '}
+                  {result.breakEven.join(', ') || 'None'}
+                </p>
+                <PayoffChart points={result.points} />
+                {result.limitations.map((x) => (
+                  <p key={x}>{x}</p>
+                ))}
+              </article>
+            )}
+            <details>
+              <summary>Build a reviewable trade plan</summary>
+              <button
+                disabled={busy}
+                onClick={() =>
+                  void work(async () => {
+                    const session = await request<{
+                      history: Array<{
+                        kind: string;
+                        output?: { assessment?: Assessment };
+                      }>;
+                    }>('chat/sessions/risk');
+                    const draft = session.history.findLast(
+                      (h) => h.kind === 'tool_result' && h.output?.assessment,
+                    )?.output?.assessment;
+                    if (!draft)
+                      throw new Error(
+                        'Ask Advisor to prepare a trade plan first, with entry, exit, invalidation and main risk.',
+                      );
+                    const checked = await request<{ assessment: Assessment }>(
+                      'risk/plans/preview',
+                      draft.input,
+                    );
+                    setPreview({
+                      assessment: checked.assessment,
+                      input: draft.input,
+                    });
+                  })
+                }
+              >
+                Load latest Advisor plan draft
+              </button>
+              <div className="risk-fields">
+                {field('Entry condition', entryCondition, setEntryCondition)}
+                {field('Exit / profit-taking condition', exit, setExit)}
+                {field('Invalidation condition', invalidation, setInvalidation)}
+                {field('Main risk', mainRisk, setMainRisk)}
+              </div>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={reviewed}
+                  onChange={(e) => {
+                    setReviewed(e.target.checked);
+                    setPreview(null);
+                  }}
+                />{' '}
+                I reviewed current holdings and cash
+              </label>
+              <button
+                disabled={busy}
+                onClick={() =>
+                  void work(async () => {
+                    const input: PlanInput = {
+                      version: 1,
+                      idempotencyKey: crypto.randomUUID(),
+                      portfolioRevision: summary!.portfolioRevision,
+                      analysis: analysis(),
+                      stockAction: action,
+                      entryCondition,
+                      invalidation,
+                      target: exit,
+                      mainRisk,
+                      riskBudget: budget || null,
+                      stopPrice: stop || null,
+                      targetPrice: target || null,
+                      portfolioReviewed: reviewed,
+                    };
+                    const p = await request<{ assessment: Assessment }>(
+                      'risk/plans/preview',
+                      input,
+                    );
+                    setPreview({ ...p, input });
+                  })
+                }
+              >
+                Review plan
+              </button>
+              {preview && (
+                <article className="notice">
+                  <h3>Watch-only plan</h3>
                   <p>
-                    Max profit:{' '}
-                    {result.unboundedProfit ? 'Unbounded' : result.maxProfit} ·
-                    max loss:{' '}
-                    {result.unboundedLoss ? 'Unbounded' : result.maxLoss}{' '}
-                    {result.currency} · break-even:{' '}
-                    {result.breakEven.join(', ') || 'None'}
+                    {preview.input.analysis.accountKey} ·{' '}
+                    {preview.input.analysis.strategy} ·{' '}
+                    {preview.input.stockAction} · revision{' '}
+                    {preview.input.portfolioRevision}
                   </p>
-                  <PayoffChart points={result.points} />
-                  {result.limitations.map((x) => (
-                    <p key={x}>{x}</p>
+                  {preview.input.analysis.legs.map((l, i) => (
+                    <p key={i}>
+                      {l.instrument.symbol}{' '}
+                      {l.instrument.optionRight ?? l.instrument.assetType}{' '}
+                      {l.instrument.strike ?? ''} {l.instrument.expiry ?? ''}:
+                      quantity {l.quantity}, reference price {l.entryPrice}{' '}
+                      {l.instrument.currency}
+                    </p>
                   ))}
+                  <p>
+                    Fees {preview.input.analysis.fees} · slippage{' '}
+                    {preview.input.analysis.slippage ?? 'Unknown'} · entry:{' '}
+                    {preview.input.entryCondition} · invalidation:{' '}
+                    {preview.input.invalidation}
+                  </p>
+                  {preview.assessment.stockTrade && (
+                    <p>
+                      {preview.assessment.stockTrade.action}:{' '}
+                      {preview.assessment.stockTrade.held} →{' '}
+                      {preview.assessment.stockTrade.remaining} shares;
+                      estimated cash change{' '}
+                      {preview.assessment.stockTrade.cashChange}
+                    </p>
+                  )}
+                  {preview.assessment.reasons.map((r) => (
+                    <p key={r}>{r}</p>
+                  ))}
+                  <p>
+                    Main risk: {preview.assessment.mainRisk} · exit:{' '}
+                    {preview.assessment.exit}
+                  </p>
+                  <button
+                    disabled={busy}
+                    onClick={() =>
+                      void work(async () => {
+                        await request('risk/plans', preview.input);
+                        setNotice('Plan saved. No order or portfolio change.');
+                        setPlans(await request('risk/plans'));
+                        setPreview(null);
+                      })
+                    }
+                  >
+                    Save hypothetical plan
+                  </button>
                 </article>
               )}
-              <details>
-                <summary>Build a reviewable trade plan</summary>
-                <button
-                  disabled={busy}
-                  onClick={() =>
-                    void work(async () => {
-                      const session = await request<{
-                        history: Array<{
-                          kind: string;
-                          output?: { assessment?: Assessment };
-                        }>;
-                      }>('chat/sessions/risk');
-                      const draft = session.history.findLast(
-                        (h) => h.kind === 'tool_result' && h.output?.assessment,
-                      )?.output?.assessment;
-                      if (!draft)
-                        throw new Error(
-                          'Ask Advisor to prepare a trade plan first, with entry, exit, invalidation and main risk.',
-                        );
-                      const checked = await request<{ assessment: Assessment }>(
-                        'risk/plans/preview',
-                        draft.input,
-                      );
-                      setPreview({
-                        assessment: checked.assessment,
-                        input: draft.input,
-                      });
-                    })
-                  }
-                >
-                  Load latest Advisor plan draft
-                </button>
-                {strategy === 'STOCK' && (
-                  <label>
-                    Stock plan action
-                    <select
-                      value={action}
-                      onChange={(e) => {
-                        setAction(e.target.value as 'BUY' | 'SELL');
-                        setPreview(null);
-                      }}
-                    >
-                      <option>BUY</option>
-                      <option>SELL</option>
-                    </select>
-                  </label>
-                )}
-                <div className="risk-fields">
-                  {field('Entry condition', entryCondition, setEntryCondition)}
-                  {field('Exit / profit-taking condition', exit, setExit)}
-                  {field(
-                    'Invalidation condition',
-                    invalidation,
-                    setInvalidation,
-                  )}
-                  {field('Main risk', mainRisk, setMainRisk)}
-                </div>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={reviewed}
-                    onChange={(e) => {
-                      setReviewed(e.target.checked);
-                      setPreview(null);
-                    }}
-                  />{' '}
-                  I reviewed current holdings and cash
-                </label>
-                <button
-                  disabled={busy}
-                  onClick={() =>
-                    void work(async () => {
-                      const input: PlanInput = {
-                        version: 1,
-                        idempotencyKey: crypto.randomUUID(),
-                        portfolioRevision: summary!.portfolioRevision,
-                        analysis: analysis(),
-                        stockAction: action,
-                        entryCondition,
-                        invalidation,
-                        target: exit,
-                        mainRisk,
-                        riskBudget: budget || null,
-                        stopPrice: stop || null,
-                        targetPrice: target || null,
-                        portfolioReviewed: reviewed,
-                      };
-                      const p = await request<{ assessment: Assessment }>(
-                        'risk/plans/preview',
-                        input,
-                      );
-                      setPreview({ ...p, input });
-                    })
-                  }
-                >
-                  Review plan
-                </button>
-                {preview && (
-                  <article className="notice">
-                    <h3>Watch-only plan</h3>
-                    <p>
-                      {preview.input.analysis.accountKey} ·{' '}
-                      {preview.input.analysis.strategy} ·{' '}
-                      {preview.input.stockAction} · revision{' '}
-                      {preview.input.portfolioRevision}
-                    </p>
-                    {preview.input.analysis.legs.map((l, i) => (
-                      <p key={i}>
-                        {l.instrument.symbol}{' '}
-                        {l.instrument.optionRight ?? l.instrument.assetType}{' '}
-                        {l.instrument.strike ?? ''} {l.instrument.expiry ?? ''}:
-                        quantity {l.quantity}, reference price {l.entryPrice}{' '}
-                        {l.instrument.currency}
-                      </p>
-                    ))}
-                    <p>
-                      Fees {preview.input.analysis.fees} · slippage{' '}
-                      {preview.input.analysis.slippage ?? 'Unknown'} · entry:{' '}
-                      {preview.input.entryCondition} · invalidation:{' '}
-                      {preview.input.invalidation}
-                    </p>
-                    {preview.assessment.stockTrade && (
-                      <p>
-                        {preview.assessment.stockTrade.action}:{' '}
-                        {preview.assessment.stockTrade.held} →{' '}
-                        {preview.assessment.stockTrade.remaining} shares;
-                        estimated cash change{' '}
-                        {preview.assessment.stockTrade.cashChange}
-                      </p>
-                    )}
-                    {preview.assessment.reasons.map((r) => (
-                      <p key={r}>{r}</p>
-                    ))}
-                    <p>
-                      Main risk: {preview.assessment.mainRisk} · exit:{' '}
-                      {preview.assessment.exit}
-                    </p>
-                    <button
-                      disabled={busy}
-                      onClick={() =>
-                        void work(async () => {
-                          await request('risk/plans', preview.input);
-                          setNotice(
-                            'Plan saved. No order or portfolio change.',
-                          );
-                          setPlans(await request('risk/plans'));
-                          setPreview(null);
-                        })
-                      }
-                    >
-                      Save hypothetical plan
-                    </button>
-                  </article>
-                )}
-              </details>
-            </>
-          )}
+            </details>
+          </>
         </>
       )}
-      {tab === 'Saved plans' && (
+      {tab === 'Saved Plans' && (
         <>
           {plans.length ? (
             plans.map((p) => (
